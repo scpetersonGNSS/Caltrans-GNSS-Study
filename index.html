@@ -102,6 +102,15 @@
   .chart-note { margin: .5rem 0 0; font-size: .82rem; color: var(--muted); }
   .readout { font-size: .88rem; color: var(--ink); }
   input[type="range"] { width: min(320px, 100%); accent-color: var(--brass); }
+  .drift-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "ah sh" "aw sw"; gap: .6rem 2rem; align-items: end; }
+  .drift-grid .a-head { grid-area: ah; } .drift-grid .s-head { grid-area: sh; }
+  .drift-grid .a-wrap { grid-area: aw; } .drift-grid .s-wrap { grid-area: sw; }
+  @media (max-width: 1000px) { .drift-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ah" "aw" "sh" "sw"; } .drift-grid .s-head { margin-top: 1.2rem; } }
+  .drift-grid h4 { margin: 0 0 .2rem; font-family: var(--cond); font-weight: 600; font-size: 1.1rem; }
+  .drift-grid .sub { margin: 0 0 .6rem; font-size: .88rem; color: var(--muted); }
+  .readout { min-height: 2.9em; }
+  .cbar { display: inline-flex; align-items: center; gap: .45rem; }
+  .cbar i { display: inline-block; width: 90px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, #440154, #3b528b, #21918c, #5ec962, #fde725); }
   .drift-wrap { position: relative; width: 100%; max-width: 680px; aspect-ratio: 1 / 1; }
   .drift-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   .drift-wrap .tooltip { transform: none; }
@@ -184,29 +193,48 @@
 
         <section class="plot">
           <h3>Horizontal drift</h3>
-          <p>Each epoch's offset from the mean position, played back over time.</p>
-          <div class="controls">
-            <button type="button" id="playBtn">Play</button>
-            <label for="speedSel" class="note">Speed</label>
-            <select id="speedSel">
-              <option value="5">5x</option>
-              <option value="20" selected>20x</option>
-              <option value="60">60x</option>
-              <option value="200">200x</option>
-            </select>
-            <input type="range" id="scrub" min="0" max="1" value="0" step="1" aria-label="Playback position">
-          </div>
-          <div class="readout" id="driftReadout"></div>
-          <div class="legend" style="margin-top:.5rem">
-            <span>Trail is the last 30 minutes, recolored every 30 minutes</span>
-            <span><i class="dot" style="background:var(--muted);border-color:var(--muted)"></i>Hourly position (on the hour)</span>
-            <span><i class="dot" style="border-color:var(--drms1)"></i><span id="drmsLegend">1 STD (DRMS)</span></span>
-            <span><i class="dot" style="border-color:var(--drms2)"></i><span id="drms2Legend">2 STD (2DRMS)</span></span>
-          </div>
-          <div class="drift-wrap" id="driftWrap">
-            <canvas id="driftBg"></canvas>
-            <canvas id="driftFg"></canvas>
-            <div class="tooltip" id="driftTip"></div>
+          <p>Each epoch's offset from the mean position, in meters.</p>
+          <div class="drift-grid">
+            <div class="a-head">
+              <h4>Animation</h4>
+              <p class="sub">Played back over time with a 30-minute trail, recolored every 30 minutes.</p>
+              <div class="controls">
+                <button type="button" id="playBtn">Play</button>
+                <label for="speedSel" class="note">Speed</label>
+                <select id="speedSel">
+                  <option value="5">5x</option>
+                  <option value="20" selected>20x</option>
+                  <option value="60">60x</option>
+                  <option value="200">200x</option>
+                </select>
+                <input type="range" id="scrub" min="0" max="1" value="0" step="1" aria-label="Playback position">
+              </div>
+              <div class="readout" id="driftReadout"></div>
+              <div class="legend" style="margin-top:.4rem">
+                <span><i class="dot" style="background:var(--muted);border-color:var(--muted)"></i>Hourly position (on the hour)</span>
+                <span><i class="dot" style="border-color:var(--drms1)"></i><span id="drmsLegend">1 STD (DRMS)</span></span>
+                <span><i class="dot" style="border-color:var(--drms2)"></i><span id="drms2Legend">2 STD (2DRMS)</span></span>
+              </div>
+            </div>
+            <div class="drift-wrap a-wrap" id="driftWrap">
+              <canvas id="driftBg"></canvas>
+              <canvas id="driftFg"></canvas>
+              <div class="tooltip" id="driftTip"></div>
+            </div>
+
+            <div class="s-head">
+              <h4>All positions</h4>
+              <p class="sub">Every epoch in the upload at once, on the same scale as the animation. Hover a point for details.</p>
+              <div class="legend">
+                <span class="cbar"><span>Start</span><i></i><span id="cbarEnd">End</span></span>
+                <span><i class="dot" style="border-color:var(--drms1)"></i><span id="drmsLegendS">DRMS</span></span>
+                <span><i class="dot" style="border-color:var(--drms2)"></i><span id="drms2LegendS">2DRMS</span></span>
+              </div>
+            </div>
+            <div class="drift-wrap s-wrap" id="staticWrap">
+              <canvas id="driftStatic"></canvas>
+              <div class="tooltip" id="staticTip"></div>
+            </div>
           </div>
         </section>
       </div>
@@ -606,7 +634,14 @@
   const Drift = (() => {
     const SIZE = 640, PAD = 55;
     const bg = $("driftBg"), fg = $("driftFg"), tip = $("driftTip");
-    const bctx = bg.getContext("2d"), fctx = fg.getContext("2d");
+    const st = $("driftStatic"), stip = $("staticTip");
+    const bctx = bg.getContext("2d"), fctx = fg.getContext("2d"), sctx = st.getContext("2d");
+    const VIRIDIS = [[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[109,205,89],[180,222,44],[253,231,37]];
+    const viridis = f => {
+      const x = clamp(f, 0, 1) * (VIRIDIS.length - 1), i = Math.min(VIRIDIS.length - 2, Math.floor(x)), t = x - i;
+      const a = VIRIDIS[i], b = VIRIDIS[i + 1];
+      return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
+    };
     const scrub = $("scrub"), playBtn = $("playBtn"), speedSel = $("speedSel"), readout = $("driftReadout");
     const PAL_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#e87ba4", "#3b8f3b", "#6250d6"];
     const PAL_DARK = ["#3987e5", "#d95926", "#199e70", "#d55181", "#3fb03f", "#9085e9"];
@@ -641,6 +676,9 @@
       drms = s.drms_mm / 1000; drms2 = 2 * drms;
       $("drmsLegend").textContent = `1 STD (DRMS ${s.drms_mm.toFixed(1)} mm)`;
       $("drms2Legend").textContent = `2 STD (2DRMS ${(2 * s.drms_mm).toFixed(1)} mm)`;
+      $("drmsLegendS").textContent = `DRMS ${s.drms_mm.toFixed(1)} mm`;
+      $("drms2LegendS").textContent = `2DRMS ${(2 * s.drms_mm).toFixed(1)} mm`;
+      $("cbarEnd").textContent = `${(d.t[N - 1] / 3600).toFixed(1)} h`;
 
       // Epoch closest to each full clock hour.
       hourly = [];
@@ -664,8 +702,9 @@
       for (let i = 0; i < N; i++) { const p = toPx(dx[i], dy[i]); px[i] = p[0]; py[i] = p[1]; }
       hpx = hourly.map(hh => [px[hh.i], py[hh.i]]);
       scrub.max = N - 1; scrub.value = 0; idx = 0;
-      setupCanvas(bg); setupCanvas(fg);
+      setupCanvas(bg); setupCanvas(fg); setupCanvas(st);
       drawBackground(halfExtent);
+      drawStatic();
       drawMarker(0);
     }
 
@@ -675,8 +714,7 @@
     }
 
     let lastExtent = 1;
-    function drawBackground(halfExtent) {
-      if (halfExtent) lastExtent = halfExtent; else halfExtent = lastExtent;
+    function drawFrame(bctx, halfExtent) {
       const text = css("--ink"), muted = css("--muted"), grid = css("--grid"), strong = css("--rule"), font = css("--body");
       bctx.clearRect(0, 0, SIZE, SIZE);
       const step = niceStep(halfExtent * 2);
@@ -703,6 +741,12 @@
         bctx.beginPath(); bctx.arc(cx, cy, r * scale, 0, 2 * Math.PI);
         bctx.strokeStyle = col; bctx.lineWidth = 1.6; bctx.setLineDash([5, 4]); bctx.stroke(); bctx.setLineDash([]);
       });
+    }
+
+    function drawBackground(halfExtent) {
+      if (halfExtent) lastExtent = halfExtent; else halfExtent = lastExtent;
+      const text = css("--ink"), muted = css("--muted"), font = css("--body");
+      drawFrame(bctx, halfExtent);
       bctx.strokeStyle = muted; bctx.lineWidth = 1.2; bctx.beginPath();
       hpx.forEach((p, i) => i === 0 ? bctx.moveTo(p[0], p[1]) : bctx.lineTo(p[0], p[1]));
       bctx.stroke();
@@ -714,6 +758,43 @@
       });
       bctx.fillStyle = text; bctx.beginPath(); bctx.arc(cx, cy, 3, 0, 2 * Math.PI); bctx.fill();
     }
+
+    function drawStatic() {
+      drawFrame(sctx, lastExtent);
+      const total = ep[N - 1] || 1;
+      sctx.save();
+      sctx.beginPath(); sctx.rect(PAD, PAD, SIZE - 2 * PAD, SIZE - 2 * PAD); sctx.clip();
+      sctx.globalAlpha = .6;
+      for (let i = 0; i < N; i++) {
+        sctx.fillStyle = viridis(ep[i] / total);
+        sctx.fillRect(px[i] - 1.4, py[i] - 1.4, 2.8, 2.8);
+      }
+      sctx.restore();
+      // Redraw the circles on top of the points so they stay visible.
+      [[drms, css("--drms1")], [drms2, css("--drms2")]].forEach(([r, col]) => {
+        sctx.beginPath(); sctx.arc(cx, cy, r * scale, 0, 2 * Math.PI);
+        sctx.strokeStyle = col; sctx.lineWidth = 2; sctx.setLineDash([5, 4]); sctx.stroke(); sctx.setLineDash([]);
+      });
+      sctx.fillStyle = css("--ink"); sctx.beginPath(); sctx.arc(cx, cy, 3, 0, 2 * Math.PI); sctx.fill();
+    }
+
+    st.addEventListener("mousemove", ev => {
+      if (!N) return;
+      const r = st.getBoundingClientRect();
+      const mx = (ev.clientX - r.left) * (SIZE / r.width), my = (ev.clientY - r.top) * (SIZE / r.height);
+      let best = -1, bestD = Infinity;
+      for (let i = 0; i < N; i++) {
+        const d2 = (px[i] - mx) ** 2 + (py[i] - my) ** 2;
+        if (d2 < bestD) { bestD = d2; best = i; }
+      }
+      if (bestD < 64 && best >= 0) {
+        stip.style.opacity = 1;
+        stip.style.left = `${Math.min(ev.clientX - r.left + 12, r.width - 200)}px`;
+        stip.style.top = `${ev.clientY - r.top - 10}px`;
+        stip.innerHTML = `${pointLabel(best)}<br>${timeText(best)}<br>${(ep[best] / 3600).toFixed(2)} h after start<br>dE = ${f3(dx[best])} m, dN = ${f3(dy[best])} m`;
+      } else stip.style.opacity = 0;
+    });
+    st.addEventListener("mouseleave", () => { stip.style.opacity = 0; });
 
     function windowStart(i) {
       const target = ep[i] - TAIL_SECONDS;
@@ -779,7 +860,7 @@
       } else tip.style.opacity = 0;
     });
     fg.addEventListener("mouseleave", () => { tip.style.opacity = 0; });
-    return { load, redraw: () => { if (N) { drawBackground(); drawMarker(idx); } } };
+    return { load, redraw: () => { if (N) { drawBackground(); drawStatic(); drawMarker(idx); } } };
   })();
 
   // ============================== Wiring ======================================
