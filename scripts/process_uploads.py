@@ -46,6 +46,10 @@ TIME_FORMATS = [
 # A gap longer than this many epoch intervals breaks the plotted line.
 GAP_FACTOR = 3
 
+# Bump when the session file layout changes; older sessions are rebuilt
+# automatically from their original file in data/raw/.
+FORMAT_VERSION = 2
+
 
 def find_column(headers, *keywords):
     """Return the index of the first header containing any keyword (case-insensitive)."""
@@ -115,7 +119,8 @@ def read_observations(path):
         except (ValueError, IndexError):
             skipped += 1
             continue
-        obs[t] = (n, e, u)   # duplicate timestamps: last one wins
+        pid = row[col_id].strip() if col_id is not None and col_id < len(row) else ""
+        obs[t] = (n, e, u, pid)   # duplicate timestamps: last one wins
     if not obs:
         raise ValueError("No valid observation rows found")
     times = sorted(obs)
@@ -155,6 +160,8 @@ def build_session(path):
         "n_mm": [int(round((v - base["n"]) * 1000)) for v in N],
         "e_mm": [int(round((v - base["e"]) * 1000)) for v in E],
         "u_mm": [int(round((v - base["u"]) * 1000)) for v in U],
+        "ids": [c[3] for c in coords],
+        "format": FORMAT_VERSION,
     }
     summary = {
         "id": session_id,
@@ -178,15 +185,42 @@ def file_hash(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def refresh_outdated(sessions):
+    """Rebuild session files written by an older version of this script."""
+    changed = False
+    for s in sessions:
+        path = SESSIONS / f"{s['id']}.json"
+        raw = ROOT / s.get("raw_file", "")
+        try:
+            current = json.loads(path.read_text()).get("format", 1)
+        except (OSError, ValueError):
+            current = 0
+        if current >= FORMAT_VERSION or not raw.is_file():
+            continue
+        try:
+            data, summary = build_session(raw)
+        except ValueError as err:
+            print(f"Could not refresh {s['id']}: {err}", file=sys.stderr)
+            continue
+        data["id"] = s["id"]
+        path.write_text(json.dumps(data, separators=(",", ":")))
+        keep = {k: s[k] for k in ("id", "source_file", "uploaded", "sha256", "raw_file") if k in s}
+        s.clear(); s.update(summary); s.update(keep)
+        print(f"Refreshed session {s['id']} to format {FORMAT_VERSION}")
+        changed = True
+    return changed
+
+
 def main():
     index = json.loads(INDEX.read_text()) if INDEX.exists() else {"sessions": []}
     sessions = index.get("sessions", [])
+    refreshed = refresh_outdated(sessions)
     known_hashes = {s.get("sha256") for s in sessions}
     used_ids = {s["id"] for s in sessions}
 
     uploads = sorted(p for p in UPLOADS.iterdir()
                      if p.is_file() and p.suffix.lower() in ACCEPTED)
-    if not uploads:
+    if not uploads and not refreshed:
         print("No new uploads.")
         return 0
 
