@@ -7,26 +7,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-<script>
-  // Backup sources for the charting library, tried in order if the first one fails.
-  if (!window.Plotly) document.write('<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"><\/script>');
-</script>
-<script>
-  if (!window.Plotly) document.write('<script src="https://unpkg.com/plotly.js-dist-min@2.35.2/plotly.min.js"><\/script>');
-</script>
 <style>
   :root {
-    --bg: #F3F5F4;
-    --panel: #FFFFFF;
-    --ink: #1D2B33;
-    --muted: #5E6E76;
-    --rule: #D5DCDC;
-    --brass: #A7802F;
-    --brass-soft: rgba(167,128,47,.12);
-    --n: #2F6DA3;
-    --e: #3E8E5E;
-    --u: #7A4C9A;
+    --bg: #F3F5F4; --panel: #FFFFFF; --ink: #1D2B33; --muted: #5E6E76; --rule: #D5DCDC;
+    --grid: #E8EBEB; --brass: #A7802F; --brass-soft: rgba(167,128,47,.12);
+    --day: #2563eb; --night: #c62828; --sig1: #f59e0b; --sig2: #7c3aed;
+    --drms1: #c98500; --drms2: #a32d2d; --tip-bg: rgba(255,255,255,.97);
+    --pos: #137333; --neg: #c5221f;
     --body: "Barlow", "Segoe UI", system-ui, sans-serif;
     --cond: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
     box-sizing: border-box;
@@ -35,61 +22,45 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #141B1F; --panel: #1B2429; --ink: #E4E9EA; --muted: #95A4AA;
-      --rule: #2E3A40; --brass: #D1A650; --brass-soft: rgba(209,166,80,.14);
-      --n: #6FA8DC; --e: #74C08F; --u: #B58ED3;
+      --bg: #141B1F; --panel: #1B2429; --ink: #E4E9EA; --muted: #95A4AA; --rule: #2E3A40;
+      --grid: #253036; --brass: #D1A650; --brass-soft: rgba(209,166,80,.14);
+      --day: #6f9bff; --night: #ef6b6b; --sig1: #fbbf24; --sig2: #a78bfa;
+      --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
+      --pos: #5bd08a; --neg: #ff8a80;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #141B1F; --panel: #1B2429; --ink: #E4E9EA; --muted: #95A4AA;
-    --rule: #2E3A40; --brass: #D1A650; --brass-soft: rgba(209,166,80,.14);
-    --n: #6FA8DC; --e: #74C08F; --u: #B58ED3;
+    --bg: #141B1F; --panel: #1B2429; --ink: #E4E9EA; --muted: #95A4AA; --rule: #2E3A40;
+    --grid: #253036; --brass: #D1A650; --brass-soft: rgba(209,166,80,.14);
+    --day: #6f9bff; --night: #ef6b6b; --sig1: #fbbf24; --sig2: #a78bfa;
+    --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
+    --pos: #5bd08a; --neg: #ff8a80;
   }
   *, *::before, *::after { box-sizing: inherit; }
   html { scroll-padding-top: env(safe-area-inset-top, 0px); }
-  body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font-family: var(--body); font-size: 16px; line-height: 1.5;
-    font-variant-numeric: tabular-nums;
-  }
-  header.site {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
-    flex-wrap: wrap; padding: 1.1rem clamp(1rem, 3vw, 2rem);
-    border-bottom: 1px solid var(--rule);
-  }
-  header.site h1 { margin: 0; font-family: var(--cond); font-weight: 600; font-size: 1.5rem; letter-spacing: .01em; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+  header.site { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 1.1rem clamp(1rem, 3vw, 2rem); border-bottom: 1px solid var(--rule); }
+  header.site h1 { margin: 0; font-family: var(--cond); font-weight: 600; font-size: 1.5rem; }
   header.site p { margin: 0; color: var(--muted); font-size: .95rem; }
 
-  .layout {
-    display: grid; grid-template-columns: 300px minmax(0, 1fr);
-    gap: clamp(1rem, 2.5vw, 2rem); padding: clamp(1rem, 3vw, 2rem);
-    max-width: 1500px; margin: 0 auto;
-  }
+  .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: clamp(1rem, 2.5vw, 2rem); padding: clamp(1rem, 3vw, 2rem); max-width: 1500px; margin: 0 auto; }
   @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
 
-  /* Uploads list */
   aside h2 { font-family: var(--cond); font-weight: 600; font-size: 1.15rem; margin: 0 0 .6rem; }
   .filter { display: flex; gap: .5rem; align-items: center; margin-bottom: .9rem; flex-wrap: wrap; }
   .filter label { font-size: .9rem; color: var(--muted); width: 100%; }
-  input[type="date"], button {
-    font: inherit; color: var(--ink); background: var(--panel);
-    border: 1px solid var(--rule); border-radius: 6px; padding: .4rem .6rem;
-  }
+  input[type="date"], button, select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: .4rem .6rem; }
   button { cursor: pointer; }
-  button:hover { border-color: var(--brass); }
+  button:hover:not(:disabled) { border-color: var(--brass); }
+  button:disabled { opacity: .45; cursor: default; }
   :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
   .sessions { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); max-height: 70vh; overflow-y: auto; }
-  .sessions button {
-    display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--rule);
-    border-radius: 0; background: transparent; padding: .7rem .6rem .7rem .8rem;
-    border-left: 3px solid transparent;
-  }
+  .sessions button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; background: transparent; padding: .7rem .6rem .7rem .8rem; border-left: 3px solid transparent; }
   .sessions button[aria-current="true"] { border-left-color: var(--brass); background: var(--brass-soft); }
   .sessions .when { display: block; font-weight: 600; }
   .sessions .meta { display: block; font-size: .85rem; color: var(--muted); }
   .note { color: var(--muted); font-size: .92rem; }
 
-  /* Main */
   .coord { margin: 0 0 .4rem; display: flex; flex-wrap: wrap; gap: .4rem 2.2rem; }
   .coord div { display: flex; flex-direction: column; }
   .coord span.lbl { font-size: .9rem; color: var(--muted); }
@@ -97,24 +68,43 @@
   .coord span.val small { font-size: .5em; color: var(--muted); margin-left: .15em; }
   .session-line { color: var(--muted); margin: .2rem 0 1.2rem; max-width: 75ch; }
   .session-line a { color: var(--brass); }
-
-  .stats { display: flex; flex-wrap: wrap; gap: 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); margin-bottom: 1.5rem; }
+  .stats { display: flex; flex-wrap: wrap; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); margin: 0 0 1.8rem; }
   .stats div { padding: .6rem 1.4rem .6rem 0; margin-right: 1.4rem; border-right: 1px solid var(--rule); }
   .stats div:last-child { border-right: 0; }
   .stats dt { font-size: .85rem; color: var(--muted); }
   .stats dd { margin: 0; font-weight: 600; font-size: 1.1rem; }
 
-  .plots { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1.5rem; }
-  @media (max-width: 1150px) { .plots { grid-template-columns: minmax(0, 1fr); } }
-  section.plot { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 1rem 1rem .5rem; min-width: 0; }
-  section.plot h3 { margin: 0; font-family: var(--cond); font-weight: 600; font-size: 1.15rem; }
-  section.plot .head { display: flex; justify-content: space-between; align-items: center; gap: .8rem; flex-wrap: wrap; margin-bottom: .3rem; }
-  section.plot p { margin: 0 0 .4rem; font-size: .88rem; color: var(--muted); }
-  .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
-  .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--rule); padding: .3rem .8rem; }
+  .plots { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+  section.plot { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 1.2rem 1.4rem 1rem; min-width: 0; }
+  section.plot h3 { margin: 0 0 .2rem; font-family: var(--cond); font-weight: 600; font-size: 1.25rem; }
+  section.plot > p { margin: 0 0 .8rem; font-size: .9rem; color: var(--muted); }
+  .controls { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: center; margin-bottom: .7rem; }
+  .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--rule); padding: .35rem .8rem; }
   .seg button:last-child { border-right: 0; }
   .seg button[aria-pressed="true"] { background: var(--brass); color: #fff; }
-  #ts, #hz { width: 100%; height: 440px; }
+  .seg.period button[aria-pressed="true"][data-period="day"] { background: var(--day); }
+  .seg.period button[aria-pressed="true"][data-period="night"] { background: var(--night); }
+  .seg.period button[aria-pressed="true"][data-period="both"] { background: linear-gradient(90deg, var(--day), var(--night)); }
+  .seg.period button[aria-pressed="true"][data-period="sequential"] { background: #374151; }
+  .legend { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font-size: .88rem; color: var(--muted); margin-bottom: .5rem; }
+  .legend span { display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; }
+  .sw { display: inline-block; width: 28px; height: 0; border-top: 2px solid currentColor; }
+  .sw.mean { border-top: 2px dashed var(--ink); }
+  .sw.s1 { border-top: 2px dashed var(--sig1); }
+  .sw.s2 { border-top: 2px dotted var(--sig2); border-top-width: 3px; }
+  .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 2px solid; }
+  .chart-shell { position: relative; height: min(62vh, 620px); min-height: 420px; }
+  .chart-shell canvas { width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
+  .tooltip { position: absolute; pointer-events: none; min-width: 190px; padding: .55rem .7rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--tip-bg); box-shadow: 0 6px 18px rgba(0,0,0,.14); font-size: .82rem; line-height: 1.45; opacity: 0; transform: translate(12px, -50%); transition: opacity 70ms ease; z-index: 5; white-space: nowrap; }
+  .tooltip strong { display: block; }
+  .tip-series + .tip-series { border-top: 1px solid var(--rule); margin-top: .45rem; padding-top: .45rem; }
+  .chart-note { margin: .5rem 0 0; font-size: .82rem; color: var(--muted); }
+  .readout { font-size: .88rem; color: var(--ink); }
+  input[type="range"] { width: min(320px, 100%); accent-color: var(--brass); }
+  .drift-wrap { position: relative; width: 100%; max-width: 680px; aspect-ratio: 1 / 1; }
+  .drift-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .drift-wrap .tooltip { transform: none; }
 
   .empty { max-width: 60ch; padding: 2rem 0; }
   .empty h2 { font-family: var(--cond); font-weight: 600; }
@@ -161,140 +151,169 @@
 
       <div class="plots">
         <section class="plot">
-          <div class="head">
-            <h3>Deviation from mean over time</h3>
-            <div class="seg" role="group" aria-label="Component">
+          <h3 id="tsTitle">Northing over time</h3>
+          <p>Select a period, hover to inspect, and drag or use the mouse wheel to zoom. Double-click to reset.</p>
+          <div class="controls">
+            <div class="seg" role="group" aria-label="Component" id="compSeg">
               <button type="button" data-comp="n" aria-pressed="true">Northing</button>
               <button type="button" data-comp="e" aria-pressed="false">Easting</button>
               <button type="button" data-comp="u" aria-pressed="false">Elevation</button>
             </div>
+            <div class="seg period" role="group" aria-label="Time period" id="periodSeg">
+              <button type="button" data-period="day" aria-pressed="true">7 AM–7 PM</button>
+              <button type="button" data-period="night" aria-pressed="false">7 PM–7 AM</button>
+              <button type="button" data-period="both" aria-pressed="false">24 Hours Overlay</button>
+              <button type="button" data-period="sequential" aria-pressed="false">24 Hours Sequential</button>
+            </div>
+            <select id="cycleSel" aria-label="24-hour window" hidden></select>
+            <button type="button" id="resetZoom" disabled>Reset zoom</button>
           </div>
-          <p>Dashed lines mark ±1σ and ±2σ. Lines break where the record has gaps.</p>
-          <div id="ts"></div>
+          <div class="legend">
+            <span id="dayLegend" style="color:var(--day)"><i class="sw"></i><span id="dayLegendText">Daytime</span></span>
+            <span id="nightLegend" style="color:var(--night)" hidden><i class="sw"></i><span id="nightLegendText">Overnight</span></span>
+            <span><i class="sw mean"></i><span id="meanLegend">Mean</span></span>
+            <span><i class="sw s1"></i><span id="s1Legend">±1σ</span></span>
+            <span><i class="sw s2"></i><span id="s2Legend">±2σ</span></span>
+          </div>
+          <div class="chart-shell" id="tsShell">
+            <canvas id="tsCanvas" aria-label="Interactive time-series chart"></canvas>
+            <div class="tooltip" id="tsTip" role="status" aria-live="polite"></div>
+          </div>
+          <p class="chart-note" id="tsNote"></p>
         </section>
+
         <section class="plot">
-          <div class="head"><h3>Horizontal scatter</h3></div>
-          <p>Each epoch's offset from the mean position, colored by time. Circles mark DRMS and 2DRMS.</p>
-          <div id="hz"></div>
+          <h3>Horizontal drift</h3>
+          <p>Each epoch's offset from the mean position, played back over time.</p>
+          <div class="controls">
+            <button type="button" id="playBtn">Play</button>
+            <label for="speedSel" class="note">Speed</label>
+            <select id="speedSel">
+              <option value="5">5x</option>
+              <option value="20" selected>20x</option>
+              <option value="60">60x</option>
+              <option value="200">200x</option>
+            </select>
+            <input type="range" id="scrub" min="0" max="1" value="0" step="1" aria-label="Playback position">
+          </div>
+          <div class="readout" id="driftReadout"></div>
+          <div class="legend" style="margin-top:.5rem">
+            <span>Trail is the last 30 minutes, recolored every 30 minutes</span>
+            <span><i class="dot" style="background:var(--muted);border-color:var(--muted)"></i>Hourly position (on the hour)</span>
+            <span><i class="dot" style="border-color:var(--drms1)"></i><span id="drmsLegend">1 STD (DRMS)</span></span>
+            <span><i class="dot" style="border-color:var(--drms2)"></i><span id="drms2Legend">2 STD (2DRMS)</span></span>
+          </div>
+          <div class="drift-wrap" id="driftWrap">
+            <canvas id="driftBg"></canvas>
+            <canvas id="driftFg"></canvas>
+            <div class="tooltip" id="driftTip"></div>
+          </div>
         </section>
       </div>
     </div>
   </main>
 </div>
-<footer>Coordinates in meters. Deviations in millimeters. Times as recorded by the collector.</footer>
+<footer>Coordinates in meters. Times as recorded by the collector.</footer>
 
 <script>
 (() => {
   "use strict";
+  // ---------------------------------------------------------------------------
+  // Settings
+  const DAY_START_HOUR = 7;        // daytime window starts at 7 AM, overnight at 7 PM
+  const MIN_GAP_SECONDS = 30;      // lines break across gaps longer than this
+  const TAIL_SECONDS = 1800;       // drift trail length
+  const BUCKET_SECONDS = 1800;     // drift trail recolor interval
+  // ---------------------------------------------------------------------------
+
   const $ = id => document.getElementById(id);
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const HALF = 12 * 3600, FULL = 24 * 3600;
+  const COMP = { n: { name: "Northing", key: "n_mm" }, e: { name: "Easting", key: "e_mm" }, u: { name: "Elevation", key: "u_mm" } };
   let sessions = [];
-  let current = null;       // {summary, series}
-  let comp = "n";
+  let cur = null;           // { summary, data, startMs, gap }
   const cache = new Map();
 
-  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
-  // "2026-08-31T07:22:47" -> Date in local clock, no timezone shifting.
   function parseLocal(s) {
     const [d, t] = s.split("T");
     const [y, mo, da] = d.split("-").map(Number);
     const [h, mi, se] = t.split(":").map(Number);
     return new Date(y, mo - 1, da, h, mi, se);
   }
-  const pad = n => String(n).padStart(2, "0");
-  const fmtPlot = dt => `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`;
-  const fmtNice = s => parseLocal(s).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
-  const fmtDateOnly = s => s.slice(0, 10);
-  const m3 = v => v.toFixed(3);   // survey convention: no thousands separators
+  const fmtNice = s => parseLocal(s).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  const dateOnly = s => s.slice(0, 10);
+  const m3 = v => v.toFixed(3);
+  const fmtValue = v => v.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const fmtResidual = v => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(4)}`;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const f3 = v => { const t = v.toFixed(3); return t === "-0.000" ? "0.000" : t; };
 
   async function getJSON(url) {
     const r = await fetch(url, { cache: "no-store" });
     if (!r.ok) throw new Error(`${url} returned ${r.status}`);
     return r.json();
   }
-
   function showError(msg) {
     $("errorText").textContent = msg;
     $("errorState").hidden = false;
     $("sessionView").hidden = true;
   }
 
-  // ---------- Uploads list ----------
+  // =========================== Uploads list ===================================
   function renderList() {
-    const day = $("dateFilter").value;          // "YYYY-MM-DD" or ""
+    const day = $("dateFilter").value;
     const list = $("sessionList");
     list.textContent = "";
-    const shown = sessions.filter(s => !day || (fmtDateOnly(s.start) <= day && day <= fmtDateOnly(s.end)));
+    const shown = sessions.filter(s => !day || (dateOnly(s.start) <= day && day <= dateOnly(s.end)));
     $("listNote").hidden = shown.length > 0;
     $("listNote").textContent = day ? "No uploads include that date." : "";
     for (const s of shown) {
       const li = document.createElement("li");
       const b = document.createElement("button");
       b.type = "button";
-      b.setAttribute("aria-current", current && current.summary.id === s.id ? "true" : "false");
-      const when = document.createElement("span"); when.className = "when";
-      when.textContent = fmtNice(s.start);
+      b.setAttribute("aria-current", cur && cur.summary.id === s.id ? "true" : "false");
+      const when = document.createElement("span"); when.className = "when"; when.textContent = fmtNice(s.start);
       const meta = document.createElement("span"); meta.className = "meta";
       meta.textContent = `${s.duration_h} h, ${s.epochs.toLocaleString()} epochs, DRMS ${s.drms_mm} mm`;
-      const file = document.createElement("span"); file.className = "meta";
-      file.textContent = s.source_file;
+      const file = document.createElement("span"); file.className = "meta"; file.textContent = s.source_file;
       b.append(when, meta, file);
       b.addEventListener("click", () => selectSession(s.id));
-      li.append(b);
-      list.append(li);
+      li.append(b); list.append(li);
     }
   }
 
-  // ---------- Session loading ----------
   async function selectSession(id) {
     const summary = sessions.find(s => s.id === id);
     if (!summary) return;
-    if (typeof Plotly === "undefined") {
-      showError("The charts could not load because the charting library didn't download. Reload the page to try again.");
-      current = { summary, series: null };
-      renderList();
-      return;
-    }
     try {
-      let series = cache.get(id);
-      if (!series) {
-        series = await getJSON(`data/sessions/${id}.json`);
-        cache.set(id, series);
-      }
-      current = { summary, series };
+      let data = cache.get(id);
+      if (!data) { data = await getJSON(`data/sessions/${id}.json`); cache.set(id, data); }
+      cur = { summary, data, startMs: parseLocal(data.start).getTime(), gap: Math.max(MIN_GAP_SECONDS, (data.interval_s || 5) * (data.gap_factor || 3)) };
       history.replaceState(null, "", `#${id}`);
-      renderSession();
+      renderSummary();
+      TS.load();
+      Drift.load();
       renderList();
     } catch (err) {
       showError(`The data for this upload could not be loaded (${err.message}).`);
     }
   }
 
-  function renderSession() {
-    const { summary: s } = current;
+  function renderSummary() {
+    const s = cur.summary;
     $("errorState").hidden = true;
     $("sessionView").hidden = false;
     $("mN").innerHTML = `${m3(s.mean_m.n)}<small>m</small>`;
     $("mE").innerHTML = `${m3(s.mean_m.e)}<small>m</small>`;
     $("mU").innerHTML = `${m3(s.mean_m.u)}<small>m</small>`;
-
     const line = $("sessionLine");
     line.textContent = `${fmtNice(s.start)} to ${fmtNice(s.end)} from ${s.source_file}. `;
     const a = document.createElement("a");
-    a.href = s.raw_file; a.download = s.raw_file.split("/").pop();
-    a.textContent = "Download the original file";
+    a.href = s.raw_file; a.download = s.raw_file.split("/").pop(); a.textContent = "Download the original file";
     line.append(a, ".");
-
-    const stats = [
-      ["Duration", `${s.duration_h} h`],
-      ["Epochs", s.epochs.toLocaleString()],
-      ["Interval", `${s.interval_s} s`],
-      ["σ Northing", `${s.std_mm.n} mm`],
-      ["σ Easting", `${s.std_mm.e} mm`],
-      ["σ Elevation", `${s.std_mm.u} mm`],
-      ["DRMS", `${s.drms_mm} mm`],
-      ["Gaps", s.gaps],
-    ];
+    const stats = [["Duration", `${s.duration_h} h`], ["Epochs", s.epochs.toLocaleString()], ["Interval", `${s.interval_s} s`],
+      ["σ Northing", `${s.std_mm.n} mm`], ["σ Easting", `${s.std_mm.e} mm`], ["σ Elevation", `${s.std_mm.u} mm`],
+      ["DRMS", `${s.drms_mm} mm`], ["Gaps", s.gaps]];
     const dl = $("stats"); dl.textContent = "";
     for (const [k, v] of stats) {
       const d = document.createElement("div");
@@ -302,96 +321,473 @@
       const dd = document.createElement("dd"); dd.textContent = v;
       d.append(dt, dd); dl.append(d);
     }
-    drawTimeSeries();
-    drawHorizontal();
   }
 
-  // ---------- Plots ----------
-  function baseLayout() {
-    return {
-      paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
-      font: { family: css("--body"), color: css("--ink"), size: 13 },
-      margin: { l: 60, r: 20, t: 10, b: 50 },
-      showlegend: false, hovermode: "closest",
-    };
-  }
-  const axis = extra => Object.assign({ gridcolor: css("--rule"), zerolinecolor: css("--rule"), linecolor: css("--rule") }, extra);
+  // ====================== Day/night time series ===============================
+  const TS = (() => {
+    const canvas = $("tsCanvas"), shell = $("tsShell"), tip = $("tsTip"), ctx = canvas.getContext("2d");
+    let comp = "n", period = "day", cycle = 0;
+    let DATA = null, STATS = null, cycles = [];
+    let viewStart = 0, viewEnd = HALF, dragState = null, hoverPoints = [], geometry = null;
+    const isSeq = () => period === "sequential";
+    const duration = () => isSeq() ? FULL : HALF;
 
-  function stdOf(arr, mean) {
-    let s = 0; for (const v of arr) s += (v - mean) ** 2;
-    return Math.sqrt(s / arr.length);
-  }
-
-  function drawTimeSeries() {
-    const { summary: s, series: d } = current;
-    const key = comp + "_mm";
-    const meanMm = (s.mean_m[comp] - d.base_m[comp]) * 1000;
-    const start = parseLocal(d.start).getTime();
-    const gapLimit = d.interval_s * d.gap_factor;
-
-    const x = [], y = [];
-    for (let i = 0; i < d.t.length; i++) {
-      if (i > 0 && d.t[i] - d.t[i - 1] > gapLimit) { x.push(null); y.push(null); }
-      x.push(fmtPlot(new Date(start + d.t[i] * 1000)));
-      y.push(d[key][i] - meanMm);
+    function anchorsFor(startMs, endMs) {
+      const s = new Date(startMs);
+      let d = new Date(s.getFullYear(), s.getMonth(), s.getDate(), DAY_START_HOUR);
+      if (d.getTime() > startMs) d = new Date(s.getFullYear(), s.getMonth(), s.getDate() - 1, DAY_START_HOUR);
+      const out = [];
+      for (let k = 0; k < 400; k++) {
+        const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k, DAY_START_HOUR).getTime();
+        if (day > endMs) break;
+        const night = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k, DAY_START_HOUR + 12).getTime();
+        const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k + 1, DAY_START_HOUR).getTime();
+        out.push({ day, night, next });
+      }
+      return out;
     }
-    const sd = stdOf(d[key], meanMm);
-    const color = css("--" + comp);
-    const names = { n: "Northing", e: "Easting", u: "Elevation" };
-    const ref = (v, dash) => ({ type: "line", xref: "paper", x0: 0, x1: 1, y0: v, y1: v,
-      line: { color: css("--muted"), width: 1, dash } });
+    const shortDT = ms => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", hour12: true });
 
-    Plotly.react("ts", [{
-      type: "scattergl", mode: "lines", x, y, connectgaps: false,
-      line: { color, width: 1 },
-      hovertemplate: `%{x}<br>${names[comp]} %{y:.0f} mm from mean<extra></extra>`,
-    }], Object.assign(baseLayout(), {
-      xaxis: axis({ type: "date", title: { text: "Time" } }),
-      yaxis: axis({ title: { text: `${names[comp]} deviation (mm)` }, zeroline: true }),
-      shapes: [ref(sd, "dash"), ref(-sd, "dash"), ref(2 * sd, "dot"), ref(-2 * sd, "dot")],
-    }), { responsive: true, displaylogo: false });
-  }
+    function load() {
+      const d = cur.data;
+      const endMs = cur.startMs + d.t[d.t.length - 1] * 1000;
+      cycles = anchorsFor(cur.startMs, endMs);
+      const sel = $("cycleSel");
+      sel.textContent = "";
+      cycles.forEach((c, i) => {
+        const o = document.createElement("option");
+        o.value = i; o.textContent = `${shortDT(c.day)} to ${shortDT(c.next)}`;
+        sel.append(o);
+      });
+      sel.hidden = cycles.length < 2;
+      cycle = 0; sel.value = "0";
+      build();
+    }
 
-  function drawHorizontal() {
-    const { summary: s, series: d } = current;
-    const mn = (s.mean_m.n - d.base_m.n) * 1000;
-    const me = (s.mean_m.e - d.base_m.e) * 1000;
-    const dn = d.n_mm.map(v => v - mn);
-    const de = d.e_mm.map(v => v - me);
-    const hours = d.t.map(t => t / 3600);
-    const r1 = s.drms_mm, r2 = 2 * s.drms_mm;
-    const lim = Math.max(r2 * 1.25, ...dn.map(Math.abs), ...de.map(Math.abs)) * 1.05;
-    const circle = (r, dash) => ({ type: "circle", x0: -r, x1: r, y0: -r, y1: r,
-      line: { color: css("--brass"), width: 1.5, dash } });
+    function build() {
+      const d = cur.data, key = COMP[comp].key, base = d.base_m[comp];
+      const vals = d[key].map(v => base + v / 1000);
+      const n = vals.length;
+      let mean = 0; for (const v of vals) mean += v; mean /= n;
+      let ss = 0, maxDev = 0; for (const v of vals) { ss += (v - mean) ** 2; maxDev = Math.max(maxDev, Math.abs(v - mean)); }
+      const sd = n > 1 ? Math.sqrt(ss / (n - 1)) : 0;
+      const pad = Math.max(maxDev * 1.12, sd * 2.6, 0.002);
+      STATS = { mean, sd, yMin: mean - pad, yMax: mean + pad, n };
 
-    Plotly.react("hz", [{
-      type: "scattergl", mode: "markers", x: de, y: dn,
-      marker: { size: 3, opacity: .55, color: hours, colorscale: "Viridis",
-        colorbar: { title: { text: "Hours", side: "right" }, thickness: 10, outlinewidth: 0 } },
-      customdata: hours,
-      hovertemplate: "E %{x:.0f} mm, N %{y:.0f} mm<br>%{customdata:.2f} h after start<extra></extra>",
-    }], Object.assign(baseLayout(), {
-      xaxis: axis({ title: { text: "Easting offset (mm)" }, range: [-lim, lim], zeroline: true }),
-      yaxis: axis({ title: { text: "Northing offset (mm)" }, range: [-lim, lim], zeroline: true, scaleanchor: "x", scaleratio: 1 }),
-      shapes: [circle(r1, "dash"), circle(r2, "dot")],
-      annotations: [
-        { x: r1 * .7071, y: r1 * .7071, text: `DRMS ${r1} mm`, showarrow: false, xanchor: "left", yanchor: "bottom", font: { size: 11, color: css("--brass") } },
-        { x: r2 * .7071, y: r2 * .7071, text: `2DRMS ${Math.round(r2 * 10) / 10} mm`, showarrow: false, xanchor: "left", yanchor: "bottom", font: { size: 11, color: css("--brass") } },
-      ],
-    }), { responsive: true, displaylogo: false });
-  }
+      const c = cycles[cycle];
+      const day = [], night = [];
+      for (let i = 0; i < n; i++) {
+        const ms = cur.startMs + d.t[i] * 1000;
+        if (ms >= c.day && ms < c.night) day.push([(ms - c.day) / 1000, vals[i]]);
+        else if (ms >= c.night && ms < c.next) night.push([(ms - c.night) / 1000, vals[i]]);
+      }
+      const nm = COMP[comp].name;
+      DATA = {
+        day: { label: `Daytime ${nm}`, colorVar: "--day", startMs: c.day, points: day },
+        night: { label: `Overnight ${nm}`, colorVar: "--night", startMs: c.night, points: night },
+      };
+      DATA.nightSequential = { ...DATA.night, timeOffset: HALF, points: night.map(([s, v]) => [s + HALF, v]) };
 
-  // ---------- Wiring ----------
-  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
-    comp = b.dataset.comp;
-    document.querySelectorAll(".seg button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
-    if (current) drawTimeSeries();
-  }));
+      $("tsTitle").textContent = `${nm} over time`;
+      $("dayLegendText").textContent = `Daytime ${nm}`;
+      $("nightLegendText").textContent = `Overnight ${nm}`;
+      $("meanLegend").textContent = `Mean (${fmtValue(mean)} m)`;
+      $("s1Legend").textContent = `±1σ (${sd.toFixed(4)} m)`;
+      $("s2Legend").textContent = `±2σ (${(2 * sd).toFixed(4)} m)`;
+      $("tsNote").textContent = `Reference lines use all ${n.toLocaleString()} observations in this upload (sample σ). Lines break across gaps longer than ${cur.gap} seconds.`;
+      viewStart = 0; viewEnd = duration(); hoverPoints = []; tip.style.opacity = 0;
+      resize();
+    }
+
+    function resize() {
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      const rect = shell.getBoundingClientRect();
+      if (!rect.width) return;
+      canvas.width = Math.round(rect.width * ratio);
+      canvas.height = Math.round(rect.height * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      draw();
+    }
+
+    function visibleSeries() {
+      if (isSeq()) return [DATA.day, DATA.nightSequential];
+      if (period === "both") return [DATA.day, DATA.night];
+      return [DATA[period]];
+    }
+
+    function hLine(y, color, pattern, width) {
+      ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(pattern);
+      ctx.beginPath(); ctx.moveTo(geometry.left, y); ctx.lineTo(geometry.right, y); ctx.stroke(); ctx.restore();
+    }
+
+    function draw() {
+      if (!DATA) return;
+      const width = shell.clientWidth, height = shell.clientHeight;
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
+      ctx.clearRect(0, 0, width, height);
+      const narrow = width < 560;
+      const margin = { top: 18, right: narrow ? 12 : 30, bottom: 74, left: narrow ? 92 : 112 };
+      geometry = { left: margin.left, right: width - margin.right, top: margin.top, bottom: height - margin.bottom };
+      geometry.plotWidth = geometry.right - geometry.left;
+      geometry.plotHeight = geometry.bottom - geometry.top;
+      const x = s => geometry.left + ((s - viewStart) / (viewEnd - viewStart)) * geometry.plotWidth;
+      const y = v => geometry.bottom - ((v - STATS.yMin) / (STATS.yMax - STATS.yMin)) * geometry.plotHeight;
+      geometry.x = x; geometry.y = y;
+      $("resetZoom").disabled = viewStart === 0 && viewEnd === duration();
+
+      ctx.font = `12px ${font}`; ctx.textBaseline = "middle";
+      for (let i = 0; i <= 6; i++) {
+        const v = STATS.yMin + (STATS.yMax - STATS.yMin) * i / 6, py = y(v);
+        ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(geometry.left, py); ctx.lineTo(geometry.right, py); ctx.stroke();
+        ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.fillText(fmtValue(v), geometry.left - 10, py);
+      }
+
+      const span = viewEnd - viewStart;
+      let step = span <= 600 ? 60 : span <= 3600 ? 300 : span <= 10800 ? 900 : span <= 21600 ? 1800 : 3600;
+      const minSpacing = !isSeq() && period === "both" ? 52 : 44;
+      while (geometry.plotWidth * step / span < minSpacing) step *= 2;
+      const labelSeries = isSeq() || period === "both" ? DATA.day : DATA[period];
+      const timeLabel = (series, t) => new Date(series.startMs + t * 1000).toLocaleTimeString("en-US", { hour: "numeric", minute: step < 3600 ? "2-digit" : undefined, hour12: true });
+      for (let t = Math.ceil(viewStart / step) * step; t <= viewEnd; t += step) {
+        const px = x(t);
+        ctx.strokeStyle = grid; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(px, geometry.top); ctx.lineTo(px, geometry.bottom); ctx.stroke();
+        if (!isSeq() && period === "both") {
+          ctx.textAlign = "center";
+          ctx.fillStyle = css("--day"); ctx.fillText(timeLabel(DATA.day, t), px, geometry.bottom + 13);
+          ctx.fillStyle = css("--night"); ctx.fillText(timeLabel(DATA.night, t), px, geometry.bottom + 29);
+        } else {
+          ctx.save(); ctx.translate(px, geometry.bottom + 14); ctx.rotate(-Math.PI / 4);
+          ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.fillText(timeLabel(labelSeries, t), 0, 0); ctx.restore();
+        }
+      }
+      ctx.strokeStyle = rule; ctx.lineWidth = 1;
+      ctx.strokeRect(geometry.left, geometry.top, geometry.plotWidth, geometry.plotHeight);
+
+      ctx.save();
+      ctx.beginPath(); ctx.rect(geometry.left, geometry.top, geometry.plotWidth, geometry.plotHeight); ctx.clip();
+      hLine(y(STATS.mean), ink, [13, 5, 3, 5, 3, 5], 1.5);
+      hLine(y(STATS.mean + STATS.sd), css("--sig1"), [7, 5], 1.25);
+      hLine(y(STATS.mean - STATS.sd), css("--sig1"), [7, 5], 1.25);
+      hLine(y(STATS.mean + 2 * STATS.sd), css("--sig2"), [2, 4], 1.25);
+      hLine(y(STATS.mean - 2 * STATS.sd), css("--sig2"), [2, 4], 1.25);
+
+      const series = visibleSeries();
+      for (const sr of series) {
+        ctx.save(); ctx.strokeStyle = css(sr.colorVar); ctx.globalAlpha = .82; ctx.lineWidth = .72; ctx.setLineDash([]);
+        ctx.beginPath();
+        let prev = null;
+        sr.points.forEach(([s, v], i) => {
+          if (i === 0 || s - prev > cur.gap) ctx.moveTo(x(s), y(v)); else ctx.lineTo(x(s), y(v));
+          prev = s;
+        });
+        ctx.stroke(); ctx.restore();
+      }
+      if (series.every(sr => !sr.points.length)) {
+        ctx.fillStyle = muted; ctx.textAlign = "center"; ctx.font = `14px ${font}`;
+        const mx = (geometry.left + geometry.right) / 2, my = geometry.top + geometry.plotHeight * .3;
+        ctx.fillStyle = css("--panel"); ctx.fillRect(mx - 150, my - 14, 300, 28);
+        ctx.fillStyle = muted; ctx.fillText("No observations in this time window", mx, my);
+      }
+      if (dragState) {
+        const x1 = x(dragState.startSeconds), x2 = x(dragState.currentSeconds);
+        ctx.fillStyle = "rgba(37,99,235,.12)"; ctx.strokeStyle = "rgba(37,99,235,.72)"; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+        ctx.fillRect(Math.min(x1, x2), geometry.top, Math.abs(x2 - x1), geometry.plotHeight);
+        ctx.strokeRect(Math.min(x1, x2), geometry.top, Math.abs(x2 - x1), geometry.plotHeight);
+      }
+      ctx.restore();
+
+      ctx.fillStyle = ink; ctx.font = `600 14px ${font}`; ctx.textAlign = "center";
+      const c = cycles[cycle];
+      const axisLabel = isSeq() ? `Time (${shortDT(c.day)} to ${shortDT(c.next)})`
+        : period === "both" ? "Time (daytime / overnight)" : `Time (${period === "day" ? "7 AM–7 PM" : "7 PM–7 AM"})`;
+      ctx.fillText(axisLabel, (geometry.left + geometry.right) / 2, height - 14);
+      ctx.save(); ctx.translate(18, (geometry.top + geometry.bottom) / 2); ctx.rotate(-Math.PI / 2);
+      ctx.fillText(`${COMP[comp].name} (m)`, 0, 0); ctx.restore();
+
+      if (hoverPoints.length) {
+        const px = x(hoverPoints[0].point[0]);
+        ctx.save(); ctx.strokeStyle = muted; ctx.globalAlpha = .6; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(px, geometry.top); ctx.lineTo(px, geometry.bottom); ctx.stroke(); ctx.restore();
+        hoverPoints.forEach(({ series, point }) => {
+          ctx.fillStyle = css(series.colorVar); ctx.strokeStyle = css("--panel"); ctx.lineWidth = 2; ctx.setLineDash([]);
+          ctx.beginPath(); ctx.arc(x(point[0]), y(point[1]), 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        });
+      }
+    }
+
+    function nearestPoint(target, series) {
+      const p = series.points;
+      if (!p.length) return null;
+      let lo = 0, hi = p.length - 1;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (p[mid][0] < target) lo = mid + 1; else hi = mid; }
+      const a = p[lo], b = p[Math.max(0, lo - 1)];
+      return Math.abs(a[0] - target) < Math.abs(b[0] - target) ? a : b;
+    }
+    const hideTip = () => { hoverPoints = []; tip.style.opacity = 0; };
+    function resetZoom() { viewStart = 0; viewEnd = duration(); dragState = null; hideTip(); draw(); }
+    const secondsAt = mx => viewStart + ((mx - geometry.left) / geometry.plotWidth) * (viewEnd - viewStart);
+
+    canvas.addEventListener("pointerdown", ev => {
+      if (!geometry || ev.button !== 0) return;
+      const r = canvas.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      if (mx < geometry.left || mx > geometry.right || my < geometry.top || my > geometry.bottom) return;
+      ev.preventDefault();
+      const s = secondsAt(mx);
+      dragState = { pointerId: ev.pointerId, startX: mx, startSeconds: s, currentSeconds: s };
+      hideTip(); canvas.setPointerCapture(ev.pointerId); draw();
+    });
+    canvas.addEventListener("pointermove", ev => {
+      if (!geometry || !DATA) return;
+      const r = canvas.getBoundingClientRect(), mx = ev.clientX - r.left;
+      if (dragState) { dragState.currentSeconds = clamp(secondsAt(mx), viewStart, viewEnd); hideTip(); draw(); return; }
+      if (mx < geometry.left || mx > geometry.right) { hideTip(); draw(); return; }
+      const target = secondsAt(mx);
+      const matches = visibleSeries().map(series => ({ series, point: nearestPoint(target, series) }))
+        .filter(m => m.point && Math.abs(m.point[0] - target) <= cur.gap);
+      if (!matches.length) { hideTip(); draw(); return; }
+      hoverPoints = matches; draw();
+      const nm = COMP[comp].name;
+      tip.innerHTML = matches.map(({ series, point }) => {
+        const res = point[1] - STATS.mean;
+        const t = new Date(series.startMs + (point[0] - (series.timeOffset || 0)) * 1000)
+          .toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+        return `<div class="tip-series"><strong style="color:${css(series.colorVar)}">${series.label}</strong>${t}<br>${nm}: <b>${fmtValue(point[1])} m</b><br>Residual from mean: <b style="color:${css(res >= 0 ? "--pos" : "--neg")}">${fmtResidual(res)} m</b></div>`;
+      }).join("");
+      const px = geometry.x(matches[0].point[0]);
+      const py = matches.reduce((a, m) => a + geometry.y(m.point[1]), 0) / matches.length;
+      tip.style.left = `${Math.min(px, shell.clientWidth - 230)}px`;
+      tip.style.top = `${clamp(py, 50, shell.clientHeight - 50)}px`;
+      tip.style.opacity = 1;
+    });
+    function finishDrag(ev) {
+      if (!dragState || ev.pointerId !== dragState.pointerId) return;
+      const a = Math.min(dragState.startSeconds, dragState.currentSeconds), b = Math.max(dragState.startSeconds, dragState.currentSeconds);
+      const dist = Math.abs((ev.clientX - canvas.getBoundingClientRect().left) - dragState.startX);
+      if (dist >= 8 && b - a >= 60) { viewStart = a; viewEnd = b; }
+      if (canvas.hasPointerCapture(ev.pointerId)) canvas.releasePointerCapture(ev.pointerId);
+      dragState = null; draw();
+    }
+    canvas.addEventListener("pointerup", finishDrag);
+    canvas.addEventListener("pointercancel", () => { dragState = null; draw(); });
+    canvas.addEventListener("wheel", ev => {
+      if (!geometry) return;
+      const r = canvas.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      if (mx < geometry.left || mx > geometry.right || my < geometry.top || my > geometry.bottom) return;
+      ev.preventDefault();
+      const old = viewEnd - viewStart, span = clamp(old * (ev.deltaY < 0 ? .76 : 1.32), 60, duration());
+      const ratio = (mx - geometry.left) / geometry.plotWidth, anchor = viewStart + ratio * old;
+      viewStart = clamp(anchor - ratio * span, 0, duration() - span); viewEnd = viewStart + span;
+      hideTip(); draw();
+    }, { passive: false });
+    canvas.addEventListener("dblclick", ev => { ev.preventDefault(); resetZoom(); });
+    canvas.addEventListener("pointerleave", () => { if (!dragState) { hideTip(); draw(); } });
+    $("resetZoom").addEventListener("click", resetZoom);
+
+    document.querySelectorAll("#periodSeg button").forEach(b => b.addEventListener("click", () => {
+      period = b.dataset.period;
+      document.querySelectorAll("#periodSeg button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+      $("dayLegend").hidden = period === "night";
+      $("nightLegend").hidden = period === "day";
+      resetZoom();
+    }));
+    document.querySelectorAll("#compSeg button").forEach(b => b.addEventListener("click", () => {
+      comp = b.dataset.comp;
+      document.querySelectorAll("#compSeg button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+      if (cur) build();
+    }));
+    $("cycleSel").addEventListener("change", e => { cycle = Number(e.target.value); build(); });
+    new ResizeObserver(() => resize()).observe(shell);
+    return { load, redraw: draw };
+  })();
+
+  // ======================= Horizontal drift animation =========================
+  const Drift = (() => {
+    const SIZE = 640, PAD = 55;
+    const bg = $("driftBg"), fg = $("driftFg"), tip = $("driftTip");
+    const bctx = bg.getContext("2d"), fctx = fg.getContext("2d");
+    const scrub = $("scrub"), playBtn = $("playBtn"), speedSel = $("speedSel"), readout = $("driftReadout");
+    const PAL_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#e87ba4", "#3b8f3b", "#6250d6"];
+    const PAL_DARK = ["#3987e5", "#d95926", "#199e70", "#d55181", "#3fb03f", "#9085e9"];
+    const FPS_STEP_BASE = 4;
+    let N = 0, dx, dy, ep, brk, ids, px, py, hourly = [], hpx = [], drms = 0, drms2 = 0;
+    let scale = 1, idx = 0, playing = false, lastTs = null;
+    const cx = SIZE / 2, cy = SIZE / 2;
+    const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light"
+      || document.documentElement.dataset.theme === "dark";
+    const palette = () => isDark() ? PAL_DARK : PAL_LIGHT;
+    const bucketColor = e => { const p = palette(); const b = Math.floor(e / BUCKET_SECONDS); return p[((b % p.length) + p.length) % p.length]; };
+    const toPx = (mx, my) => [cx + mx * scale, cy - my * scale];
+    const timeText = i => new Date(cur.startMs + ep[i] * 1000).toLocaleString("en-US", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }).replace(",", "");
+
+    function setupCanvas(c) {
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      c.width = SIZE * ratio; c.height = SIZE * ratio;
+      const k = c.getContext("2d"); k.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+
+    function load() {
+      stop();
+      const d = cur.data, s = cur.summary;
+      N = d.t.length;
+      const mn = (s.mean_m.n - d.base_m.n) * 1000, me = (s.mean_m.e - d.base_m.e) * 1000;
+      dx = new Float64Array(N); dy = new Float64Array(N); ep = new Float64Array(N); brk = new Uint8Array(N);
+      for (let i = 0; i < N; i++) {
+        dx[i] = (d.e_mm[i] - me) / 1000; dy[i] = (d.n_mm[i] - mn) / 1000; ep[i] = d.t[i];
+        brk[i] = i > 0 && d.t[i] - d.t[i - 1] > cur.gap ? 1 : 0;
+      }
+      ids = d.ids || null;
+      drms = s.drms_mm / 1000; drms2 = 2 * drms;
+      $("drmsLegend").textContent = `1 STD (DRMS ${s.drms_mm.toFixed(1)} mm)`;
+      $("drms2Legend").textContent = `2 STD (2DRMS ${(2 * s.drms_mm).toFixed(1)} mm)`;
+
+      // Epoch closest to each full clock hour.
+      hourly = [];
+      const startMs = cur.startMs, endMs = startMs + ep[N - 1] * 1000;
+      const first = new Date(startMs); first.setMinutes(0, 0, 0);
+      let h = first.getTime(); if (h < startMs) h += 3600000;
+      let j = 0;
+      for (; h <= endMs; h += 3600000) {
+        const target = (h - startMs) / 1000;
+        while (j < N - 1 && ep[j + 1] <= target) j++;
+        const k = (j < N - 1 && Math.abs(ep[j + 1] - target) < Math.abs(ep[j] - target)) ? j + 1 : j;
+        if (Math.abs(ep[k] - target) <= cur.gap)
+          hourly.push({ i: k, label: new Date(h).toLocaleTimeString("en-US", { hour: "numeric", hour12: true }) });
+      }
+
+      let maxAbs = drms2;
+      for (let i = 0; i < N; i++) maxAbs = Math.max(maxAbs, Math.abs(dx[i]), Math.abs(dy[i]));
+      const halfExtent = maxAbs * 1.15;
+      scale = (SIZE - 2 * PAD) / (2 * halfExtent);
+      px = new Float32Array(N); py = new Float32Array(N);
+      for (let i = 0; i < N; i++) { const p = toPx(dx[i], dy[i]); px[i] = p[0]; py[i] = p[1]; }
+      hpx = hourly.map(hh => [px[hh.i], py[hh.i]]);
+      scrub.max = N - 1; scrub.value = 0; idx = 0;
+      setupCanvas(bg); setupCanvas(fg);
+      drawBackground(halfExtent);
+      drawMarker(0);
+    }
+
+    function niceStep(range) {
+      const raw = range / 6, mag = Math.pow(10, Math.floor(Math.log10(raw))), norm = raw / mag;
+      return (norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10) * mag;
+    }
+
+    let lastExtent = 1;
+    function drawBackground(halfExtent) {
+      if (halfExtent) lastExtent = halfExtent; else halfExtent = lastExtent;
+      const text = css("--ink"), muted = css("--muted"), grid = css("--grid"), strong = css("--rule"), font = css("--body");
+      bctx.clearRect(0, 0, SIZE, SIZE);
+      const step = niceStep(halfExtent * 2);
+      bctx.strokeStyle = grid; bctx.lineWidth = 1; bctx.fillStyle = muted;
+      bctx.font = `11px ${font}`; bctx.textAlign = "center"; bctx.textBaseline = "top";
+      for (let v = -Math.ceil(halfExtent / step) * step; v <= halfExtent + 1e-9; v += step) {
+        const [gx] = toPx(v, 0);
+        if (gx < PAD - 1 || gx > SIZE - PAD + 1) continue;
+        bctx.beginPath(); bctx.moveTo(gx, PAD); bctx.lineTo(gx, SIZE - PAD); bctx.stroke();
+        bctx.fillText(f3(v), gx, SIZE - PAD + 6);
+        const [, gy] = toPx(0, v);
+        bctx.beginPath(); bctx.moveTo(PAD, gy); bctx.lineTo(SIZE - PAD, gy); bctx.stroke();
+        bctx.save(); bctx.textAlign = "right"; bctx.textBaseline = "middle"; bctx.fillText(f3(v), PAD - 6, gy); bctx.restore();
+      }
+      bctx.strokeStyle = strong; bctx.lineWidth = 1.5; bctx.strokeRect(PAD, PAD, SIZE - 2 * PAD, SIZE - 2 * PAD);
+      bctx.strokeStyle = muted; bctx.lineWidth = 1.2;
+      bctx.beginPath(); bctx.moveTo(PAD, cy); bctx.lineTo(SIZE - PAD, cy); bctx.stroke();
+      bctx.beginPath(); bctx.moveTo(cx, PAD); bctx.lineTo(cx, SIZE - PAD); bctx.stroke();
+      bctx.save(); bctx.fillStyle = text; bctx.font = `12px ${font}`; bctx.textAlign = "center";
+      bctx.fillText("Easting deviation from mean (m)", SIZE / 2, SIZE - 16);
+      bctx.translate(16, SIZE / 2); bctx.rotate(-Math.PI / 2);
+      bctx.fillText("Northing deviation from mean (m)", 0, 0); bctx.restore();
+      [[drms, css("--drms1")], [drms2, css("--drms2")]].forEach(([r, col]) => {
+        bctx.beginPath(); bctx.arc(cx, cy, r * scale, 0, 2 * Math.PI);
+        bctx.strokeStyle = col; bctx.lineWidth = 1.6; bctx.setLineDash([5, 4]); bctx.stroke(); bctx.setLineDash([]);
+      });
+      bctx.strokeStyle = muted; bctx.lineWidth = 1.2; bctx.beginPath();
+      hpx.forEach((p, i) => i === 0 ? bctx.moveTo(p[0], p[1]) : bctx.lineTo(p[0], p[1]));
+      bctx.stroke();
+      hpx.forEach((p, i) => {
+        bctx.beginPath(); bctx.arc(p[0], p[1], 4, 0, 2 * Math.PI);
+        bctx.fillStyle = muted; bctx.fill(); bctx.strokeStyle = css("--panel"); bctx.lineWidth = 1.2; bctx.stroke();
+        bctx.save(); bctx.fillStyle = muted; bctx.font = `10px ${font}`; bctx.textAlign = "left"; bctx.textBaseline = "bottom";
+        bctx.fillText(hourly[i].label, p[0] + 6, p[1] - 4); bctx.restore();
+      });
+      bctx.fillStyle = text; bctx.beginPath(); bctx.arc(cx, cy, 3, 0, 2 * Math.PI); bctx.fill();
+    }
+
+    function windowStart(i) {
+      const target = ep[i] - TAIL_SECONDS;
+      let lo = 0, hi = i;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (ep[mid] < target) lo = mid + 1; else hi = mid; }
+      return lo;
+    }
+    const pointLabel = i => ids && ids[i] ? `Point ${ids[i]}` : `Epoch ${i + 1}`;
+
+    function drawMarker(i) {
+      fctx.clearRect(0, 0, SIZE, SIZE);
+      if (!N) return;
+      const s0 = windowStart(i);
+      fctx.lineWidth = 1.6; fctx.beginPath(); fctx.moveTo(px[s0], py[s0]);
+      let col = bucketColor(ep[s0]); fctx.strokeStyle = col;
+      for (let k = s0 + 1; k <= i; k++) {
+        if (brk[k]) { fctx.stroke(); fctx.beginPath(); fctx.moveTo(px[k], py[k]); continue; }
+        const c = bucketColor(ep[k]);
+        if (c !== col) { fctx.stroke(); col = c; fctx.strokeStyle = col; fctx.beginPath(); fctx.moveTo(px[k - 1], py[k - 1]); }
+        fctx.lineTo(px[k], py[k]);
+      }
+      fctx.stroke();
+      fctx.fillStyle = bucketColor(ep[i]); fctx.beginPath(); fctx.arc(px[i], py[i], 5.5, 0, 2 * Math.PI); fctx.fill();
+      fctx.strokeStyle = css("--panel"); fctx.lineWidth = 1.5; fctx.stroke();
+      const r = Math.hypot(dx[i], dy[i]);
+      readout.textContent = `${pointLabel(i)}   ${timeText(i)}   dE = ${f3(dx[i])} m   dN = ${f3(dy[i])} m   r = ${f3(r)} m`;
+    }
+
+    function frame(ts) {
+      if (!playing) return;
+      if (lastTs === null) lastTs = ts;
+      const dt = ts - lastTs;
+      if (dt > 16) {
+        const adv = Math.max(1, Math.round((dt / 1000) * FPS_STEP_BASE * parseInt(speedSel.value, 10)));
+        idx = Math.min(N - 1, idx + adv); scrub.value = idx; drawMarker(idx); lastTs = ts;
+        if (idx >= N - 1) { stop(); return; }
+      }
+      requestAnimationFrame(frame);
+    }
+    function stop() { playing = false; playBtn.textContent = "Play"; }
+    playBtn.addEventListener("click", () => {
+      if (!N) return;
+      if (idx >= N - 1) idx = 0;
+      playing = !playing; playBtn.textContent = playing ? "Pause" : "Play"; lastTs = null;
+      if (playing) requestAnimationFrame(frame);
+    });
+    scrub.addEventListener("input", () => { stop(); idx = parseInt(scrub.value, 10); drawMarker(idx); });
+
+    fg.addEventListener("mousemove", ev => {
+      if (!N) return;
+      const r = fg.getBoundingClientRect();
+      const mx = (ev.clientX - r.left) * (SIZE / r.width), my = (ev.clientY - r.top) * (SIZE / r.height);
+      let best = -1, bestD = Infinity;
+      for (let i = windowStart(idx); i <= idx; i++) {
+        const d2 = (px[i] - mx) ** 2 + (py[i] - my) ** 2;
+        if (d2 < bestD) { bestD = d2; best = i; }
+      }
+      if (bestD < 400 && best >= 0) {
+        tip.style.opacity = 1;
+        tip.style.left = `${Math.min(ev.clientX - r.left + 12, r.width - 200)}px`;
+        tip.style.top = `${ev.clientY - r.top - 10}px`;
+        tip.innerHTML = `${pointLabel(best)}<br>${timeText(best)}<br>dE = ${f3(dx[best])} m, dN = ${f3(dy[best])} m`;
+      } else tip.style.opacity = 0;
+    });
+    fg.addEventListener("mouseleave", () => { tip.style.opacity = 0; });
+    return { load, redraw: () => { if (N) { drawBackground(); drawMarker(idx); } } };
+  })();
+
+  // ============================== Wiring ======================================
   $("dateFilter").addEventListener("change", renderList);
   $("clearFilter").addEventListener("click", () => { $("dateFilter").value = ""; renderList(); });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (current) renderSession(); });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); Drift.redraw(); } });
 
-  async function init() {
+  (async function init() {
     try {
       const index = await getJSON("data/index.json");
       sessions = index.sessions || [];
@@ -404,8 +800,7 @@
     if (!sessions.length) { $("emptyState").hidden = false; return; }
     const wanted = decodeURIComponent(location.hash.slice(1));
     selectSession(sessions.some(s => s.id === wanted) ? wanted : sessions[0].id);
-  }
-  init();
+  })();
 })();
 </script>
 </body>
