@@ -226,18 +226,28 @@
 
             <div class="s-head">
               <h4>All positions</h4>
-              <p class="sub">Every epoch in the upload at once. Hover or tap a point for its values. Scroll to zoom, drag a box to zoom to an area, and double-click to reset.</p>
+              <p class="sub">Every epoch in the upload at once. Hover or tap a point for its values. Use the buttons or scroll to zoom, drag to pan or to draw a zoom box, and double-click to reset.</p>
               <div class="legend">
                 <span class="cbar"><span>Start</span><i></i><span id="cbarEnd">End</span></span>
                 <span><i class="dot" style="border-color:var(--drms1)"></i><span id="drmsLegendS">DRMS</span></span>
                 <span><i class="dot" style="border-color:var(--drms2)"></i><span id="drms2LegendS">2DRMS</span></span>
+              </div>
+              <div class="controls" style="margin:.5rem 0 0">
+                <div class="seg" role="group" aria-label="Drag mode" id="dragModeSeg">
+                  <button type="button" data-mode="pan" aria-pressed="true">Pan</button>
+                  <button type="button" data-mode="box" aria-pressed="false">Box zoom</button>
+                </div>
+                <div class="seg" role="group" aria-label="Zoom">
+                  <button type="button" id="zoomIn" aria-label="Zoom in" title="Zoom in">+ Zoom in</button>
+                  <button type="button" id="zoomOut" aria-label="Zoom out" title="Zoom out" disabled>− Zoom out</button>
+                </div>
                 <button type="button" id="staticReset" disabled>Reset zoom</button>
               </div>
               <div class="readout" id="staticReadout">Hover over a point to see its time, Northing, and Easting.</div>
             </div>
             <div class="drift-wrap s-wrap" id="staticWrap">
               <canvas id="driftStatic"></canvas>
-              <canvas id="staticFg" style="cursor:crosshair;touch-action:none"></canvas>
+              <canvas id="staticFg" style="cursor:grab;touch-action:none"></canvas>
               <div class="tooltip" id="staticTip"></div>
             </div>
           </div>
@@ -645,6 +655,7 @@
     // A view is a square window in meters: centre (cxm, cym) and half-width.
     const viewT = v => { const k = PLOT / (2 * v.half); return (mx, my) => [SIZE / 2 + (mx - v.cxm) * k, SIZE / 2 - (my - v.cym) * k]; };
     const viewInv = v => { const k = PLOT / (2 * v.half); return (X, Y) => [v.cxm + (X - SIZE / 2) / k, v.cym - (Y - SIZE / 2) / k]; };
+    let sMode = "pan", sPending = false;
     let sView = null, sPx = null, sPy = null, sHover = -1, sDrag = null, baseN = 0, baseE = 0, nMM = null, eMM = null;
     const VIRIDIS = [[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[109,205,89],[180,222,44],[253,231,37]];
     const viridis = f => {
@@ -813,7 +824,11 @@
       });
       sctx.fillStyle = css("--ink"); sctx.beginPath(); sctx.arc(ox, oy, 3, 0, 2 * Math.PI); sctx.fill();
       sctx.restore();
-      $("staticReset").disabled = sView.half >= lastExtent && !sView.cxm && !sView.cym;
+      const full = sView.half >= lastExtent && !sView.cxm && !sView.cym;
+      $("staticReset").disabled = full;
+      $("zoomOut").disabled = sView.half >= lastExtent;
+      $("zoomIn").disabled = sView.half <= lastExtent / 400 + 1e-12;
+      sfg.style.cursor = sMode === "pan" ? (sView.half < lastExtent ? "grab" : "default") : "crosshair";
       drawStaticOverlay();
     }
 
@@ -830,7 +845,7 @@
         sfctx.strokeStyle = css("--ink"); sfctx.lineWidth = 2; sfctx.stroke();
         sfctx.restore();
       }
-      if (sDrag && sDrag.moved) {
+      if (sDrag && sDrag.moved && sDrag.mode === "box") {
         const x = Math.min(sDrag.x0, sDrag.x1), y = Math.min(sDrag.y0, sDrag.y1);
         sfctx.fillStyle = "rgba(167,128,47,.12)"; sfctx.strokeStyle = css("--brass"); sfctx.lineWidth = 1; sfctx.setLineDash([5, 4]);
         sfctx.fillRect(x, y, Math.abs(sDrag.x1 - sDrag.x0), Math.abs(sDrag.y1 - sDrag.y0));
@@ -881,13 +896,28 @@
       const [X, Y] = canvasXY(ev);
       if (!inPlot(X, Y)) return;
       ev.preventDefault();
-      sDrag = { id: ev.pointerId, x0: X, y0: Y, x1: X, y1: Y, moved: false };
+      sDrag = { id: ev.pointerId, x0: X, y0: Y, x1: X, y1: Y, moved: false, mode: sMode, view: { ...sView } };
+      if (sMode === "pan") sfg.style.cursor = "grabbing";
       sfg.setPointerCapture(ev.pointerId);
     });
     sfg.addEventListener("pointermove", ev => {
       if (!N || !sPx) return;
       const [X, Y] = canvasXY(ev);
       if (sDrag) {
+        if (sDrag.mode === "pan") {
+          sDrag.x1 = X; sDrag.y1 = Y;
+          if (Math.hypot(X - sDrag.x0, Y - sDrag.y0) > 4) sDrag.moved = true;
+          if (sDrag.moved && !sPending) {
+            sPending = true;
+            requestAnimationFrame(() => {
+              sPending = false;
+              if (!sDrag) return;
+              const v = sDrag.view, k = PLOT / (2 * v.half);
+              setView(v.cxm - (sDrag.x1 - sDrag.x0) / k, v.cym + (sDrag.y1 - sDrag.y0) / k, v.half);
+            });
+          }
+          return;
+        }
         sDrag.x1 = clamp(X, PAD, SIZE - PAD); sDrag.y1 = clamp(Y, PAD, SIZE - PAD);
         if (Math.hypot(sDrag.x1 - sDrag.x0, sDrag.y1 - sDrag.y0) > 8) { sDrag.moved = true; stip.style.opacity = 0; sHover = -1; }
         drawStaticOverlay();
@@ -899,7 +929,9 @@
       if (!sDrag || ev.pointerId !== sDrag.id) return;
       const d = sDrag; sDrag = null;
       if (sfg.hasPointerCapture(ev.pointerId)) sfg.releasePointerCapture(ev.pointerId);
-      if (d.moved) {
+      if (d.moved && d.mode === "pan") {
+        drawStatic();   // restores the cursor
+      } else if (d.moved) {
         const inv = viewInv(sView);
         const [ax, ay] = inv(Math.min(d.x0, d.x1), Math.min(d.y0, d.y1));
         const [bx, by] = inv(Math.max(d.x0, d.x1), Math.max(d.y0, d.y1));
@@ -923,6 +955,14 @@
     }, { passive: false });
     sfg.addEventListener("dblclick", ev => { ev.preventDefault(); resetStatic(); });
     $("staticReset").addEventListener("click", resetStatic);
+    const zoomBy = f => { if (N) setView(sView.cxm, sView.cym, sView.half * f); };
+    $("zoomIn").addEventListener("click", () => zoomBy(1 / 1.5));
+    $("zoomOut").addEventListener("click", () => zoomBy(1.5));
+    document.querySelectorAll("#dragModeSeg button").forEach(b => b.addEventListener("click", () => {
+      sMode = b.dataset.mode;
+      document.querySelectorAll("#dragModeSeg button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+      if (N) drawStatic();
+    }));
 
     function windowStart(i) {
       const target = ep[i] - TAIL_SECONDS;
