@@ -7,7 +7,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script>
+  // Backup sources for the charting library, tried in order if the first one fails.
+  if (!window.Plotly) document.write('<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"><\/script>');
+</script>
+<script>
+  if (!window.Plotly) document.write('<script src="https://unpkg.com/plotly.js-dist-min@2.35.2/plotly.min.js"><\/script>');
+</script>
 <style>
   :root {
     --bg: #F3F5F4;
@@ -242,6 +249,12 @@
   async function selectSession(id) {
     const summary = sessions.find(s => s.id === id);
     if (!summary) return;
+    if (typeof Plotly === "undefined") {
+      showError("The charts could not load because the charting library didn't download. Reload the page to try again.");
+      current = { summary, series: null };
+      renderList();
+      return;
+    }
     try {
       let series = cache.get(id);
       if (!series) {
@@ -379,10 +392,6 @@
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (current) renderSession(); });
 
   async function init() {
-    if (typeof Plotly === "undefined") {
-      showError("The plotting library did not load. Check your internet connection and reload the page.");
-      return;
-    }
     try {
       const index = await getJSON("data/index.json");
       sessions = index.sessions || [];
