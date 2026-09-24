@@ -1,0 +1,63 @@
+# Runs whenever anything is pushed to main (including a file uploaded through
+# the GitHub website). New files in uploads/ are processed into sessions, the
+# results are committed back, and the site is redeployed to GitHub Pages.
+name: Process uploads and publish site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Process new uploads
+        id: process
+        continue-on-error: true
+        run: python scripts/process_uploads.py
+
+      - name: Commit processed data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data uploads
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit."
+          else
+            git commit -m "Add processed GNSS session(s)"
+            git push
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Report files that could not be processed
+        if: steps.process.outcome == 'failure'
+        run: |
+          echo "::error::One or more uploaded files could not be processed. Open the 'Process new uploads' step above for details. Those files were left in uploads/."
+          exit 1
