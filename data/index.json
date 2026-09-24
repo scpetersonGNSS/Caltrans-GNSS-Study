@@ -1,4 +1,30 @@
 {
-  "updated": "2026-09-24T19:10:19Z",
-  "sessions": []
+  "updated": "2026-09-24T19:14:50Z",
+  "sessions": [
+    {
+      "id": "20260831-072247",
+      "source_file": "All Day.asc",
+      "start": "2026-08-31T07:22:47",
+      "end": "2026-09-01T09:10:15",
+      "duration_h": 25.79,
+      "epochs": 16916,
+      "interval_s": 5,
+      "gaps": 3,
+      "skipped_rows": 0,
+      "mean_m": {
+        "n": 222684.657,
+        "e": 2201429.579,
+        "u": 122.718
+      },
+      "std_mm": {
+        "n": 6.9,
+        "e": 5.7,
+        "u": 17.4
+      },
+      "drms_mm": 8.9,
+      "uploaded": "2026-09-24T19:14:50Z",
+      "sha256": "e6d06bebecf1d05688644ecd07decad18245a227cb6b48b03613bf07b895da62",
+      "raw_file": "data/raw/20260831-072247_All_Day.asc"
+    }
+  ]
 }
