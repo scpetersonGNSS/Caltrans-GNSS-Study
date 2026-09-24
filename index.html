@@ -109,6 +109,8 @@
   .drift-grid h4 { margin: 0 0 .2rem; font-family: var(--cond); font-weight: 600; font-size: 1.1rem; }
   .drift-grid .sub { margin: 0 0 .6rem; font-size: .88rem; color: var(--muted); }
   .readout { min-height: 2.9em; }
+  #staticReadout { margin-top: .4rem; }
+  #staticReadout b { font-weight: 600; }
   .cbar { display: inline-flex; align-items: center; gap: .45rem; }
   .cbar i { display: inline-block; width: 90px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, #440154, #3b528b, #21918c, #5ec962, #fde725); }
   .drift-wrap { position: relative; width: 100%; max-width: 680px; aspect-ratio: 1 / 1; }
@@ -224,15 +226,18 @@
 
             <div class="s-head">
               <h4>All positions</h4>
-              <p class="sub">Every epoch in the upload at once, on the same scale as the animation. Hover a point for details.</p>
+              <p class="sub">Every epoch in the upload at once. Hover or tap a point for its values. Scroll to zoom, drag a box to zoom to an area, and double-click to reset.</p>
               <div class="legend">
                 <span class="cbar"><span>Start</span><i></i><span id="cbarEnd">End</span></span>
                 <span><i class="dot" style="border-color:var(--drms1)"></i><span id="drmsLegendS">DRMS</span></span>
                 <span><i class="dot" style="border-color:var(--drms2)"></i><span id="drms2LegendS">2DRMS</span></span>
+                <button type="button" id="staticReset" disabled>Reset zoom</button>
               </div>
+              <div class="readout" id="staticReadout">Hover over a point to see its time, Northing, and Easting.</div>
             </div>
             <div class="drift-wrap s-wrap" id="staticWrap">
               <canvas id="driftStatic"></canvas>
+              <canvas id="staticFg" style="cursor:crosshair;touch-action:none"></canvas>
               <div class="tooltip" id="staticTip"></div>
             </div>
           </div>
@@ -634,8 +639,13 @@
   const Drift = (() => {
     const SIZE = 640, PAD = 55;
     const bg = $("driftBg"), fg = $("driftFg"), tip = $("driftTip");
-    const st = $("driftStatic"), stip = $("staticTip");
-    const bctx = bg.getContext("2d"), fctx = fg.getContext("2d"), sctx = st.getContext("2d");
+    const st = $("driftStatic"), sfg = $("staticFg"), stip = $("staticTip");
+    const bctx = bg.getContext("2d"), fctx = fg.getContext("2d"), sctx = st.getContext("2d"), sfctx = sfg.getContext("2d");
+    const PLOT = SIZE - 2 * PAD;
+    // A view is a square window in meters: centre (cxm, cym) and half-width.
+    const viewT = v => { const k = PLOT / (2 * v.half); return (mx, my) => [SIZE / 2 + (mx - v.cxm) * k, SIZE / 2 - (my - v.cym) * k]; };
+    const viewInv = v => { const k = PLOT / (2 * v.half); return (X, Y) => [v.cxm + (X - SIZE / 2) / k, v.cym - (Y - SIZE / 2) / k]; };
+    let sView = null, sPx = null, sPy = null, sHover = -1, sDrag = null, baseN = 0, baseE = 0, nMM = null, eMM = null;
     const VIRIDIS = [[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[109,205,89],[180,222,44],[253,231,37]];
     const viridis = f => {
       const x = clamp(f, 0, 1) * (VIRIDIS.length - 1), i = Math.min(VIRIDIS.length - 2, Math.floor(x)), t = x - i;
@@ -702,7 +712,11 @@
       for (let i = 0; i < N; i++) { const p = toPx(dx[i], dy[i]); px[i] = p[0]; py[i] = p[1]; }
       hpx = hourly.map(hh => [px[hh.i], py[hh.i]]);
       scrub.max = N - 1; scrub.value = 0; idx = 0;
-      setupCanvas(bg); setupCanvas(fg); setupCanvas(st);
+      setupCanvas(bg); setupCanvas(fg); setupCanvas(st); setupCanvas(sfg);
+      baseN = d.base_m.n; baseE = d.base_m.e; nMM = d.n_mm; eMM = d.e_mm;
+      lastExtent = halfExtent;
+      sView = { cxm: 0, cym: 0, half: halfExtent }; sHover = -1; sDrag = null;
+      $("staticReadout").textContent = "Hover over a point to see its time, Northing, and Easting.";
       drawBackground(halfExtent);
       drawStatic();
       drawMarker(0);
@@ -714,33 +728,45 @@
     }
 
     let lastExtent = 1;
-    function drawFrame(bctx, halfExtent) {
+    function drawFrame(bctx, halfExtent, view) {
+      view = view || { cxm: 0, cym: 0, half: halfExtent };
+      const T = viewT(view), k = PLOT / (2 * view.half);
       const text = css("--ink"), muted = css("--muted"), grid = css("--grid"), strong = css("--rule"), font = css("--body");
       bctx.clearRect(0, 0, SIZE, SIZE);
-      const step = niceStep(halfExtent * 2);
+      const step = niceStep(view.half * 2);
+      const dec = step >= 0.001 ? 3 : step >= 0.0001 ? 4 : 5;
+      const fmt = v => { const t = v.toFixed(dec); return /^-0\.0+$/.test(t) ? t.slice(1) : t; };
       bctx.strokeStyle = grid; bctx.lineWidth = 1; bctx.fillStyle = muted;
       bctx.font = `11px ${font}`; bctx.textAlign = "center"; bctx.textBaseline = "top";
-      for (let v = -Math.ceil(halfExtent / step) * step; v <= halfExtent + 1e-9; v += step) {
-        const [gx] = toPx(v, 0);
+      for (let v = Math.ceil((view.cxm - view.half) / step) * step; v <= view.cxm + view.half + 1e-12; v += step) {
+        const [gx] = T(v, 0);
         if (gx < PAD - 1 || gx > SIZE - PAD + 1) continue;
         bctx.beginPath(); bctx.moveTo(gx, PAD); bctx.lineTo(gx, SIZE - PAD); bctx.stroke();
-        bctx.fillText(f3(v), gx, SIZE - PAD + 6);
-        const [, gy] = toPx(0, v);
-        bctx.beginPath(); bctx.moveTo(PAD, gy); bctx.lineTo(SIZE - PAD, gy); bctx.stroke();
-        bctx.save(); bctx.textAlign = "right"; bctx.textBaseline = "middle"; bctx.fillText(f3(v), PAD - 6, gy); bctx.restore();
+        bctx.fillText(fmt(v), gx, SIZE - PAD + 6);
       }
-      bctx.strokeStyle = strong; bctx.lineWidth = 1.5; bctx.strokeRect(PAD, PAD, SIZE - 2 * PAD, SIZE - 2 * PAD);
+      for (let v = Math.ceil((view.cym - view.half) / step) * step; v <= view.cym + view.half + 1e-12; v += step) {
+        const [, gy] = T(0, v);
+        if (gy < PAD - 1 || gy > SIZE - PAD + 1) continue;
+        bctx.beginPath(); bctx.moveTo(PAD, gy); bctx.lineTo(SIZE - PAD, gy); bctx.stroke();
+        bctx.save(); bctx.textAlign = "right"; bctx.textBaseline = "middle"; bctx.fillText(fmt(v), PAD - 6, gy); bctx.restore();
+      }
+      bctx.strokeStyle = strong; bctx.lineWidth = 1.5; bctx.strokeRect(PAD, PAD, PLOT, PLOT);
+      const [ox, oy] = T(0, 0);
+      bctx.save(); bctx.beginPath(); bctx.rect(PAD, PAD, PLOT, PLOT); bctx.clip();
       bctx.strokeStyle = muted; bctx.lineWidth = 1.2;
-      bctx.beginPath(); bctx.moveTo(PAD, cy); bctx.lineTo(SIZE - PAD, cy); bctx.stroke();
-      bctx.beginPath(); bctx.moveTo(cx, PAD); bctx.lineTo(cx, SIZE - PAD); bctx.stroke();
+      bctx.beginPath(); bctx.moveTo(PAD, oy); bctx.lineTo(SIZE - PAD, oy); bctx.stroke();
+      bctx.beginPath(); bctx.moveTo(ox, PAD); bctx.lineTo(ox, SIZE - PAD); bctx.stroke();
+      bctx.restore();
       bctx.save(); bctx.fillStyle = text; bctx.font = `12px ${font}`; bctx.textAlign = "center";
       bctx.fillText("Easting deviation from mean (m)", SIZE / 2, SIZE - 16);
       bctx.translate(16, SIZE / 2); bctx.rotate(-Math.PI / 2);
       bctx.fillText("Northing deviation from mean (m)", 0, 0); bctx.restore();
+      bctx.save(); bctx.beginPath(); bctx.rect(PAD, PAD, PLOT, PLOT); bctx.clip();
       [[drms, css("--drms1")], [drms2, css("--drms2")]].forEach(([r, col]) => {
-        bctx.beginPath(); bctx.arc(cx, cy, r * scale, 0, 2 * Math.PI);
+        bctx.beginPath(); bctx.arc(ox, oy, r * k, 0, 2 * Math.PI);
         bctx.strokeStyle = col; bctx.lineWidth = 1.6; bctx.setLineDash([5, 4]); bctx.stroke(); bctx.setLineDash([]);
       });
+      bctx.restore();
     }
 
     function drawBackground(halfExtent) {
@@ -759,42 +785,144 @@
       bctx.fillStyle = text; bctx.beginPath(); bctx.arc(cx, cy, 3, 0, 2 * Math.PI); bctx.fill();
     }
 
+    const absN = i => ((Math.round(baseN * 1000) + nMM[i]) / 1000).toFixed(3);
+    const absE = i => ((Math.round(baseE * 1000) + eMM[i]) / 1000).toFixed(3);
+    const sgn = v => { const t = f3(v); return v > 0 && t !== "0.000" ? "+" + t : t; };
+
     function drawStatic() {
-      drawFrame(sctx, lastExtent);
-      const total = ep[N - 1] || 1;
+      if (!N || !sView) return;
+      drawFrame(sctx, lastExtent, sView);
+      const T = viewT(sView), k = PLOT / (2 * sView.half), total = ep[N - 1] || 1;
+      sPx = new Float32Array(N); sPy = new Float32Array(N);
+      const r = clamp(1.4 * Math.sqrt(lastExtent / sView.half), 1.4, 4);
       sctx.save();
-      sctx.beginPath(); sctx.rect(PAD, PAD, SIZE - 2 * PAD, SIZE - 2 * PAD); sctx.clip();
+      sctx.beginPath(); sctx.rect(PAD, PAD, PLOT, PLOT); sctx.clip();
       sctx.globalAlpha = .6;
       for (let i = 0; i < N; i++) {
+        const p = T(dx[i], dy[i]); sPx[i] = p[0]; sPy[i] = p[1];
+        if (p[0] < PAD - 5 || p[0] > SIZE - PAD + 5 || p[1] < PAD - 5 || p[1] > SIZE - PAD + 5) continue;
         sctx.fillStyle = viridis(ep[i] / total);
-        sctx.fillRect(px[i] - 1.4, py[i] - 1.4, 2.8, 2.8);
+        sctx.fillRect(p[0] - r, p[1] - r, 2 * r, 2 * r);
       }
-      sctx.restore();
+      sctx.globalAlpha = 1;
       // Redraw the circles on top of the points so they stay visible.
-      [[drms, css("--drms1")], [drms2, css("--drms2")]].forEach(([r, col]) => {
-        sctx.beginPath(); sctx.arc(cx, cy, r * scale, 0, 2 * Math.PI);
+      const [ox, oy] = T(0, 0);
+      [[drms, css("--drms1")], [drms2, css("--drms2")]].forEach(([rr, col]) => {
+        sctx.beginPath(); sctx.arc(ox, oy, rr * k, 0, 2 * Math.PI);
         sctx.strokeStyle = col; sctx.lineWidth = 2; sctx.setLineDash([5, 4]); sctx.stroke(); sctx.setLineDash([]);
       });
-      sctx.fillStyle = css("--ink"); sctx.beginPath(); sctx.arc(cx, cy, 3, 0, 2 * Math.PI); sctx.fill();
+      sctx.fillStyle = css("--ink"); sctx.beginPath(); sctx.arc(ox, oy, 3, 0, 2 * Math.PI); sctx.fill();
+      sctx.restore();
+      $("staticReset").disabled = sView.half >= lastExtent && !sView.cxm && !sView.cym;
+      drawStaticOverlay();
     }
 
-    st.addEventListener("mousemove", ev => {
-      if (!N) return;
-      const r = st.getBoundingClientRect();
-      const mx = (ev.clientX - r.left) * (SIZE / r.width), my = (ev.clientY - r.top) * (SIZE / r.height);
-      let best = -1, bestD = Infinity;
+    function drawStaticOverlay() {
+      sfctx.clearRect(0, 0, SIZE, SIZE);
+      if (sHover >= 0 && sPx) {
+        const x = sPx[sHover], y = sPy[sHover];
+        sfctx.save(); sfctx.beginPath(); sfctx.rect(PAD, PAD, PLOT, PLOT); sfctx.clip();
+        sfctx.strokeStyle = css("--muted"); sfctx.globalAlpha = .7; sfctx.lineWidth = 1; sfctx.setLineDash([4, 4]);
+        sfctx.beginPath(); sfctx.moveTo(PAD, y); sfctx.lineTo(SIZE - PAD, y); sfctx.moveTo(x, PAD); sfctx.lineTo(x, SIZE - PAD); sfctx.stroke();
+        sfctx.globalAlpha = 1; sfctx.setLineDash([]);
+        sfctx.fillStyle = viridis(ep[sHover] / (ep[N - 1] || 1));
+        sfctx.beginPath(); sfctx.arc(x, y, 6, 0, 2 * Math.PI); sfctx.fill();
+        sfctx.strokeStyle = css("--ink"); sfctx.lineWidth = 2; sfctx.stroke();
+        sfctx.restore();
+      }
+      if (sDrag && sDrag.moved) {
+        const x = Math.min(sDrag.x0, sDrag.x1), y = Math.min(sDrag.y0, sDrag.y1);
+        sfctx.fillStyle = "rgba(167,128,47,.12)"; sfctx.strokeStyle = css("--brass"); sfctx.lineWidth = 1; sfctx.setLineDash([5, 4]);
+        sfctx.fillRect(x, y, Math.abs(sDrag.x1 - sDrag.x0), Math.abs(sDrag.y1 - sDrag.y0));
+        sfctx.strokeRect(x, y, Math.abs(sDrag.x1 - sDrag.x0), Math.abs(sDrag.y1 - sDrag.y0));
+        sfctx.setLineDash([]);
+      }
+    }
+
+    const canvasXY = ev => { const r = sfg.getBoundingClientRect(); return [(ev.clientX - r.left) * (SIZE / r.width), (ev.clientY - r.top) * (SIZE / r.height), r]; };
+    const inPlot = (X, Y) => X >= PAD && X <= SIZE - PAD && Y >= PAD && Y <= SIZE - PAD;
+
+    function nearestStatic(X, Y, radius) {
+      let best = -1, bestD = radius * radius;
       for (let i = 0; i < N; i++) {
-        const d2 = (px[i] - mx) ** 2 + (py[i] - my) ** 2;
+        const d2 = (sPx[i] - X) ** 2 + (sPy[i] - Y) ** 2;
         if (d2 < bestD) { bestD = d2; best = i; }
       }
-      if (bestD < 64 && best >= 0) {
-        stip.style.opacity = 1;
-        stip.style.left = `${Math.min(ev.clientX - r.left + 12, r.width - 200)}px`;
-        stip.style.top = `${ev.clientY - r.top - 10}px`;
-        stip.innerHTML = `${pointLabel(best)}<br>${timeText(best)}<br>${(ep[best] / 3600).toFixed(2)} h after start<br>dE = ${f3(dx[best])} m, dN = ${f3(dy[best])} m`;
-      } else stip.style.opacity = 0;
+      return best;
+    }
+
+    function showStaticPoint(i, ev) {
+      sHover = i; drawStaticOverlay();
+      const ro = $("staticReadout");
+      if (i < 0) { stip.style.opacity = 0; return; }
+      const [, , r] = canvasXY(ev);
+      let same = 0;
+      for (let j = 0; j < N; j++) if (nMM[j] === nMM[i] && eMM[j] === eMM[i]) same++;
+      const stack = same > 1 ? `${same} epochs recorded at this exact position; showing the first.` : "";
+      ro.innerHTML = `${pointLabel(i)} &nbsp; ${timeText(i)} &nbsp; Northing <b>${absN(i)} m</b> &nbsp; Easting <b>${absE(i)} m</b> &nbsp; dN ${sgn(dy[i])} m &nbsp; dE ${sgn(dx[i])} m${stack ? `<br><span class="note">${stack}</span>` : ""}`;
+      stip.innerHTML = `<strong>${pointLabel(i)}</strong>${timeText(i)}<br>Northing: <b>${absN(i)} m</b><br>Easting: <b>${absE(i)} m</b><br>dN ${sgn(dy[i])} m, dE ${sgn(dx[i])} m${same > 1 ? `<br>${same} epochs at this position` : ""}`;
+      const tx = (sPx[i] / SIZE) * r.width, ty = (sPy[i] / SIZE) * r.height;
+      stip.style.left = `${Math.min(tx + 12, r.width - 210)}px`;
+      stip.style.top = `${clamp(ty - 10, 0, r.height - 110)}px`;
+      stip.style.opacity = 1;
+    }
+
+    function setView(cxm, cym, half) {
+      half = clamp(half, lastExtent / 400, lastExtent);
+      const lim = lastExtent - half;
+      sView = { cxm: clamp(cxm, -lim, lim), cym: clamp(cym, -lim, lim), half };
+      sHover = -1; stip.style.opacity = 0;
+      drawStatic();
+    }
+    const resetStatic = () => setView(0, 0, lastExtent);
+
+    sfg.addEventListener("pointerdown", ev => {
+      if (!N || ev.button !== 0) return;
+      const [X, Y] = canvasXY(ev);
+      if (!inPlot(X, Y)) return;
+      ev.preventDefault();
+      sDrag = { id: ev.pointerId, x0: X, y0: Y, x1: X, y1: Y, moved: false };
+      sfg.setPointerCapture(ev.pointerId);
     });
-    st.addEventListener("mouseleave", () => { stip.style.opacity = 0; });
+    sfg.addEventListener("pointermove", ev => {
+      if (!N || !sPx) return;
+      const [X, Y] = canvasXY(ev);
+      if (sDrag) {
+        sDrag.x1 = clamp(X, PAD, SIZE - PAD); sDrag.y1 = clamp(Y, PAD, SIZE - PAD);
+        if (Math.hypot(sDrag.x1 - sDrag.x0, sDrag.y1 - sDrag.y0) > 8) { sDrag.moved = true; stip.style.opacity = 0; sHover = -1; }
+        drawStaticOverlay();
+        return;
+      }
+      showStaticPoint(inPlot(X, Y) ? nearestStatic(X, Y, 10) : -1, ev);
+    });
+    function endDrag(ev) {
+      if (!sDrag || ev.pointerId !== sDrag.id) return;
+      const d = sDrag; sDrag = null;
+      if (sfg.hasPointerCapture(ev.pointerId)) sfg.releasePointerCapture(ev.pointerId);
+      if (d.moved) {
+        const inv = viewInv(sView);
+        const [ax, ay] = inv(Math.min(d.x0, d.x1), Math.min(d.y0, d.y1));
+        const [bx, by] = inv(Math.max(d.x0, d.x1), Math.max(d.y0, d.y1));
+        setView((ax + bx) / 2, (ay + by) / 2, Math.max(bx - ax, ay - by) / 2);
+      } else {
+        showStaticPoint(nearestStatic(d.x0, d.y0, 18), ev);   // a tap selects the nearest point
+      }
+    }
+    sfg.addEventListener("pointerup", endDrag);
+    sfg.addEventListener("pointercancel", () => { sDrag = null; drawStaticOverlay(); });
+    sfg.addEventListener("pointerleave", () => { if (!sDrag) { sHover = -1; stip.style.opacity = 0; drawStaticOverlay(); } });
+    sfg.addEventListener("wheel", ev => {
+      if (!N) return;
+      const [X, Y] = canvasXY(ev);
+      if (!inPlot(X, Y)) return;
+      ev.preventDefault();
+      const [mx, my] = viewInv(sView)(X, Y);
+      const half = clamp(sView.half * (ev.deltaY < 0 ? .8 : 1.25), lastExtent / 400, lastExtent);
+      const f = half / sView.half;
+      setView(mx - (mx - sView.cxm) * f, my - (my - sView.cym) * f, half);
+    }, { passive: false });
+    sfg.addEventListener("dblclick", ev => { ev.preventDefault(); resetStatic(); });
+    $("staticReset").addEventListener("click", resetStatic);
 
     function windowStart(i) {
       const target = ep[i] - TAIL_SECONDS;
