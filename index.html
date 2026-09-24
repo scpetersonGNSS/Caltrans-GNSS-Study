@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GNSS Static Occupation Data</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js"></script>
+<style>
+  :root {
+    --bg: #F3F5F4;
+    --panel: #FFFFFF;
+    --ink: #1D2B33;
+    --muted: #5E6E76;
+    --rule: #D5DCDC;
+    --brass: #A7802F;
+    --brass-soft: rgba(167,128,47,.12);
+    --n: #2F6DA3;
+    --e: #3E8E5E;
+    --u: #7A4C9A;
+    --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+    --cond: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141B1F; --panel: #1B2429; --ink: #E4E9EA; --muted: #95A4AA;
+      --rule: #2E3A40; --brass: #D1A650; --brass-soft: rgba(209,166,80,.14);
+      --n: #6FA8DC; --e: #74C08F; --u: #B58ED3;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141B1F; --panel: #1B2429; --ink: #E4E9EA; --muted: #95A4AA;
+    --rule: #2E3A40; --brass: #D1A650; --brass-soft: rgba(209,166,80,.14);
+    --n: #6FA8DC; --e: #74C08F; --u: #B58ED3;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--body); font-size: 16px; line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+  header.site {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+    flex-wrap: wrap; padding: 1.1rem clamp(1rem, 3vw, 2rem);
+    border-bottom: 1px solid var(--rule);
+  }
+  header.site h1 { margin: 0; font-family: var(--cond); font-weight: 600; font-size: 1.5rem; letter-spacing: .01em; }
+  header.site p { margin: 0; color: var(--muted); font-size: .95rem; }
+
+  .layout {
+    display: grid; grid-template-columns: 300px minmax(0, 1fr);
+    gap: clamp(1rem, 2.5vw, 2rem); padding: clamp(1rem, 3vw, 2rem);
+    max-width: 1500px; margin: 0 auto;
+  }
+  @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+  /* Uploads list */
+  aside h2 { font-family: var(--cond); font-weight: 600; font-size: 1.15rem; margin: 0 0 .6rem; }
+  .filter { display: flex; gap: .5rem; align-items: center; margin-bottom: .9rem; flex-wrap: wrap; }
+  .filter label { font-size: .9rem; color: var(--muted); width: 100%; }
+  input[type="date"], button {
+    font: inherit; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--rule); border-radius: 6px; padding: .4rem .6rem;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--brass); }
+  :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+  .sessions { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); max-height: 70vh; overflow-y: auto; }
+  .sessions button {
+    display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--rule);
+    border-radius: 0; background: transparent; padding: .7rem .6rem .7rem .8rem;
+    border-left: 3px solid transparent;
+  }
+  .sessions button[aria-current="true"] { border-left-color: var(--brass); background: var(--brass-soft); }
+  .sessions .when { display: block; font-weight: 600; }
+  .sessions .meta { display: block; font-size: .85rem; color: var(--muted); }
+  .note { color: var(--muted); font-size: .92rem; }
+
+  /* Main */
+  .coord { margin: 0 0 .4rem; display: flex; flex-wrap: wrap; gap: .4rem 2.2rem; }
+  .coord div { display: flex; flex-direction: column; }
+  .coord span.lbl { font-size: .9rem; color: var(--muted); }
+  .coord span.val { font-family: var(--cond); font-weight: 500; font-size: clamp(1.9rem, 4.2vw, 3rem); line-height: 1.05; }
+  .coord span.val small { font-size: .5em; color: var(--muted); margin-left: .15em; }
+  .session-line { color: var(--muted); margin: .2rem 0 1.2rem; max-width: 75ch; }
+  .session-line a { color: var(--brass); }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); margin-bottom: 1.5rem; }
+  .stats div { padding: .6rem 1.4rem .6rem 0; margin-right: 1.4rem; border-right: 1px solid var(--rule); }
+  .stats div:last-child { border-right: 0; }
+  .stats dt { font-size: .85rem; color: var(--muted); }
+  .stats dd { margin: 0; font-weight: 600; font-size: 1.1rem; }
+
+  .plots { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1.5rem; }
+  @media (max-width: 1150px) { .plots { grid-template-columns: minmax(0, 1fr); } }
+  section.plot { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 1rem 1rem .5rem; min-width: 0; }
+  section.plot h3 { margin: 0; font-family: var(--cond); font-weight: 600; font-size: 1.15rem; }
+  section.plot .head { display: flex; justify-content: space-between; align-items: center; gap: .8rem; flex-wrap: wrap; margin-bottom: .3rem; }
+  section.plot p { margin: 0 0 .4rem; font-size: .88rem; color: var(--muted); }
+  .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--rule); padding: .3rem .8rem; }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--brass); color: #fff; }
+  #ts, #hz { width: 100%; height: 440px; }
+
+  .empty { max-width: 60ch; padding: 2rem 0; }
+  .empty h2 { font-family: var(--cond); font-weight: 600; }
+  footer { color: var(--muted); font-size: .85rem; padding: 0 clamp(1rem, 3vw, 2rem) 2rem; max-width: 1500px; margin: 0 auto; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header class="site">
+  <h1>GNSS Static Occupation Data</h1>
+  <p id="updated"></p>
+</header>
+
+<div class="layout">
+  <aside>
+    <h2>Uploads</h2>
+    <div class="filter">
+      <label for="dateFilter">Show uploads that include a date</label>
+      <input type="date" id="dateFilter">
+      <button type="button" id="clearFilter">Show all</button>
+    </div>
+    <ul class="sessions" id="sessionList"></ul>
+    <p class="note" id="listNote" hidden></p>
+  </aside>
+
+  <main>
+    <div id="emptyState" class="empty" hidden>
+      <h2>No uploads yet</h2>
+      <p>Add a collector export to the <code>uploads</code> folder of this site's repository. It appears here a minute or two after it's committed.</p>
+    </div>
+    <div id="errorState" class="empty" hidden>
+      <h2>Data could not be loaded</h2>
+      <p id="errorText"></p>
+    </div>
+
+    <div id="sessionView" hidden>
+      <div class="coord">
+        <div><span class="lbl">Mean northing</span><span class="val" id="mN"></span></div>
+        <div><span class="lbl">Mean easting</span><span class="val" id="mE"></span></div>
+        <div><span class="lbl">Mean elevation</span><span class="val" id="mU"></span></div>
+      </div>
+      <p class="session-line" id="sessionLine"></p>
+      <dl class="stats" id="stats"></dl>
+
+      <div class="plots">
+        <section class="plot">
+          <div class="head">
+            <h3>Deviation from mean over time</h3>
+            <div class="seg" role="group" aria-label="Component">
+              <button type="button" data-comp="n" aria-pressed="true">Northing</button>
+              <button type="button" data-comp="e" aria-pressed="false">Easting</button>
+              <button type="button" data-comp="u" aria-pressed="false">Elevation</button>
+            </div>
+          </div>
+          <p>Dashed lines mark ±1σ and ±2σ. Lines break where the record has gaps.</p>
+          <div id="ts"></div>
+        </section>
+        <section class="plot">
+          <div class="head"><h3>Horizontal scatter</h3></div>
+          <p>Each epoch's offset from the mean position, colored by time. Circles mark DRMS and 2DRMS.</p>
+          <div id="hz"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<footer>Coordinates in meters. Deviations in millimeters. Times as recorded by the collector.</footer>
+
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  let sessions = [];
+  let current = null;       // {summary, series}
+  let comp = "n";
+  const cache = new Map();
+
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  // "2026-08-31T07:22:47" -> Date in local clock, no timezone shifting.
+  function parseLocal(s) {
+    const [d, t] = s.split("T");
+    const [y, mo, da] = d.split("-").map(Number);
+    const [h, mi, se] = t.split(":").map(Number);
+    return new Date(y, mo - 1, da, h, mi, se);
+  }
+  const pad = n => String(n).padStart(2, "0");
+  const fmtPlot = dt => `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`;
+  const fmtNice = s => parseLocal(s).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  const fmtDateOnly = s => s.slice(0, 10);
+  const m3 = v => v.toFixed(3);   // survey convention: no thousands separators
+
+  async function getJSON(url) {
+    const r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) throw new Error(`${url} returned ${r.status}`);
+    return r.json();
+  }
+
+  function showError(msg) {
+    $("errorText").textContent = msg;
+    $("errorState").hidden = false;
+    $("sessionView").hidden = true;
+  }
+
+  // ---------- Uploads list ----------
+  function renderList() {
+    const day = $("dateFilter").value;          // "YYYY-MM-DD" or ""
+    const list = $("sessionList");
+    list.textContent = "";
+    const shown = sessions.filter(s => !day || (fmtDateOnly(s.start) <= day && day <= fmtDateOnly(s.end)));
+    $("listNote").hidden = shown.length > 0;
+    $("listNote").textContent = day ? "No uploads include that date." : "";
+    for (const s of shown) {
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("aria-current", current && current.summary.id === s.id ? "true" : "false");
+      const when = document.createElement("span"); when.className = "when";
+      when.textContent = fmtNice(s.start);
+      const meta = document.createElement("span"); meta.className = "meta";
+      meta.textContent = `${s.duration_h} h, ${s.epochs.toLocaleString()} epochs, DRMS ${s.drms_mm} mm`;
+      const file = document.createElement("span"); file.className = "meta";
+      file.textContent = s.source_file;
+      b.append(when, meta, file);
+      b.addEventListener("click", () => selectSession(s.id));
+      li.append(b);
+      list.append(li);
+    }
+  }
+
+  // ---------- Session loading ----------
+  async function selectSession(id) {
+    const summary = sessions.find(s => s.id === id);
+    if (!summary) return;
+    try {
+      let series = cache.get(id);
+      if (!series) {
+        series = await getJSON(`data/sessions/${id}.json`);
+        cache.set(id, series);
+      }
+      current = { summary, series };
+      history.replaceState(null, "", `#${id}`);
+      renderSession();
+      renderList();
+    } catch (err) {
+      showError(`The data for this upload could not be loaded (${err.message}).`);
+    }
+  }
+
+  function renderSession() {
+    const { summary: s } = current;
+    $("errorState").hidden = true;
+    $("sessionView").hidden = false;
+    $("mN").innerHTML = `${m3(s.mean_m.n)}<small>m</small>`;
+    $("mE").innerHTML = `${m3(s.mean_m.e)}<small>m</small>`;
+    $("mU").innerHTML = `${m3(s.mean_m.u)}<small>m</small>`;
+
+    const line = $("sessionLine");
+    line.textContent = `${fmtNice(s.start)} to ${fmtNice(s.end)} from ${s.source_file}. `;
+    const a = document.createElement("a");
+    a.href = s.raw_file; a.download = s.raw_file.split("/").pop();
+    a.textContent = "Download the original file";
+    line.append(a, ".");
+
+    const stats = [
+      ["Duration", `${s.duration_h} h`],
+      ["Epochs", s.epochs.toLocaleString()],
+      ["Interval", `${s.interval_s} s`],
+      ["σ Northing", `${s.std_mm.n} mm`],
+      ["σ Easting", `${s.std_mm.e} mm`],
+      ["σ Elevation", `${s.std_mm.u} mm`],
+      ["DRMS", `${s.drms_mm} mm`],
+      ["Gaps", s.gaps],
+    ];
+    const dl = $("stats"); dl.textContent = "";
+    for (const [k, v] of stats) {
+      const d = document.createElement("div");
+      const dt = document.createElement("dt"); dt.textContent = k;
+      const dd = document.createElement("dd"); dd.textContent = v;
+      d.append(dt, dd); dl.append(d);
+    }
+    drawTimeSeries();
+    drawHorizontal();
+  }
+
+  // ---------- Plots ----------
+  function baseLayout() {
+    return {
+      paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+      font: { family: css("--body"), color: css("--ink"), size: 13 },
+      margin: { l: 60, r: 20, t: 10, b: 50 },
+      showlegend: false, hovermode: "closest",
+    };
+  }
+  const axis = extra => Object.assign({ gridcolor: css("--rule"), zerolinecolor: css("--rule"), linecolor: css("--rule") }, extra);
+
+  function stdOf(arr, mean) {
+    let s = 0; for (const v of arr) s += (v - mean) ** 2;
+    return Math.sqrt(s / arr.length);
+  }
+
+  function drawTimeSeries() {
+    const { summary: s, series: d } = current;
+    const key = comp + "_mm";
+    const meanMm = (s.mean_m[comp] - d.base_m[comp]) * 1000;
+    const start = parseLocal(d.start).getTime();
+    const gapLimit = d.interval_s * d.gap_factor;
+
+    const x = [], y = [];
+    for (let i = 0; i < d.t.length; i++) {
+      if (i > 0 && d.t[i] - d.t[i - 1] > gapLimit) { x.push(null); y.push(null); }
+      x.push(fmtPlot(new Date(start + d.t[i] * 1000)));
+      y.push(d[key][i] - meanMm);
+    }
+    const sd = stdOf(d[key], meanMm);
+    const color = css("--" + comp);
+    const names = { n: "Northing", e: "Easting", u: "Elevation" };
+    const ref = (v, dash) => ({ type: "line", xref: "paper", x0: 0, x1: 1, y0: v, y1: v,
+      line: { color: css("--muted"), width: 1, dash } });
+
+    Plotly.react("ts", [{
+      type: "scattergl", mode: "lines", x, y, connectgaps: false,
+      line: { color, width: 1 },
+      hovertemplate: `%{x}<br>${names[comp]} %{y:.0f} mm from mean<extra></extra>`,
+    }], Object.assign(baseLayout(), {
+      xaxis: axis({ type: "date", title: { text: "Time" } }),
+      yaxis: axis({ title: { text: `${names[comp]} deviation (mm)` }, zeroline: true }),
+      shapes: [ref(sd, "dash"), ref(-sd, "dash"), ref(2 * sd, "dot"), ref(-2 * sd, "dot")],
+    }), { responsive: true, displaylogo: false });
+  }
+
+  function drawHorizontal() {
+    const { summary: s, series: d } = current;
+    const mn = (s.mean_m.n - d.base_m.n) * 1000;
+    const me = (s.mean_m.e - d.base_m.e) * 1000;
+    const dn = d.n_mm.map(v => v - mn);
+    const de = d.e_mm.map(v => v - me);
+    const hours = d.t.map(t => t / 3600);
+    const r1 = s.drms_mm, r2 = 2 * s.drms_mm;
+    const lim = Math.max(r2 * 1.25, ...dn.map(Math.abs), ...de.map(Math.abs)) * 1.05;
+    const circle = (r, dash) => ({ type: "circle", x0: -r, x1: r, y0: -r, y1: r,
+      line: { color: css("--brass"), width: 1.5, dash } });
+
+    Plotly.react("hz", [{
+      type: "scattergl", mode: "markers", x: de, y: dn,
+      marker: { size: 3, opacity: .55, color: hours, colorscale: "Viridis",
+        colorbar: { title: { text: "Hours", side: "right" }, thickness: 10, outlinewidth: 0 } },
+      customdata: hours,
+      hovertemplate: "E %{x:.0f} mm, N %{y:.0f} mm<br>%{customdata:.2f} h after start<extra></extra>",
+    }], Object.assign(baseLayout(), {
+      xaxis: axis({ title: { text: "Easting offset (mm)" }, range: [-lim, lim], zeroline: true }),
+      yaxis: axis({ title: { text: "Northing offset (mm)" }, range: [-lim, lim], zeroline: true, scaleanchor: "x", scaleratio: 1 }),
+      shapes: [circle(r1, "dash"), circle(r2, "dot")],
+      annotations: [
+        { x: r1 * .7071, y: r1 * .7071, text: `DRMS ${r1} mm`, showarrow: false, xanchor: "left", yanchor: "bottom", font: { size: 11, color: css("--brass") } },
+        { x: r2 * .7071, y: r2 * .7071, text: `2DRMS ${Math.round(r2 * 10) / 10} mm`, showarrow: false, xanchor: "left", yanchor: "bottom", font: { size: 11, color: css("--brass") } },
+      ],
+    }), { responsive: true, displaylogo: false });
+  }
+
+  // ---------- Wiring ----------
+  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+    comp = b.dataset.comp;
+    document.querySelectorAll(".seg button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+    if (current) drawTimeSeries();
+  }));
+  $("dateFilter").addEventListener("change", renderList);
+  $("clearFilter").addEventListener("click", () => { $("dateFilter").value = ""; renderList(); });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (current) renderSession(); });
+
+  async function init() {
+    if (typeof Plotly === "undefined") {
+      showError("The plotting library did not load. Check your internet connection and reload the page.");
+      return;
+    }
+    try {
+      const index = await getJSON("data/index.json");
+      sessions = index.sessions || [];
+      if (index.updated) $("updated").textContent = `Last updated ${new Date(index.updated).toLocaleString()}`;
+    } catch (err) {
+      showError(`The list of uploads could not be loaded (${err.message}). If you opened this file directly from your computer, serve it with "python -m http.server" instead.`);
+      return;
+    }
+    renderList();
+    if (!sessions.length) { $("emptyState").hidden = false; return; }
+    const wanted = decodeURIComponent(location.hash.slice(1));
+    selectSession(sessions.some(s => s.id === wanted) ? wanted : sessions[0].id);
+  }
+  init();
+})();
+</script>
+</body>
+</html>
