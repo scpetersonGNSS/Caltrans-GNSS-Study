@@ -122,7 +122,25 @@
   input[type="datetime-local"] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: .35rem .5rem; }
   button.primary { background: var(--brass); color: #fff; border-color: var(--brass); }
   .table-scroll { overflow-x: auto; margin-top: .6rem; }
-  table.wstats { border-collapse: collapse; width: 100%; min-width: 720px; font-size: .95rem; }
+  table.wstats { border-collapse: collapse; width: 100%; min-width: 900px; font-size: .95rem; }
+  table.wstats thead tr.grp th { text-align: center; font-weight: 600; color: var(--ink); border-bottom: 2px solid var(--rule); }
+  table.wstats th.gw, table.wstats td.gw { background: var(--brass-soft); }
+  table.wstats td.diff { font-weight: 600; }
+  .win-view { margin-top: 1.6rem; padding-top: 1.2rem; border-top: 1px solid var(--rule); }
+  .win-view h4 { margin: 0 0 .2rem; font-family: var(--cond); font-weight: 600; font-size: 1.15rem; }
+  .win-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1.5rem; align-items: start; }
+  @media (max-width: 1100px) { .win-grid { grid-template-columns: minmax(0, 1fr); } }
+  .win-ts { position: relative; height: 380px; }
+  .win-sc { position: relative; width: 100%; max-width: 440px; aspect-ratio: 1 / 1; }
+  .win-ts canvas, .win-sc canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+  .win-ts .tooltip, .win-sc .tooltip { transform: none; }
+  details.win-data { margin-top: 1.2rem; }
+  details.win-data summary { cursor: pointer; font-weight: 600; }
+  .data-scroll { max-height: 380px; overflow: auto; margin-top: .6rem; border: 1px solid var(--rule); border-radius: 6px; }
+  table.epochs { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  table.epochs th, table.epochs td { padding: .3rem .7rem; text-align: right; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  table.epochs th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500; }
+  table.epochs th:nth-child(-n+2), table.epochs td:nth-child(-n+2) { text-align: left; }
   table.wstats th, table.wstats td { text-align: right; padding: .45rem .7rem; border-bottom: 1px solid var(--rule); white-space: nowrap; }
   table.wstats th:first-child, table.wstats td:first-child { text-align: left; }
   table.wstats thead th { font-size: .82rem; color: var(--muted); font-weight: 500; }
@@ -227,12 +245,57 @@
           </div>
           <p class="win-msg" id="winMsg"></p>
           <div class="table-scroll">
-            <table class="wstats" id="winTable" hidden>
-              <thead><tr><th>Component</th><th>Average (m)</th><th>Std. dev. (mm)</th><th>2 × std. dev. (mm)</th><th>Minimum (m)</th><th>Maximum (m)</th><th>Range (mm)</th></tr></thead>
+            <table class="wstats" id="winTable">
+              <thead>
+                <tr class="grp"><th></th><th colspan="4" class="gw">Selected window</th><th colspan="3">Whole upload</th><th></th></tr>
+                <tr><th>Component</th><th class="gw">Average (m)</th><th class="gw">Std. dev. (mm)</th><th class="gw">2 × std. dev. (mm)</th><th class="gw">Range (mm)</th><th>Average (m)</th><th>Std. dev. (mm)</th><th>2 × std. dev. (mm)</th><th>Window − whole average (mm)</th></tr>
+              </thead>
               <tbody id="winBody"></tbody>
             </table>
           </div>
           <p class="win-msg" id="winFoot"></p>
+
+          <div class="win-view" id="winView" hidden>
+            <h4>Selected data</h4>
+            <p class="win-msg" style="margin:0 0 .7rem">The time series shows the window's own average and ±σ lines, with the whole-upload average for comparison. The scatter is centered on the whole-upload average, so it shows where this window sits relative to it.</p>
+            <div class="controls">
+              <div class="seg" role="group" aria-label="Component" id="winCompSeg">
+                <button type="button" data-comp="n" aria-pressed="true">Northing</button>
+                <button type="button" data-comp="e" aria-pressed="false">Easting</button>
+                <button type="button" data-comp="u" aria-pressed="false">Elevation</button>
+              </div>
+            </div>
+            <div class="win-grid">
+              <div>
+                <div class="legend">
+                  <span style="color:var(--day)"><i class="sw"></i>Observations</span>
+                  <span><i class="sw mean"></i>Window average</span>
+                  <span><i class="sw s1"></i>Window ±1σ</span>
+                  <span><i class="sw s2"></i>Window ±2σ</span>
+                  <span style="color:var(--brass)"><i class="sw"></i>Whole-upload average</span>
+                </div>
+                <div class="win-ts" id="winTsWrap"><canvas id="winTs"></canvas><div class="tooltip" id="winTsTip"></div></div>
+              </div>
+              <div>
+                <div class="legend">
+                  <span class="cbar"><span>Window start</span><i></i><span>end</span></span>
+                  <span><i class="dot" style="border-color:var(--drms1)"></i>Window DRMS</span>
+                  <span><i class="dot" style="border-color:var(--drms2)"></i>Window 2DRMS</span>
+                  <span>✕ Window average</span>
+                  <span><i class="dot" style="background:var(--brass);border-color:var(--brass)"></i>Whole-upload average</span>
+                </div>
+                <div class="win-sc" id="winScWrap"><canvas id="winSc"></canvas><div class="tooltip" id="winScTip"></div></div>
+              </div>
+            </div>
+            <details class="win-data">
+              <summary id="winDataSummary">Show the data</summary>
+              <div class="controls" style="margin-top:.6rem"><button type="button" id="winCsv">Download the window's data (CSV)</button></div>
+              <div class="data-scroll">
+                <table class="epochs"><thead><tr><th>Point</th><th>Time</th><th>Northing (m)</th><th>Easting (m)</th><th>Elevation (m)</th></tr></thead><tbody id="winRows"></tbody></table>
+              </div>
+              <p class="win-msg" id="winRowsNote"></p>
+            </details>
+          </div>
         </section>
 
         <section class="plot">
@@ -331,6 +394,12 @@
   const fmtValue = v => v.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   const fmtResidual = v => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(4)}`;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const VIRIDIS_STOPS = [[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[109,205,89],[180,222,44],[253,231,37]];
+  const viridisColor = f => {
+    const x = Math.max(0, Math.min(1, f)) * (VIRIDIS_STOPS.length - 1), i = Math.min(VIRIDIS_STOPS.length - 2, Math.floor(x)), t = x - i;
+    const a = VIRIDIS_STOPS[i], b = VIRIDIS_STOPS[i + 1];
+    return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
+  };
   const f3 = v => { const t = v.toFixed(3); return t === "-0.000" ? "0.000" : t; };
 
   async function getJSON(url) {
@@ -721,22 +790,20 @@
 
   // ========================= Time window statistics ===========================
   const Win = (() => {
-    const from = $("winFrom"), to = $("winTo"), msg = $("winMsg"), foot = $("winFoot"), table = $("winTable"), body = $("winBody");
-    let lastText = "";
+    const from = $("winFrom"), to = $("winTo"), msg = $("winMsg"), foot = $("winFoot"), body = $("winBody");
+    const tsC = $("winTs"), tsWrap = $("winTsWrap"), tsTip = $("winTsTip");
+    const scC = $("winSc"), scWrap = $("winScWrap"), scTip = $("winScTip");
+    let lastText = "", whole = null, sel = null, wcomp = "n", tsGeo = null, scGeo = null;
     const pad2 = n => String(n).padStart(2, "0");
     const toInput = ms => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; };
     const fromInput = v => v ? parseLocal(v.length === 16 ? v + ":00" : v).getTime() : NaN;
     const timeStr = ms => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+    const clock = ms => new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+    const baseMm = c => Math.round(cur.data.base_m[c] * 1000);
+    const absTxt = (c, mm, dec = 3) => ((baseMm(c) + mm) / 1000).toFixed(dec);
+    const sgn2 = v => (v > 0.005 ? "+" : "") + v.toFixed(2);
 
-    function load() {
-      const d = cur.data, endMs = cur.startMs + d.t[d.t.length - 1] * 1000;
-      from.min = to.min = toInput(cur.startMs); from.max = to.max = toInput(endMs);
-      from.value = toInput(cur.startMs); to.value = toInput(Math.min(endMs, cur.startMs + 5 * 60000));
-      table.hidden = true; msg.textContent = "Choose a time window and click Calculate."; msg.className = "win-msg";
-      foot.textContent = ""; $("winCopy").disabled = true;
-    }
-
-    function stats(arr) {   // arr of integer mm offsets
+    function stats(arr) {   // integer mm offsets
       const n = arr.length;
       let sum = 0, mn = Infinity, mx = -Infinity;
       for (const v of arr) { sum += v; if (v < mn) mn = v; if (v > mx) mx = v; }
@@ -745,54 +812,272 @@
       return { mean, sd: n > 1 ? Math.sqrt(ss / (n - 1)) : 0, min: mn, max: mx };
     }
 
+    function load() {
+      const d = cur.data, endMs = cur.startMs + d.t[d.t.length - 1] * 1000;
+      from.min = to.min = toInput(cur.startMs); from.max = to.max = toInput(endMs);
+      from.value = toInput(cur.startMs); to.value = toInput(Math.min(endMs, cur.startMs + 5 * 60000));
+      whole = {};
+      for (const c of ["n", "e", "u"]) whole[c] = stats(d[COMP[c].key]);
+      whole.drms = Math.hypot(whole.n.sd, whole.e.sd);
+      sel = null;
+      msg.className = "win-msg"; msg.textContent = "Choose a time window and click Calculate. The whole-upload values are shown for comparison.";
+      $("winCopy").disabled = true; $("winView").hidden = true;
+      renderTable();
+    }
+
+    function renderTable() {
+      body.textContent = "";
+      const rows = [];
+      for (const c of ["n", "e", "u"]) {
+        const w = sel && sel.st[c], W = whole[c];
+        rows.push([COMP[c].name,
+          w ? absTxt(c, w.mean, 4) : "", w ? w.sd.toFixed(2) : "", w ? (2 * w.sd).toFixed(2) : "", w ? (w.max - w.min).toFixed(0) : "",
+          absTxt(c, W.mean, 4), W.sd.toFixed(2), (2 * W.sd).toFixed(2), w ? sgn2(w.mean - W.mean) : ""]);
+      }
+      rows.push(["Horizontal (DRMS)", "", sel ? sel.drms.toFixed(2) : "", sel ? (2 * sel.drms).toFixed(2) : "", "",
+        "", whole.drms.toFixed(2), (2 * whole.drms).toFixed(2),
+        sel ? `${Math.hypot(sel.st.n.mean - whole.n.mean, sel.st.e.mean - whole.e.mean).toFixed(2)} (distance)` : ""]);
+      for (const r of rows) {
+        const tr = document.createElement("tr");
+        r.forEach((v, j) => {
+          const td = document.createElement("td");
+          td.textContent = v || (j ? "–" : "");
+          if (j >= 1 && j <= 4) td.className = "gw";
+          if (j === 2 || j === 3 || j === 6 || j === 7) td.classList.add("em");
+          if (j === 8) td.classList.add("diff");
+          tr.append(td);
+        });
+        body.append(tr);
+      }
+      foot.textContent = "Standard deviations are sample standard deviations (n − 1). Horizontal DRMS is √(σN² + σE²), and 2DRMS is twice that. The last column is the window average minus the whole-upload average; for Horizontal it is the distance between the two average positions.";
+      return rows;
+    }
+
     function calculate() {
       if (!cur) return;
       const a = fromInput(from.value), b = fromInput(to.value);
-      msg.className = "win-msg"; table.hidden = true; foot.textContent = ""; $("winCopy").disabled = true;
-      if (isNaN(a) || isNaN(b)) { msg.className = "win-msg warn"; msg.textContent = "Enter both a start and an end time."; return; }
-      if (b <= a) { msg.className = "win-msg warn"; msg.textContent = "The end time must be after the start time."; return; }
+      const fail = t => { msg.className = "win-msg warn"; msg.textContent = t; sel = null; renderTable(); $("winView").hidden = true; $("winCopy").disabled = true; };
+      if (isNaN(a) || isNaN(b)) return fail("Enter both a start and an end time.");
+      if (b <= a) return fail("The end time must be after the start time.");
       const d = cur.data, idx = [];
       for (let i = 0; i < d.t.length; i++) {
         const ms = cur.startMs + d.t[i] * 1000;
         if (ms >= a && ms <= b) idx.push(i);
       }
-      if (idx.length < 2) { msg.className = "win-msg warn"; msg.textContent = `Only ${idx.length} epoch${idx.length === 1 ? "" : "s"} in that window. Choose a longer window.`; return; }
-
-      const rows = [], text = [["Component", "Average (m)", "Std. dev. (mm)", "2 x std. dev. (mm)", "Minimum (m)", "Maximum (m)", "Range (mm)"]];
-      const sds = {};
-      for (const c of ["n", "e", "u"]) {
-        const baseMm = Math.round(d.base_m[c] * 1000);
-        const st = stats(idx.map(i => d[COMP[c].key][i]));
-        sds[c] = st.sd;
-        const r = [COMP[c].name, ((baseMm + st.mean) / 1000).toFixed(4), st.sd.toFixed(2), (2 * st.sd).toFixed(2),
-          ((baseMm + st.min) / 1000).toFixed(3), ((baseMm + st.max) / 1000).toFixed(3), (st.max - st.min).toFixed(0)];
-        rows.push(r); text.push(r);
-      }
-      const drms = Math.hypot(sds.n, sds.e);
-      const h = ["Horizontal (DRMS)", "", drms.toFixed(2), (2 * drms).toFixed(2), "", "", ""];
-      rows.push(h); text.push(["Horizontal (DRMS / 2DRMS)", "", h[2], h[3], "", "", ""]);
-
-      body.textContent = "";
-      rows.forEach((r, k) => {
-        const tr = document.createElement("tr");
-        r.forEach((v, j) => {
-          const td = document.createElement("td");
-          td.textContent = v || (j ? "–" : "");
-          if (j === 2 || j === 3) td.className = "em";
-          tr.append(td);
-        });
-        body.append(tr);
-      });
-      table.hidden = false;
+      if (idx.length < 2) return fail(`Only ${idx.length} epoch${idx.length === 1 ? "" : "s"} in that window. Choose a longer window.`);
+      const st = {};
+      for (const c of ["n", "e", "u"]) st[c] = stats(idx.map(i => d[COMP[c].key][i]));
+      sel = { a, b, idx, st, drms: Math.hypot(st.n.sd, st.e.sd) };
+      msg.className = "win-msg";
+      const rows = renderTable();
 
       const t0 = cur.startMs + d.t[idx[0]] * 1000, t1 = cur.startMs + d.t[idx[idx.length - 1]] * 1000;
       let gaps = 0; for (let k = 1; k < idx.length; k++) if (d.t[idx[k]] - d.t[idx[k - 1]] > cur.gap) gaps++;
-      const id0 = d.ids && d.ids[idx[0]] ? ` (point ${d.ids[idx[0]]})` : "", id1 = d.ids && d.ids[idx[idx.length - 1]] ? ` (point ${d.ids[idx[idx.length - 1]]})` : "";
-      msg.textContent = `${idx.length.toLocaleString()} epochs, from ${timeStr(t0)}${id0} to ${timeStr(t1)}${id1}.${gaps ? ` The window contains ${gaps} gap${gaps > 1 ? "s" : ""} in the record.` : ""}`;
-      foot.textContent = "Standard deviations are sample standard deviations (n − 1). Horizontal DRMS is √(σN² + σE²), and 2DRMS is twice that.";
-      lastText = [`Window: ${timeStr(a)} to ${timeStr(b)}`, `Epochs: ${idx.length}`, ...text.map(r => r.join("\t"))].join("\n");
+      const pid = i => d.ids && d.ids[i] ? ` (point ${d.ids[i]})` : "";
+      msg.textContent = `${idx.length.toLocaleString()} epochs, from ${timeStr(t0)}${pid(idx[0])} to ${timeStr(t1)}${pid(idx[idx.length - 1])}.${gaps ? ` The window contains ${gaps} gap${gaps > 1 ? "s" : ""} in the record.` : ""}`;
+
+      const head = ["Component", "Window average (m)", "Window std. dev. (mm)", "Window 2 x std. dev. (mm)", "Window range (mm)", "Whole average (m)", "Whole std. dev. (mm)", "Whole 2 x std. dev. (mm)", "Window - whole average (mm)"];
+      lastText = [`Window: ${timeStr(a)} to ${timeStr(b)}`, `Epochs: ${idx.length}`, head.join("\t"), ...rows.map(r => r.join("\t"))].join("\n");
       $("winCopy").disabled = false;
+      $("winView").hidden = false;
+      fillRows();
+      drawAll();
     }
+
+    // ---------- selected data: table + CSV ----------
+    const MAX_ROWS = 2000;
+    function fillRows() {
+      const d = cur.data, tb = $("winRows");
+      tb.textContent = "";
+      const frag = document.createDocumentFragment();
+      sel.idx.slice(0, MAX_ROWS).forEach(i => {
+        const tr = document.createElement("tr");
+        [d.ids && d.ids[i] ? d.ids[i] : i + 1, timeStr(cur.startMs + d.t[i] * 1000), absTxt("n", d.n_mm[i]), absTxt("e", d.e_mm[i]), absTxt("u", d.u_mm[i])]
+          .forEach(v => { const td = document.createElement("td"); td.textContent = v; tr.append(td); });
+        frag.append(tr);
+      });
+      tb.append(frag);
+      $("winDataSummary").textContent = `Show the data (${sel.idx.length.toLocaleString()} epochs)`;
+      $("winRowsNote").textContent = sel.idx.length > MAX_ROWS ? `Showing the first ${MAX_ROWS.toLocaleString()} epochs. The CSV download contains all of them.` : "";
+    }
+    $("winCsv").addEventListener("click", () => {
+      if (!sel) return;
+      const d = cur.data;
+      const lines = ["Point ID,Time,Northing,Easting,Elevation"];
+      for (const i of sel.idx) lines.push([d.ids && d.ids[i] ? d.ids[i] : i + 1, `"${timeStr(cur.startMs + d.t[i] * 1000)}"`, absTxt("n", d.n_mm[i]), absTxt("e", d.e_mm[i]), absTxt("u", d.u_mm[i])].join(","));
+      const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
+      const link = document.createElement("a");
+      const stamp = toInput(sel.a).replace(/[-:]/g, "").replace("T", "_");
+      link.href = URL.createObjectURL(blob); link.download = `${cur.summary.id}_window_${stamp}.csv`;
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+    });
+
+    // ---------- selected data: charts ----------
+    function prep(canvas, wrap) {
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      const w = wrap.clientWidth, h = wrap.clientHeight;
+      canvas.width = Math.round(w * ratio); canvas.height = Math.round(h * ratio);
+      const ctx = canvas.getContext("2d"); ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      return { ctx, w, h };
+    }
+    function nice(range) {
+      const raw = range / 6, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+      return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * mag;
+    }
+    const TIME_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600];
+
+    function drawTs(hover = -1) {
+      if (!sel || $("winView").hidden) return;
+      const { ctx, w, h } = prep(tsC, tsWrap);
+      const d = cur.data, c = wcomp, key = COMP[c].key, st = sel.st[c], W = whole[c];
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
+      const m = { l: 108, r: 16, t: 12, b: 58 };
+      const L = m.l, R = w - m.r, T = m.t, B = h - m.b;
+      const t0 = d.t[sel.idx[0]], t1 = d.t[sel.idx[sel.idx.length - 1]];
+      const span = Math.max(1, t1 - t0);
+      let lo = Math.min(st.min, st.mean - 2 * st.sd, W.mean), hi = Math.max(st.max, st.mean + 2 * st.sd, W.mean);
+      const padY = Math.max(1, (hi - lo) * .08); lo -= padY; hi += padY;
+      const X = t => L + (t - t0) / span * (R - L), Y = v => B - (v - lo) / (hi - lo) * (B - T);
+      tsGeo = { X, Y, L, R, T, B, t0, span };
+      ctx.clearRect(0, 0, w, h);
+      ctx.font = `12px ${font}`; ctx.textBaseline = "middle";
+      const ys = nice(hi - lo), dec = ys >= 1 ? 3 : 4;
+      for (let v = Math.ceil(lo / ys) * ys; v <= hi + 1e-9; v += ys) {
+        ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(R, Y(v)); ctx.stroke();
+        ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.fillText(((baseMm(c) + v) / 1000).toFixed(dec), L - 8, Y(v));
+      }
+      let step = TIME_STEPS.find(s => span / s <= 7) || 43200;
+      const startMs = cur.startMs;
+      const first = Math.ceil((startMs / 1000 + t0) / step) * step - startMs / 1000;
+      for (let t = first; t <= t1 + 1e-9; t += step) {
+        ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(X(t), T); ctx.lineTo(X(t), B); ctx.stroke();
+        const lab = new Date(startMs + t * 1000).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: step < 60 ? "2-digit" : undefined, hour12: true });
+        ctx.fillStyle = muted; ctx.textAlign = "center"; ctx.fillText(lab, X(t), B + 14);
+      }
+      ctx.strokeStyle = rule; ctx.strokeRect(L, T, R - L, B - T);
+      const hl = (v, col, dash, wd = 1.3) => { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = wd; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(R, Y(v)); ctx.stroke(); ctx.restore(); };
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, R - L, B - T); ctx.clip();
+      hl(W.mean, css("--brass"), [], 2);
+      hl(st.mean, ink, [13, 5, 3, 5, 3, 5], 1.5);
+      hl(st.mean + st.sd, css("--sig1"), [7, 5]); hl(st.mean - st.sd, css("--sig1"), [7, 5]);
+      hl(st.mean + 2 * st.sd, css("--sig2"), [2, 4]); hl(st.mean - 2 * st.sd, css("--sig2"), [2, 4]);
+      ctx.strokeStyle = css("--day"); ctx.lineWidth = 1.1; ctx.beginPath();
+      sel.idx.forEach((i, k) => {
+        const x = X(d.t[i]), y = Y(d[key][i]);
+        if (k === 0 || d.t[i] - d.t[sel.idx[k - 1]] > cur.gap) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      if (sel.idx.length <= 400) {
+        ctx.fillStyle = css("--day");
+        for (const i of sel.idx) { ctx.beginPath(); ctx.arc(X(d.t[i]), Y(d[key][i]), 2.4, 0, Math.PI * 2); ctx.fill(); }
+      }
+      if (hover >= 0) {
+        const x = X(d.t[hover]), y = Y(d[key][hover]);
+        ctx.strokeStyle = muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, B); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = css("--day"); ctx.strokeStyle = css("--panel"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+      ctx.fillStyle = ink; ctx.font = `600 13px ${font}`; ctx.textAlign = "center";
+      ctx.fillText("Time", (L + R) / 2, h - 14);
+      ctx.save(); ctx.translate(16, (T + B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(`${COMP[c].name} (m)`, 0, 0); ctx.restore();
+    }
+
+    function drawSc(hover = -1) {
+      if (!sel || $("winView").hidden) return;
+      const { ctx, w, h } = prep(scC, scWrap);
+      const d = cur.data, P = 66, TOP = 18, S = Math.min(w, h), plot = S - P - 18;
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
+      // offsets from whole-upload mean, in mm
+      const ex = i => d.e_mm[i] - whole.e.mean, ny = i => d.n_mm[i] - whole.n.mean;
+      const wx = sel.st.e.mean - whole.e.mean, wy = sel.st.n.mean - whole.n.mean;
+      let ext = 2 * sel.drms + Math.hypot(wx, wy);
+      for (const i of sel.idx) ext = Math.max(ext, Math.abs(ex(i)), Math.abs(ny(i)));
+      ext = Math.max(ext * 1.12, 2);
+      const k = plot / (2 * ext), cx = P + plot / 2, cy = 18 + plot / 2;
+      const X = v => cx + v * k, Y = v => cy - v * k;
+      scGeo = { X, Y, ex, ny, P, plot };
+      ctx.clearRect(0, 0, w, h);
+      const stp = nice(2 * ext * 6 / 4) / 1000, dec = stp >= 0.001 ? 3 : 4;
+      ctx.font = `11px ${font}`; ctx.fillStyle = muted;
+      for (let v = Math.ceil(-ext / 1000 / stp) * stp; v <= ext / 1000 + 1e-12; v += stp) {
+        const px = X(v * 1000), py = Y(v * 1000), lab = Math.abs(v) < 1e-12 ? (0).toFixed(dec) : v.toFixed(dec);
+        ctx.strokeStyle = grid; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(px, TOP); ctx.lineTo(px, TOP + plot); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(P, py); ctx.lineTo(P + plot, py); ctx.stroke();
+        ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText(lab, px, TOP + plot + 5);
+        ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(lab, P - 5, py);
+      }
+      ctx.strokeStyle = rule; ctx.lineWidth = 1.5; ctx.strokeRect(P, TOP, plot, plot);
+      ctx.save(); ctx.beginPath(); ctx.rect(P, TOP, plot, plot); ctx.clip();
+      ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(P, cy); ctx.lineTo(P + plot, cy); ctx.moveTo(cx, TOP); ctx.lineTo(cx, TOP + plot); ctx.stroke();
+      const n = sel.idx.length;
+      sel.idx.forEach((i, j) => {
+        ctx.fillStyle = viridisColor(n > 1 ? j / (n - 1) : 0); ctx.globalAlpha = .75;
+        ctx.beginPath(); ctx.arc(X(ex(i)), Y(ny(i)), 3, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      [[sel.drms, css("--drms1")], [2 * sel.drms, css("--drms2")]].forEach(([r, col]) => {
+        ctx.beginPath(); ctx.arc(X(wx), Y(wy), r * k, 0, Math.PI * 2);
+        ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]);
+      });
+      ctx.fillStyle = css("--brass"); ctx.beginPath(); ctx.arc(cx, cy, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = ink; ctx.lineWidth = 2.2; const q = 6;
+      ctx.beginPath(); ctx.moveTo(X(wx) - q, Y(wy) - q); ctx.lineTo(X(wx) + q, Y(wy) + q); ctx.moveTo(X(wx) + q, Y(wy) - q); ctx.lineTo(X(wx) - q, Y(wy) + q); ctx.stroke();
+      if (hover >= 0) {
+        ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(ex(hover)), Y(ny(hover)), 6, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+      ctx.fillStyle = ink; ctx.font = `12px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillText("Easting from whole-upload average (m)", P + plot / 2, TOP + plot + 40);
+      ctx.save(); ctx.translate(14, TOP + plot / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("Northing from whole-upload average (m)", 0, 0); ctx.restore();
+    }
+
+    const drawAll = () => { drawTs(); drawSc(); };
+    const tipHtml = i => {
+      const d = cur.data;
+      const pid = d.ids && d.ids[i] ? `Point ${d.ids[i]}` : `Epoch ${i + 1}`;
+      return `<strong>${pid}</strong>${clock(cur.startMs + d.t[i] * 1000)}<br>Northing: <b>${absTxt("n", d.n_mm[i])} m</b><br>Easting: <b>${absTxt("e", d.e_mm[i])} m</b><br>Elevation: <b>${absTxt("u", d.u_mm[i])} m</b>`;
+    };
+    const placeTip = (tip, wrap, x, y) => {
+      tip.style.left = `${Math.min(x + 12, wrap.clientWidth - 200)}px`;
+      tip.style.top = `${clamp(y - 20, 0, wrap.clientHeight - 110)}px`;
+      tip.style.opacity = 1;
+    };
+
+    tsC.addEventListener("mousemove", ev => {
+      if (!sel || !tsGeo) return;
+      const r = tsC.getBoundingClientRect(), mx = ev.clientX - r.left;
+      if (mx < tsGeo.L || mx > tsGeo.R) { tsTip.style.opacity = 0; drawTs(); return; }
+      const t = tsGeo.t0 + (mx - tsGeo.L) / (tsGeo.R - tsGeo.L) * tsGeo.span;
+      let best = sel.idx[0];
+      for (const i of sel.idx) if (Math.abs(cur.data.t[i] - t) < Math.abs(cur.data.t[best] - t)) best = i;
+      drawTs(best);
+      tsTip.innerHTML = tipHtml(best);
+      placeTip(tsTip, tsWrap, tsGeo.X(cur.data.t[best]), tsGeo.Y(cur.data[COMP[wcomp].key][best]));
+    });
+    tsC.addEventListener("mouseleave", () => { tsTip.style.opacity = 0; drawTs(); });
+    scC.addEventListener("mousemove", ev => {
+      if (!sel || !scGeo) return;
+      const r = scC.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      let best = -1, bd = 144;
+      for (const i of sel.idx) {
+        const d2 = (scGeo.X(scGeo.ex(i)) - mx) ** 2 + (scGeo.Y(scGeo.ny(i)) - my) ** 2;
+        if (d2 < bd) { bd = d2; best = i; }
+      }
+      drawSc(best);
+      if (best < 0) { scTip.style.opacity = 0; return; }
+      scTip.innerHTML = tipHtml(best);
+      placeTip(scTip, scWrap, mx, my);
+    });
+    scC.addEventListener("mouseleave", () => { scTip.style.opacity = 0; drawSc(); });
+    new ResizeObserver(() => drawTs()).observe(tsWrap);
+    new ResizeObserver(() => drawSc()).observe(scWrap);
+    document.querySelectorAll("#winCompSeg button").forEach(b => b.addEventListener("click", () => {
+      wcomp = b.dataset.comp;
+      document.querySelectorAll("#winCompSeg button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+      drawTs();
+    }));
 
     $("winCalc").addEventListener("click", calculate);
     [from, to].forEach(el => el.addEventListener("keydown", e => { if (e.key === "Enter") calculate(); }));
@@ -801,14 +1086,14 @@
       if (!w) { msg.className = "win-msg warn"; msg.textContent = "The overlay view shows two time windows at once. Switch the chart to 7 AM–7 PM, 7 PM–7 AM, or Sequential first."; return; }
       from.value = toInput(Math.round(w.a / 1000) * 1000); to.value = toInput(Math.round(w.b / 1000) * 1000);
       calculate();
-      $("windowCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      $("windowCard").scrollIntoView({ behavior: "smooth", block: "start" });
     });
     $("winCopy").addEventListener("click", async () => {
       try { await navigator.clipboard.writeText(lastText); $("winCopy").textContent = "Copied"; }
       catch { $("winCopy").textContent = "Copy failed"; }
       setTimeout(() => { $("winCopy").textContent = "Copy results"; }, 1500);
     });
-    return { load };
+    return { load, redraw: drawAll };
   })();
 
   // ======================= Horizontal drift animation =========================
@@ -1200,7 +1485,7 @@
   // ============================== Wiring ======================================
   $("dateFilter").addEventListener("change", renderList);
   $("clearFilter").addEventListener("click", () => { $("dateFilter").value = ""; renderList(); });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); Drift.redraw(); } });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); Win.redraw(); Drift.redraw(); } });
 
   (async function init() {
     try {
