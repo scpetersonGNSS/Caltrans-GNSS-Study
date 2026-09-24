@@ -117,6 +117,18 @@
   .drift-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   .drift-wrap .tooltip { transform: none; }
 
+  .win-inputs { display: flex; flex-wrap: wrap; gap: .8rem 1.2rem; align-items: end; margin-bottom: .6rem; }
+  .win-inputs label { display: flex; flex-direction: column; font-size: .88rem; color: var(--muted); gap: .2rem; }
+  input[type="datetime-local"] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: .35rem .5rem; }
+  button.primary { background: var(--brass); color: #fff; border-color: var(--brass); }
+  .table-scroll { overflow-x: auto; margin-top: .6rem; }
+  table.wstats { border-collapse: collapse; width: 100%; min-width: 720px; font-size: .95rem; }
+  table.wstats th, table.wstats td { text-align: right; padding: .45rem .7rem; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  table.wstats th:first-child, table.wstats td:first-child { text-align: left; }
+  table.wstats thead th { font-size: .82rem; color: var(--muted); font-weight: 500; }
+  table.wstats td.em { font-weight: 600; }
+  .win-msg { font-size: .9rem; color: var(--muted); margin: .4rem 0 0; }
+  .win-msg.warn { color: var(--neg); }
   .empty { max-width: 60ch; padding: 2rem 0; }
   .empty h2 { font-family: var(--cond); font-weight: 600; }
   footer { color: var(--muted); font-size: .85rem; padding: 0 clamp(1rem, 3vw, 2rem) 2rem; max-width: 1500px; margin: 0 auto; }
@@ -201,6 +213,26 @@
             <div class="tooltip" id="tsTip" role="status" aria-live="polite"></div>
           </div>
           <p class="chart-note" id="tsNote"></p>
+        </section>
+
+        <section class="plot" id="windowCard">
+          <h3>Time window statistics</h3>
+          <p>Pick a start and end time within this upload to calculate the average, standard deviation, and 2 × standard deviation for that window. Both end times are included.</p>
+          <div class="win-inputs">
+            <label>From<input type="datetime-local" id="winFrom" step="1"></label>
+            <label>To<input type="datetime-local" id="winTo" step="1"></label>
+            <button type="button" class="primary" id="winCalc">Calculate</button>
+            <button type="button" id="winFromChart">Use the chart's current view</button>
+            <button type="button" id="winCopy" disabled>Copy results</button>
+          </div>
+          <p class="win-msg" id="winMsg"></p>
+          <div class="table-scroll">
+            <table class="wstats" id="winTable" hidden>
+              <thead><tr><th>Component</th><th>Average (m)</th><th>Std. dev. (mm)</th><th>2 × std. dev. (mm)</th><th>Minimum (m)</th><th>Maximum (m)</th><th>Range (mm)</th></tr></thead>
+              <tbody id="winBody"></tbody>
+            </table>
+          </div>
+          <p class="win-msg" id="winFoot"></p>
         </section>
 
         <section class="plot">
@@ -345,6 +377,7 @@
       history.replaceState(null, "", `#${id}`);
       renderSummary();
       TS.load();
+      Win.load();
       Drift.load();
       renderList();
     } catch (err) {
@@ -677,7 +710,105 @@
     }));
     $("cycleSel").addEventListener("change", e => { cycle = Number(e.target.value); build(); });
     new ResizeObserver(() => resize()).observe(shell);
-    return { load, redraw: draw };
+    // Absolute time range currently shown in the chart, or null for the overlay view.
+    function currentWindow() {
+      if (!DATA || period === "both") return null;
+      const base = period === "night" ? DATA.night.startMs : DATA.day.startMs;
+      return { a: base + viewStart * 1000, b: base + viewEnd * 1000 };
+    }
+    return { load, redraw: draw, currentWindow };
+  })();
+
+  // ========================= Time window statistics ===========================
+  const Win = (() => {
+    const from = $("winFrom"), to = $("winTo"), msg = $("winMsg"), foot = $("winFoot"), table = $("winTable"), body = $("winBody");
+    let lastText = "";
+    const pad2 = n => String(n).padStart(2, "0");
+    const toInput = ms => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; };
+    const fromInput = v => v ? parseLocal(v.length === 16 ? v + ":00" : v).getTime() : NaN;
+    const timeStr = ms => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+
+    function load() {
+      const d = cur.data, endMs = cur.startMs + d.t[d.t.length - 1] * 1000;
+      from.min = to.min = toInput(cur.startMs); from.max = to.max = toInput(endMs);
+      from.value = toInput(cur.startMs); to.value = toInput(Math.min(endMs, cur.startMs + 5 * 60000));
+      table.hidden = true; msg.textContent = "Choose a time window and click Calculate."; msg.className = "win-msg";
+      foot.textContent = ""; $("winCopy").disabled = true;
+    }
+
+    function stats(arr) {   // arr of integer mm offsets
+      const n = arr.length;
+      let sum = 0, mn = Infinity, mx = -Infinity;
+      for (const v of arr) { sum += v; if (v < mn) mn = v; if (v > mx) mx = v; }
+      const mean = sum / n;
+      let ss = 0; for (const v of arr) ss += (v - mean) ** 2;
+      return { mean, sd: n > 1 ? Math.sqrt(ss / (n - 1)) : 0, min: mn, max: mx };
+    }
+
+    function calculate() {
+      if (!cur) return;
+      const a = fromInput(from.value), b = fromInput(to.value);
+      msg.className = "win-msg"; table.hidden = true; foot.textContent = ""; $("winCopy").disabled = true;
+      if (isNaN(a) || isNaN(b)) { msg.className = "win-msg warn"; msg.textContent = "Enter both a start and an end time."; return; }
+      if (b <= a) { msg.className = "win-msg warn"; msg.textContent = "The end time must be after the start time."; return; }
+      const d = cur.data, idx = [];
+      for (let i = 0; i < d.t.length; i++) {
+        const ms = cur.startMs + d.t[i] * 1000;
+        if (ms >= a && ms <= b) idx.push(i);
+      }
+      if (idx.length < 2) { msg.className = "win-msg warn"; msg.textContent = `Only ${idx.length} epoch${idx.length === 1 ? "" : "s"} in that window. Choose a longer window.`; return; }
+
+      const rows = [], text = [["Component", "Average (m)", "Std. dev. (mm)", "2 x std. dev. (mm)", "Minimum (m)", "Maximum (m)", "Range (mm)"]];
+      const sds = {};
+      for (const c of ["n", "e", "u"]) {
+        const baseMm = Math.round(d.base_m[c] * 1000);
+        const st = stats(idx.map(i => d[COMP[c].key][i]));
+        sds[c] = st.sd;
+        const r = [COMP[c].name, ((baseMm + st.mean) / 1000).toFixed(4), st.sd.toFixed(2), (2 * st.sd).toFixed(2),
+          ((baseMm + st.min) / 1000).toFixed(3), ((baseMm + st.max) / 1000).toFixed(3), (st.max - st.min).toFixed(0)];
+        rows.push(r); text.push(r);
+      }
+      const drms = Math.hypot(sds.n, sds.e);
+      const h = ["Horizontal (DRMS)", "", drms.toFixed(2), (2 * drms).toFixed(2), "", "", ""];
+      rows.push(h); text.push(["Horizontal (DRMS / 2DRMS)", "", h[2], h[3], "", "", ""]);
+
+      body.textContent = "";
+      rows.forEach((r, k) => {
+        const tr = document.createElement("tr");
+        r.forEach((v, j) => {
+          const td = document.createElement("td");
+          td.textContent = v || (j ? "–" : "");
+          if (j === 2 || j === 3) td.className = "em";
+          tr.append(td);
+        });
+        body.append(tr);
+      });
+      table.hidden = false;
+
+      const t0 = cur.startMs + d.t[idx[0]] * 1000, t1 = cur.startMs + d.t[idx[idx.length - 1]] * 1000;
+      let gaps = 0; for (let k = 1; k < idx.length; k++) if (d.t[idx[k]] - d.t[idx[k - 1]] > cur.gap) gaps++;
+      const id0 = d.ids && d.ids[idx[0]] ? ` (point ${d.ids[idx[0]]})` : "", id1 = d.ids && d.ids[idx[idx.length - 1]] ? ` (point ${d.ids[idx[idx.length - 1]]})` : "";
+      msg.textContent = `${idx.length.toLocaleString()} epochs, from ${timeStr(t0)}${id0} to ${timeStr(t1)}${id1}.${gaps ? ` The window contains ${gaps} gap${gaps > 1 ? "s" : ""} in the record.` : ""}`;
+      foot.textContent = "Standard deviations are sample standard deviations (n − 1). Horizontal DRMS is √(σN² + σE²), and 2DRMS is twice that.";
+      lastText = [`Window: ${timeStr(a)} to ${timeStr(b)}`, `Epochs: ${idx.length}`, ...text.map(r => r.join("\t"))].join("\n");
+      $("winCopy").disabled = false;
+    }
+
+    $("winCalc").addEventListener("click", calculate);
+    [from, to].forEach(el => el.addEventListener("keydown", e => { if (e.key === "Enter") calculate(); }));
+    $("winFromChart").addEventListener("click", () => {
+      const w = TS.currentWindow();
+      if (!w) { msg.className = "win-msg warn"; msg.textContent = "The overlay view shows two time windows at once. Switch the chart to 7 AM–7 PM, 7 PM–7 AM, or Sequential first."; return; }
+      from.value = toInput(Math.round(w.a / 1000) * 1000); to.value = toInput(Math.round(w.b / 1000) * 1000);
+      calculate();
+      $("windowCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    $("winCopy").addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(lastText); $("winCopy").textContent = "Copied"; }
+      catch { $("winCopy").textContent = "Copy failed"; }
+      setTimeout(() => { $("winCopy").textContent = "Copy results"; }, 1500);
+    });
+    return { load };
   })();
 
   // ======================= Horizontal drift animation =========================
