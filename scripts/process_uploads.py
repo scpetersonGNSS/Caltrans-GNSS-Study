@@ -16,6 +16,7 @@ Run locally:   python scripts/process_uploads.py
 
 import csv
 import hashlib
+import io
 import json
 import math
 import shutil
@@ -66,15 +67,28 @@ def parse_time(text):
     raise ValueError(f"Unrecognized timestamp: {text!r}")
 
 
+def read_text(path):
+    """Read a text export in whatever encoding the collector used."""
+    raw = path.read_bytes()
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):       # UTF-16 with byte-order mark
+        return raw.decode("utf-16")
+    if raw.startswith(b"\xef\xbb\xbf"):                  # UTF-8 with byte-order mark
+        return raw[3:].decode("utf-8")
+    if len(raw) > 1 and raw[1:2] == b"\x00":             # UTF-16 LE without a mark
+        return raw.decode("utf-16-le")
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("cp1252", errors="replace")    # older Windows exports
+
+
 def read_observations(path):
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        sample = f.read(4096)
-        f.seek(0)
-        try:
-            dialect = csv.Sniffer().sniff(sample, delimiters=",;\t")
-        except csv.Error:
-            dialect = csv.excel
-        rows = list(csv.reader(f, dialect))
+    text = read_text(path)
+    try:
+        dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t")
+    except csv.Error:
+        dialect = csv.excel
+    rows = list(csv.reader(io.StringIO(text, newline=""), dialect))
 
     if not rows:
         raise ValueError("File is empty")
@@ -197,7 +211,7 @@ def main():
         data["id"] = summary["id"] = sid
         summary["sha256"] = digest
 
-        raw_name = f"{sid}_{path.name}"
+        raw_name = f"{sid}_{path.name.replace(' ', '_')}"
         summary["raw_file"] = f"data/raw/{raw_name}"
         (SESSIONS / f"{sid}.json").write_text(json.dumps(data, separators=(",", ":")))
         shutil.move(str(path), RAW / raw_name)
