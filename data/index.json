@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-01T23:40:33Z",
+  "updated": "2026-10-01T23:55:36Z",
   "sessions": [
     {
       "id": "20260926-082350",
@@ -24,7 +24,13 @@
       "drms_mm": 10.7,
       "uploaded": "2026-10-01T23:40:33Z",
       "sha256": "094803e688cf7603d9194245815359f03b86568e9ca580ad4a9ae2c0e432624c",
-      "raw_file": "data/raw/20260926-082350_2026-09-26_Range_GPS_Only.asc"
+      "raw_file": "data/raw/20260926-082350_2026-09-26_Range_GPS_Only.asc",
+      "site": "SJER",
+      "test": "G",
+      "test_number": 1,
+      "constellations": [
+        "GPS"
+      ]
     },
     {
       "id": "20260831-072247",
@@ -51,5 +57,76 @@
       "sha256": "e6d06bebecf1d05688644ecd07decad18245a227cb6b48b03613bf07b895da62",
       "raw_file": "data/raw/20260831-072247_All_Day.asc"
     }
-  ]
+  ],
+  "study": {
+    "sites": [
+      {
+        "code": "SJER",
+        "number": 1,
+        "name": "San Joaquin Experimental Range"
+      },
+      {
+        "code": "FRES",
+        "number": 2,
+        "name": "Fresno State"
+      },
+      {
+        "code": "ELK",
+        "number": 3,
+        "name": "Elkhorn"
+      }
+    ],
+    "tests": [
+      {
+        "code": "G",
+        "number": 1,
+        "constellations": [
+          "GPS"
+        ]
+      },
+      {
+        "code": "GREC",
+        "number": 2,
+        "constellations": [
+          "GPS",
+          "GLONASS",
+          "Galileo",
+          "BeiDou"
+        ]
+      },
+      {
+        "code": "GEC",
+        "number": 3,
+        "constellations": [
+          "GPS",
+          "Galileo",
+          "BeiDou"
+        ]
+      },
+      {
+        "code": "GRE",
+        "number": 4,
+        "constellations": [
+          "GPS",
+          "GLONASS",
+          "Galileo"
+        ]
+      },
+      {
+        "code": "GRC",
+        "number": 5,
+        "constellations": [
+          "GPS",
+          "GLONASS",
+          "BeiDou"
+        ]
+      }
+    ],
+    "constellations": {
+      "G": "GPS",
+      "R": "GLONASS",
+      "E": "Galileo",
+      "C": "BeiDou"
+    }
+  }
 }
