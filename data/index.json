@@ -1,6 +1,31 @@
 {
-  "updated": "2026-09-24T19:32:06Z",
+  "updated": "2026-10-01T23:40:33Z",
   "sessions": [
+    {
+      "id": "20260926-082350",
+      "source_file": "2026-09-26_Range_GPS_Only.asc",
+      "start": "2026-09-26T08:23:50",
+      "end": "2026-09-27T08:46:30",
+      "duration_h": 24.38,
+      "epochs": 87472,
+      "interval_s": 1,
+      "gaps": 5,
+      "skipped_rows": 0,
+      "mean_m": {
+        "n": 566648.17,
+        "e": 2066861.165,
+        "u": 356.811
+      },
+      "std_mm": {
+        "n": 8.4,
+        "e": 6.6,
+        "u": 19.4
+      },
+      "drms_mm": 10.7,
+      "uploaded": "2026-10-01T23:40:33Z",
+      "sha256": "094803e688cf7603d9194245815359f03b86568e9ca580ad4a9ae2c0e432624c",
+      "raw_file": "data/raw/20260926-082350_2026-09-26_Range_GPS_Only.asc"
+    },
     {
       "id": "20260831-072247",
       "source_file": "All Day.asc",
