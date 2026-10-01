@@ -7,9 +7,21 @@ Each uploaded file becomes its own session:
   data/raw/<session-id>_<name>      the original file, for download
   data/index.json                   list of sessions with summary statistics
 
+Every upload must be tagged with its test site and constellation test through
+its file name: the site code, then the test code, e.g.
+
+  SJER_G.asc       Site 1 (San Joaquin Experimental Range), GPS only
+  FRES_GREC.asc    Site 2 (Fresno State), GPS + GLONASS + Galileo + BeiDou
+  ELK_GRC.asc      Site 3 (Elkhorn), GPS + GLONASS + BeiDou
+
+Anything may come before or after the two codes (a date, a note), as long as
+the test code directly follows the site code. Letters within a test code may
+be in any order (GERC is read as GREC). A file without valid codes is not
+processed: the run fails and the file stays in uploads/ so it can be renamed.
+
 Uses only the Python standard library. Column names are auto-detected
 (Northing / Easting / Elevation / time), so exports with slightly different
-headers still work.
+headers still work. UTF-16 exports from the data collector are read directly.
 
 Run locally:   python scripts/process_uploads.py
 """
@@ -19,6 +31,7 @@ import hashlib
 import io
 import json
 import math
+import re
 import shutil
 import statistics
 import sys
@@ -32,6 +45,30 @@ RAW = ROOT / "data" / "raw"
 INDEX = ROOT / "data" / "index.json"
 
 ACCEPTED = {".asc", ".csv", ".txt"}
+
+# ---------------------------------------------------------------------------
+# Study design. Edit here to add or rename sites and tests.
+# ---------------------------------------------------------------------------
+
+# Site code used in file names -> site number and full name.
+SITES = {
+    "SJER": {"number": 1, "name": "San Joaquin Experimental Range"},
+    "FRES": {"number": 2, "name": "Fresno State"},
+    "ELK":  {"number": 3, "name": "Elkhorn"},
+}
+
+# Constellation letters.
+CONSTELLATIONS = {"G": "GPS", "R": "GLONASS", "E": "Galileo", "C": "BeiDou"}
+
+# The five tests run at every site, in order (test 1 first).
+TESTS = ["G", "GREC", "GEC", "GRE", "GRC"]
+
+# Sessions processed before tagging existed: session id -> (site, test).
+LEGACY_TAGS = {
+    "20260926-082350": ("SJER", "G"),
+}
+
+# ---------------------------------------------------------------------------
 
 # Timestamp formats seen in collector exports; the first one that parses wins.
 TIME_FORMATS = [
@@ -50,6 +87,78 @@ GAP_FACTOR = 3
 # automatically from their original file in data/raw/.
 FORMAT_VERSION = 2
 
+# Summary fields that describe the upload rather than its contents; they are
+# kept when a session is rebuilt.
+TAG_FIELDS = ("site", "test", "test_number", "constellations")
+KEEP_FIELDS = ("id", "source_file", "uploaded", "sha256", "raw_file") + TAG_FIELDS
+
+
+# ---------------------------------------------------------------------------
+# Site / test tags
+# ---------------------------------------------------------------------------
+
+def canonical_test(code):
+    """Return the test code matching these constellation letters, or None."""
+    letters = set(code)
+    if len(letters) != len(code) or not letters <= set(CONSTELLATIONS):
+        return None
+    for test in TESTS:
+        if set(test) == letters:
+            return test
+    return None
+
+
+def parse_tags(filename):
+    """Read (site, test) from a file name such as 'SJER_GREC.asc'."""
+    tokens = [t for t in re.split(r"[^A-Za-z0-9]+", Path(filename).stem.upper()) if t]
+    for i, token in enumerate(tokens):
+        if token in SITES:
+            test = canonical_test(tokens[i + 1]) if i + 1 < len(tokens) else None
+            if test:
+                return token, test
+            raise ValueError(
+                f"site code {token} found, but it is not followed by a valid test code. "
+                f"Tests are: {', '.join(TESTS)}. Example: {token}_GREC.asc")
+    raise ValueError(
+        "file name must include a site code followed by a test code, "
+        f"e.g. SJER_G.asc or FRES_GREC.asc. Sites are: {', '.join(SITES)}. "
+        f"Tests are: {', '.join(TESTS)}.")
+
+
+def tag_fields(site, test):
+    return {
+        "site": site,
+        "test": test,
+        "test_number": TESTS.index(test) + 1,
+        "constellations": [CONSTELLATIONS[c] for c in test],
+    }
+
+
+def study_metadata():
+    """Site and test definitions, written to index.json for the website."""
+    return {
+        "sites": [{"code": code, **info} for code, info in
+                  sorted(SITES.items(), key=lambda kv: kv[1]["number"])],
+        "tests": [{"code": t, "number": i + 1,
+                   "constellations": [CONSTELLATIONS[c] for c in t]}
+                  for i, t in enumerate(TESTS)],
+        "constellations": CONSTELLATIONS,
+    }
+
+
+def apply_legacy_tags(sessions):
+    changed = False
+    for s in sessions:
+        if "site" not in s and s["id"] in LEGACY_TAGS:
+            s.update(tag_fields(*LEGACY_TAGS[s["id"]]))
+            print(f"Tagged existing session {s['id']} as {s['site']} / {s['test']}")
+            changed = True
+    return changed
+
+
+# ---------------------------------------------------------------------------
+# Reading and summarizing observation files
+# ---------------------------------------------------------------------------
 
 def find_column(headers, *keywords):
     """Return the index of the first header containing any keyword (case-insensitive)."""
@@ -204,23 +313,33 @@ def refresh_outdated(sessions):
             continue
         data["id"] = s["id"]
         path.write_text(json.dumps(data, separators=(",", ":")))
-        keep = {k: s[k] for k in ("id", "source_file", "uploaded", "sha256", "raw_file") if k in s}
+        keep = {k: s[k] for k in KEEP_FIELDS if k in s}
         s.clear(); s.update(summary); s.update(keep)
         print(f"Refreshed session {s['id']} to format {FORMAT_VERSION}")
         changed = True
     return changed
 
 
+# ---------------------------------------------------------------------------
+
 def main():
     index = json.loads(INDEX.read_text()) if INDEX.exists() else {"sessions": []}
     sessions = index.get("sessions", [])
-    refreshed = refresh_outdated(sessions)
+    changed = refresh_outdated(sessions)
+    changed = apply_legacy_tags(sessions) or changed
+
+    meta = study_metadata()
+    if index.get("study") != meta:
+        index["study"] = meta
+        changed = True
+
     known_hashes = {s.get("sha256") for s in sessions}
     used_ids = {s["id"] for s in sessions}
 
+    UPLOADS.mkdir(exist_ok=True)
     uploads = sorted(p for p in UPLOADS.iterdir()
                      if p.is_file() and p.suffix.lower() in ACCEPTED)
-    if not uploads and not refreshed:
+    if not uploads and not changed:
         print("No new uploads.")
         return 0
 
@@ -232,6 +351,7 @@ def main():
             path.unlink()
             continue
         try:
+            site, test = parse_tags(path.name)
             data, summary = build_session(path)
         except ValueError as err:
             print(f"ERROR in {path.name}: {err}", file=sys.stderr)
@@ -244,6 +364,7 @@ def main():
             sid = f"{summary['id']}-{k}"; k += 1
         data["id"] = summary["id"] = sid
         summary["sha256"] = digest
+        summary.update(tag_fields(site, test))
 
         raw_name = f"{sid}_{path.name.replace(' ', '_')}"
         summary["raw_file"] = f"data/raw/{raw_name}"
@@ -252,8 +373,8 @@ def main():
 
         sessions.append(summary)
         used_ids.add(sid); known_hashes.add(digest)
-        print(f"Added session {sid} from {path.name}: {summary['epochs']} epochs, "
-              f"DRMS {summary['drms_mm']} mm")
+        print(f"Added session {sid} from {path.name} ({site} / {test}): "
+              f"{summary['epochs']} epochs, DRMS {summary['drms_mm']} mm")
 
     sessions.sort(key=lambda s: s["start"], reverse=True)
     index["sessions"] = sessions
