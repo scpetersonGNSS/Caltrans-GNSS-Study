@@ -22,6 +22,8 @@ processed: the run fails and the file stays in uploads/ so it can be renamed.
 Uses only the Python standard library. Column names are auto-detected
 (Northing / Easting / Elevation / time), so exports with slightly different
 headers still work. UTF-16 exports from the data collector are read directly.
+Any other numeric columns (PDOP, H. Precision, ...) are kept in the session
+file so the website can plot them; columns that are empty are skipped.
 
 Run locally:   python scripts/process_uploads.py
 """
@@ -85,7 +87,14 @@ GAP_FACTOR = 3
 
 # Bump when the session file layout changes; older sessions are rebuilt
 # automatically from their original file in data/raw/.
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3
+
+# Units for extra columns, by name as shown on the website. Columns not listed
+# are shown without a unit (PDOP, for example, has none).
+EXTRA_UNITS = {
+    "H. Precision": "m",
+    "V. Precision": "m",
+}
 
 # Summary fields that describe the upload rather than its contents; they are
 # kept when a session is rebuilt.
@@ -170,6 +179,18 @@ def find_column(headers, *keywords):
     return None
 
 
+def clean_name(header):
+    """'GNSS Position Solution.PDOP' -> 'PDOP'; 'H. Precision' is left alone."""
+    header = header.strip()
+    m = re.match(r"[^.]*\.(?=\S)", header)
+    return header[m.end():].strip() if m else header
+
+
+def decimals(text):
+    text = text.strip()
+    return len(text) - text.index(".") - 1 if "." in text else 0
+
+
 def parse_time(text):
     text = text.strip()
     for fmt in TIME_FORMATS:
@@ -217,6 +238,10 @@ def read_observations(path):
     if missing:
         raise ValueError(f"Could not find column(s): {', '.join(missing)}. Headers were: {headers}")
 
+    core = {col_n, col_e, col_u, col_t, col_id}
+    extra_cols = [i for i in range(len(headers)) if i not in core and headers[i].strip()]
+    extra_dec = {i: 0 for i in extra_cols}
+
     obs = {}
     skipped = 0
     for row in rows[1:]:
@@ -229,11 +254,41 @@ def read_observations(path):
             skipped += 1
             continue
         pid = row[col_id].strip() if col_id is not None and col_id < len(row) else ""
-        obs[t] = (n, e, u, pid)   # duplicate timestamps: last one wins
+        extras = []
+        for i in extra_cols:
+            text = row[i].strip() if i < len(row) else ""
+            try:
+                value = float(text)
+                if not math.isfinite(value):
+                    raise ValueError
+                extra_dec[i] = max(extra_dec[i], decimals(text))
+            except ValueError:
+                value = None
+            extras.append(value)
+        obs[t] = (n, e, u, pid, extras)   # duplicate timestamps: last one wins
     if not obs:
         raise ValueError("No valid observation rows found")
     times = sorted(obs)
-    return times, [obs[t] for t in times], skipped
+    coords = [obs[t] for t in times]
+
+    # Keep extra columns that hold at least one number.
+    extra = {}
+    for k, i in enumerate(extra_cols):
+        values = [c[4][k] for c in coords]
+        if all(v is None for v in values):
+            continue
+        name = clean_name(headers[i])
+        if name in extra:
+            continue
+        dec = min(extra_dec[i], 6)
+        scale = 10 ** dec
+        extra[name] = {
+            "unit": EXTRA_UNITS.get(name, ""),
+            "dec": dec,
+            "scale": scale,
+            "v": [None if v is None else int(round(v * scale)) for v in values],
+        }
+    return times, coords, skipped, extra
 
 
 def std(values):
@@ -241,7 +296,7 @@ def std(values):
 
 
 def build_session(path):
-    times, coords, skipped = read_observations(path)
+    times, coords, skipped, extra = read_observations(path)
     N = [c[0] for c in coords]; E = [c[1] for c in coords]; U = [c[2] for c in coords]
     mean_n, mean_e, mean_u = statistics.fmean(N), statistics.fmean(E), statistics.fmean(U)
 
@@ -270,6 +325,7 @@ def build_session(path):
         "e_mm": [int(round((v - base["e"]) * 1000)) for v in E],
         "u_mm": [int(round((v - base["u"]) * 1000)) for v in U],
         "ids": [c[3] for c in coords],
+        "extra": extra,
         "format": FORMAT_VERSION,
     }
     summary = {
