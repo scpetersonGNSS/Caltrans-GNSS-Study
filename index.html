@@ -375,7 +375,7 @@
           <div class="drift-grid">
             <div class="a-head">
               <h4>Animation</h4>
-              <p class="sub">Played back over time with a 30-minute trail, recolored every 30 minutes. <span id="gaugeNote" hidden>The gauges beside the plot move up and down with PDOP and H. Precision at the current time; the dashed line on each is the upload's mean.</span></p>
+              <p class="sub">Played back over time with a 30-minute trail, recolored every 30 minutes. <span id="gaugeNote" hidden>The gauges beside the plot move up and down with PDOP and H. Precision at the current time; the dashed line on each is the upload's mean, and the solid H and L lines are its highest and lowest values.</span> While playing, the animation steps through the data every 20 seconds for smoother movement; when paused, it shows the exact epoch and its values.</p>
               <div class="controls">
                 <button type="button" id="playBtn">Play</button>
                 <label for="speedSel" class="note">Speed</label>
@@ -446,6 +446,7 @@
   const MIN_GAP_SECONDS = 30;      // lines break across gaps longer than this
   const TAIL_SECONDS = 1800;       // drift trail length
   const BUCKET_SECONDS = 1800;     // drift trail recolor interval
+  const PLAY_STEP_SECONDS = 20;    // while playing, the animation steps through the data this often
   // ---------------------------------------------------------------------------
 
   const $ = id => document.getElementById(id);
@@ -1622,6 +1623,8 @@
     // PDOP / H. Precision gauges beside the animation
     const gBox = $("gaugeBox"), gCanvas = $("gaugeCanvas"), gctx = gCanvas.getContext("2d");
     let gauges = [];
+    let samp = [], cb = null, playT = 0;
+    const sampFrom = i => { let lo = 0, hi = samp.length; while (lo < hi) { const m = (lo + hi) >> 1; if (samp[m] < i) lo = m + 1; else hi = m; } return lo; };
     let scale = 1, idx = 0, playing = false, lastTs = null;
     const cx = SIZE / 2, cy = SIZE / 2;
     const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light"
@@ -1647,6 +1650,12 @@
         dx[i] = (d.e_mm[i] - me) / 1000; dy[i] = (d.n_mm[i] - mn) / 1000; ep[i] = d.t[i];
         brk[i] = i > 0 && d.t[i] - d.t[i - 1] > cur.gap ? 1 : 0;
       }
+      // Epochs used while playing: one every PLAY_STEP_SECONDS, plus the last one.
+      samp = [];
+      for (let i = 0, next = -Infinity; i < N; i++) if (ep[i] >= next) { samp.push(i); next = ep[i] + PLAY_STEP_SECONDS; }
+      if (samp[samp.length - 1] !== N - 1) samp.push(N - 1);
+      cb = new Uint32Array(N);
+      for (let i = 1; i < N; i++) cb[i] = cb[i - 1] + brk[i];
       const total = ep[N - 1] || 1;
       shade = new Uint8Array(N);
       for (let i = 0; i < N; i++) shade[i] = Math.round(clamp(ep[i] / total, 0, 1) * (SHADES - 1));
@@ -1658,6 +1667,7 @@
         if (!n) { lo = 0; hi = 1; }
         const pad = Math.max((hi - lo) * .05, 1e-6);
         G.lo = lo - pad; G.hi = hi + pad; G.mean = n ? sum / n : null;
+        G.min = n ? lo : null; G.max = n ? hi : null;
       }
       gBox.hidden = !gauges.length; $("gaugeNote").hidden = !gauges.length;
       gBox.parentElement.classList.toggle("with-gauges", gauges.length > 0);
@@ -1940,18 +1950,28 @@
     }
     const pointLabel = i => ids && ids[i] ? `Point ${ids[i]}` : `Epoch ${i + 1}`;
 
-    function drawMarker(i) {
+    // coarse = true while playing: the trail uses one epoch every PLAY_STEP_SECONDS.
+    function drawMarker(i, coarse = false) {
       fctx.clearRect(0, 0, SIZE, SIZE);
       if (!N) return;
       const s0 = windowStart(i);
-      fctx.lineWidth = 1.6; fctx.beginPath(); fctx.moveTo(px[s0], py[s0]);
-      let col = bucketColor(ep[s0]); fctx.strokeStyle = col;
-      for (let k = s0 + 1; k <= i; k++) {
-        if (brk[k]) { fctx.stroke(); fctx.beginPath(); fctx.moveTo(px[k], py[k]); continue; }
-        const c = bucketColor(ep[k]);
-        if (c !== col) { fctx.stroke(); col = c; fctx.strokeStyle = col; fctx.beginPath(); fctx.moveTo(px[k - 1], py[k - 1]); }
-        fctx.lineTo(px[k], py[k]);
+      let seq = null;
+      if (coarse) {
+        seq = [];
+        for (let k = sampFrom(s0); k < samp.length && samp[k] < i; k++) seq.push(samp[k]);
+        seq.push(i);
       }
+      let prev = coarse ? seq[0] : s0;
+      fctx.lineWidth = 1.6; fctx.beginPath(); fctx.moveTo(px[prev], py[prev]);
+      let col = bucketColor(ep[prev]); fctx.strokeStyle = col;
+      const step = k => {
+        if (cb[k] - cb[prev] > 0) { fctx.stroke(); fctx.beginPath(); fctx.moveTo(px[k], py[k]); prev = k; return; }   // gap in the record
+        const c = bucketColor(ep[k]);
+        if (c !== col) { fctx.stroke(); col = c; fctx.strokeStyle = col; fctx.beginPath(); fctx.moveTo(px[prev], py[prev]); }
+        fctx.lineTo(px[k], py[k]); prev = k;
+      };
+      if (coarse) for (let j = 1; j < seq.length; j++) step(seq[j]);
+      else for (let k = s0 + 1; k <= i; k++) step(k);
       fctx.stroke();
       fctx.fillStyle = bucketColor(ep[i]); fctx.beginPath(); fctx.arc(px[i], py[i], 5.5, 0, 2 * Math.PI); fctx.fill();
       fctx.strokeStyle = css("--panel"); fctx.lineWidth = 1.5; fctx.stroke();
@@ -2002,6 +2022,18 @@
           gctx.fillStyle = col; gctx.beginPath();
           gctx.moveTo(tx + tw + 4, Y(v)); gctx.lineTo(tx + tw + 10, Y(v) - 5); gctx.lineTo(tx + tw + 10, Y(v) + 5); gctx.closePath(); gctx.fill();
         }
+        if (G.min !== null) {
+          // High and low lines across the track, labelled H and L, with the values listed below the gauge.
+          gctx.strokeStyle = ink; gctx.lineWidth = 1.5;
+          for (const [vv, lab, dy] of [[G.max, "H", -4], [G.min, "L", 10]]) {
+            gctx.beginPath(); gctx.moveTo(tx - 3, Y(vv)); gctx.lineTo(tx + tw + 3, Y(vv)); gctx.stroke();
+            gctx.fillStyle = ink; gctx.font = `600 9px ${font}`; gctx.textAlign = "center"; gctx.textBaseline = "alphabetic";
+            gctx.fillText(lab, tx + tw / 2, Y(vv) + dy);
+          }
+          gctx.fillStyle = muted; gctx.font = `10px ${font}`; gctx.textAlign = "center";
+          gctx.fillText(`High ${fmtNum(G.max, G.dec)}`, x0 + colW / 2, bot + 15);
+          gctx.fillText(`Low ${fmtNum(G.min, G.dec)}`, x0 + colW / 2, bot + 28);
+        }
         if (G.mean !== null) {
           gctx.strokeStyle = ink; gctx.lineWidth = 1.2; gctx.setLineDash([3, 2]);
           gctx.beginPath(); gctx.moveTo(tx - 2, Y(G.mean)); gctx.lineTo(tx + tw + 2, Y(G.mean)); gctx.stroke(); gctx.setLineDash([]);
@@ -2015,21 +2047,24 @@
       if (lastTs === null) lastTs = ts;
       const dt = ts - lastTs;
       if (dt > 16) {
-        // Advance by data time, then jump to the last epoch at or before it.
-        const target = ep[idx] + (dt / 1000) * FPS_STEP_BASE * SPEED_EPOCH_SECONDS * parseInt(speedSel.value, 10);
-        let lo = Math.min(N - 1, idx + 1), hi = N - 1;
-        while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (ep[mid] <= target) lo = mid; else hi = mid - 1; }
-        idx = lo; scrub.value = idx; drawMarker(idx); lastTs = ts;
-        if (idx >= N - 1) { stop(); return; }
+        // Advance by data time, then show the last 20-second step at or before it.
+        playT += (dt / 1000) * FPS_STEP_BASE * SPEED_EPOCH_SECONDS * parseInt(speedSel.value, 10);
+        lastTs = ts;
+        if (playT >= ep[N - 1]) { idx = N - 1; scrub.value = idx; stop(); return; }
+        let lo = 0, hi = samp.length - 1, m = -1;
+        while (lo <= hi) { const mid = (lo + hi) >> 1; if (ep[samp[mid]] <= playT) { m = mid; lo = mid + 1; } else hi = mid - 1; }
+        if (m >= 0 && samp[m] > idx) { idx = samp[m]; scrub.value = idx; drawMarker(idx, true); }
       }
       requestAnimationFrame(frame);
     }
-    function stop() { playing = false; playBtn.textContent = "Play"; }
+    // Stopping (pause, end, or scrub) redraws at full resolution with the exact epoch's values.
+    function stop() { const was = playing; playing = false; playBtn.textContent = "Play"; if (was && N) drawMarker(idx); }
     playBtn.addEventListener("click", () => {
       if (!N) return;
       if (idx >= N - 1) idx = 0;
-      playing = !playing; playBtn.textContent = playing ? "Pause" : "Play"; lastTs = null;
-      if (playing) requestAnimationFrame(frame);
+      if (playing) { stop(); return; }
+      playing = true; playBtn.textContent = "Pause"; lastTs = null; playT = ep[idx];
+      requestAnimationFrame(frame);
     });
     scrub.addEventListener("input", () => { stop(); idx = parseInt(scrub.value, 10); drawMarker(idx); });
 
