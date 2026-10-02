@@ -61,6 +61,20 @@
   .sessions .meta { display: block; font-size: .85rem; color: var(--muted); }
   .note { color: var(--muted); font-size: .92rem; }
 
+  .study { margin-bottom: 1.6rem; }
+  .study table { border-collapse: collapse; width: 100%; font-size: .85rem; background: var(--panel); }
+  .study th, .study td { border: 1px solid var(--rule); padding: 0; text-align: center; }
+  .study thead th { font-family: var(--cond); font-weight: 600; padding: .3rem .15rem; color: var(--muted); font-size: .82rem; line-height: 1.15; }
+  .study tbody th { text-align: left; padding: .3rem .45rem; font-weight: 600; white-space: nowrap; }
+  .study td button { width: 100%; border: 0; border-radius: 0; background: transparent; padding: .45rem 0; font-weight: 600; }
+  .study td button.has { background: var(--brass-soft); }
+  .study td button.none { color: var(--muted); font-weight: 400; }
+  .study td button[aria-pressed="true"] { background: var(--brass); color: #fff; opacity: 1; }
+  .study .note { font-size: .82rem; margin: .5rem 0 0; line-height: 1.4; }
+  .tag { display: inline-block; font-size: .78rem; font-weight: 600; padding: .05rem .4rem; border-radius: 4px; background: var(--brass-soft); color: var(--ink); margin-bottom: .2rem; }
+  .tag.untagged { background: var(--grid); color: var(--muted); }
+  .study-line { font-family: var(--cond); font-weight: 600; font-size: 1.25rem; margin: 0 0 .5rem; }
+
   .coord { margin: 0 0 .4rem; display: flex; flex-wrap: wrap; gap: .4rem 2.2rem; }
   .coord div { display: flex; flex-direction: column; }
   .coord span.lbl { font-size: .9rem; color: var(--muted); }
@@ -161,12 +175,19 @@
 
 <div class="layout">
   <aside>
+    <section class="study" id="studyBox" hidden>
+      <h2 id="studyTitle">Study progress</h2>
+      <table id="studyGrid"></table>
+      <p class="note" id="studyKey"></p>
+    </section>
+
     <h2>Uploads</h2>
     <div class="filter">
       <label for="dateFilter">Show uploads that include a date</label>
       <input type="date" id="dateFilter">
       <button type="button" id="clearFilter">Show all</button>
     </div>
+    <p class="note" id="cellNote" hidden></p>
     <ul class="sessions" id="sessionList"></ul>
     <p class="note" id="listNote" hidden></p>
   </aside>
@@ -174,7 +195,7 @@
   <main>
     <div id="emptyState" class="empty" hidden>
       <h2>No uploads yet</h2>
-      <p>Add a collector export to the <code>uploads</code> folder of this site's repository. It appears here a minute or two after it's committed.</p>
+      <p>Add a collector export to the <code>uploads</code> folder of this site's repository, named with its site and test codes (for example <code>SJER_G.asc</code>). It appears here a minute or two after it's committed.</p>
     </div>
     <div id="errorState" class="empty" hidden>
       <h2>Data could not be loaded</h2>
@@ -182,6 +203,7 @@
     </div>
 
     <div id="sessionView" hidden>
+      <p class="study-line" id="studyLine"></p>
       <div class="coord">
         <div><span class="lbl">Mean northing</span><span class="val" id="mN"></span></div>
         <div><span class="lbl">Mean easting</span><span class="val" id="mE"></span></div>
@@ -379,6 +401,8 @@
   const HALF = 12 * 3600, FULL = 24 * 3600;
   const COMP = { n: { name: "Northing", key: "n_mm" }, e: { name: "Easting", key: "e_mm" }, u: { name: "Elevation", key: "u_mm" } };
   let sessions = [];
+  let study = null;         // site and test definitions from index.json
+  let cell = null;          // { site, test } chosen in the progress grid, or null
   let cur = null;           // { summary, data, startMs, gap }
   const cache = new Map();
 
@@ -413,24 +437,93 @@
     $("sessionView").hidden = true;
   }
 
+  // =========================== Study design ===================================
+  const siteOf = code => study && study.sites.find(x => x.code === code);
+  const testOf = code => study && study.tests.find(x => x.code === code);
+  const tagLabel = s => s.site ? `${s.site} · Test ${s.test_number} · ${s.test}` : "Untagged";
+  function studyDescription(s) {
+    if (!s.site) return "Not tagged with a test site or constellation test";
+    const site = siteOf(s.site);
+    const where = site ? `Site ${site.number}: ${site.name}` : s.site;
+    return `${where} — Test ${s.test_number}: ${s.test} (${(s.constellations || []).join(" + ")})`;
+  }
+  const inCell = (s, c) => s.site === c.site && s.test === c.test;
+
+  function renderGrid() {
+    if (!study || !study.sites || !study.tests) return;
+    $("studyBox").hidden = false;
+    const tbl = $("studyGrid");
+    tbl.textContent = "";
+    const thead = document.createElement("thead"), hr = document.createElement("tr");
+    const corner = document.createElement("th"); corner.textContent = "Site"; hr.append(corner);
+    for (const t of study.tests) {
+      const th = document.createElement("th");
+      th.title = t.constellations.join(" + ");
+      th.append(`Test ${t.number}`, document.createElement("br"), t.code);
+      hr.append(th);
+    }
+    thead.append(hr); tbl.append(thead);
+    const tbody = document.createElement("tbody");
+    let done = 0;
+    for (const site of study.sites) {
+      const tr = document.createElement("tr");
+      const th = document.createElement("th"); th.textContent = site.code; th.title = `Site ${site.number}: ${site.name}`;
+      tr.append(th);
+      for (const t of study.tests) {
+        const c = { site: site.code, test: t.code };
+        const count = sessions.filter(s => inCell(s, c)).length;
+        if (count) done++;
+        const td = document.createElement("td"), b = document.createElement("button");
+        b.type = "button";
+        b.className = count ? "has" : "none";
+        b.textContent = count === 0 ? "–" : count === 1 ? "✓" : String(count);
+        b.disabled = !count;
+        b.setAttribute("aria-pressed", String(!!cell && inCell(c, cell)));
+        b.setAttribute("aria-label", `${site.name}, test ${t.number} (${t.code}): ${count} upload${count === 1 ? "" : "s"}`);
+        b.title = `${site.name} — Test ${t.number}: ${t.code} (${t.constellations.join(" + ")})`;
+        b.addEventListener("click", () => {
+          cell = cell && inCell(c, cell) ? null : c;
+          renderGrid(); renderList();
+          if (cell) {
+            const first = sessions.find(s => inCell(s, cell));
+            if (first) selectSession(first.id);
+          }
+        });
+        td.append(b); tr.append(td);
+      }
+      tbody.append(tr);
+    }
+    tbl.append(tbody);
+    $("studyTitle").textContent = `Study progress (${done} of ${study.sites.length * study.tests.length})`;
+    const sites = study.sites.map(s => `${s.code} = ${s.name}`).join(", ");
+    const cons = Object.entries(study.constellations || {}).map(([k, v]) => `${k} = ${v}`).join(", ");
+    $("studyKey").textContent = `${sites}. ${cons}. Click a filled cell to show only those uploads; click it again to show all.`;
+  }
+
   // =========================== Uploads list ===================================
   function renderList() {
     const day = $("dateFilter").value;
     const list = $("sessionList");
     list.textContent = "";
-    const shown = sessions.filter(s => !day || (dateOnly(s.start) <= day && day <= dateOnly(s.end)));
+    const shown = sessions.filter(s => (!day || (dateOnly(s.start) <= day && day <= dateOnly(s.end))) && (!cell || inCell(s, cell)));
+    $("cellNote").hidden = !cell;
+    if (cell) {
+      const site = siteOf(cell.site), test = testOf(cell.test);
+      $("cellNote").textContent = `Showing ${site ? site.name : cell.site}, test ${test ? test.number : ""} (${cell.test}) only.`;
+    }
     $("listNote").hidden = shown.length > 0;
-    $("listNote").textContent = day ? "No uploads include that date." : "";
+    $("listNote").textContent = day ? "No uploads include that date." : "No uploads match.";
     for (const s of shown) {
       const li = document.createElement("li");
       const b = document.createElement("button");
       b.type = "button";
       b.setAttribute("aria-current", cur && cur.summary.id === s.id ? "true" : "false");
+      const tag = document.createElement("span"); tag.className = s.site ? "tag" : "tag untagged"; tag.textContent = tagLabel(s);
       const when = document.createElement("span"); when.className = "when"; when.textContent = fmtNice(s.start);
       const meta = document.createElement("span"); meta.className = "meta";
       meta.textContent = `${s.duration_h} h, ${s.epochs.toLocaleString()} epochs, DRMS ${s.drms_mm} mm`;
       const file = document.createElement("span"); file.className = "meta"; file.textContent = s.source_file;
-      b.append(when, meta, file);
+      b.append(tag, when, meta, file);
       b.addEventListener("click", () => selectSession(s.id));
       li.append(b); list.append(li);
     }
@@ -458,6 +551,7 @@
     const s = cur.summary;
     $("errorState").hidden = true;
     $("sessionView").hidden = false;
+    $("studyLine").textContent = studyDescription(s);
     $("mN").innerHTML = `${m3(s.mean_m.n)}<small>m</small>`;
     $("mE").innerHTML = `${m3(s.mean_m.e)}<small>m</small>`;
     $("mU").innerHTML = `${m3(s.mean_m.u)}<small>m</small>`;
@@ -1114,10 +1208,18 @@
       const a = VIRIDIS[i], b = VIRIDIS[i + 1];
       return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
     };
+    // The all-positions scatter colors points from a fixed set of shades, so large
+    // uploads (1-second logging) redraw quickly when panning and zooming.
+    const SHADES = 128;
+    const SHADE_COLORS = Array.from({ length: SHADES }, (_, k) => viridis(k / (SHADES - 1)));
+    let shade = null;
     const scrub = $("scrub"), playBtn = $("playBtn"), speedSel = $("speedSel"), readout = $("driftReadout");
     const PAL_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#e87ba4", "#3b8f3b", "#6250d6"];
     const PAL_DARK = ["#3987e5", "#d95926", "#199e70", "#d55181", "#3fb03f", "#9085e9"];
     const FPS_STEP_BASE = 4;
+    // Playback speed is measured in data time, as if epochs were 5 seconds apart,
+    // so a given speed setting plays at the same pace whatever the logging rate.
+    const SPEED_EPOCH_SECONDS = 5;
     let N = 0, dx, dy, ep, brk, ids, px, py, hourly = [], hpx = [], drms = 0, drms2 = 0;
     let scale = 1, idx = 0, playing = false, lastTs = null;
     const cx = SIZE / 2, cy = SIZE / 2;
@@ -1144,6 +1246,9 @@
         dx[i] = (d.e_mm[i] - me) / 1000; dy[i] = (d.n_mm[i] - mn) / 1000; ep[i] = d.t[i];
         brk[i] = i > 0 && d.t[i] - d.t[i - 1] > cur.gap ? 1 : 0;
       }
+      const total = ep[N - 1] || 1;
+      shade = new Uint8Array(N);
+      for (let i = 0; i < N; i++) shade[i] = Math.round(clamp(ep[i] / total, 0, 1) * (SHADES - 1));
       ids = d.ids || null;
       drms = s.drms_mm / 1000; drms2 = 2 * drms;
       $("drmsLegend").textContent = `1 STD (DRMS ${s.drms_mm.toFixed(1)} mm)`;
@@ -1254,16 +1359,17 @@
     function drawStatic() {
       if (!N || !sView) return;
       drawFrame(sctx, lastExtent, sView);
-      const T = viewT(sView), k = PLOT / (2 * sView.half), total = ep[N - 1] || 1;
+      const T = viewT(sView), k = PLOT / (2 * sView.half);
       sPx = new Float32Array(N); sPy = new Float32Array(N);
       const r = clamp(1.4 * Math.sqrt(lastExtent / sView.half), 1.4, 4);
       sctx.save();
       sctx.beginPath(); sctx.rect(PAD, PAD, PLOT, PLOT); sctx.clip();
       sctx.globalAlpha = .6;
+      let lastShade = -1;
       for (let i = 0; i < N; i++) {
         const p = T(dx[i], dy[i]); sPx[i] = p[0]; sPy[i] = p[1];
         if (p[0] < PAD - 5 || p[0] > SIZE - PAD + 5 || p[1] < PAD - 5 || p[1] > SIZE - PAD + 5) continue;
-        sctx.fillStyle = viridis(ep[i] / total);
+        if (shade[i] !== lastShade) { lastShade = shade[i]; sctx.fillStyle = SHADE_COLORS[lastShade]; }
         sctx.fillRect(p[0] - r, p[1] - r, 2 * r, 2 * r);
       }
       sctx.globalAlpha = 1;
@@ -1447,8 +1553,11 @@
       if (lastTs === null) lastTs = ts;
       const dt = ts - lastTs;
       if (dt > 16) {
-        const adv = Math.max(1, Math.round((dt / 1000) * FPS_STEP_BASE * parseInt(speedSel.value, 10)));
-        idx = Math.min(N - 1, idx + adv); scrub.value = idx; drawMarker(idx); lastTs = ts;
+        // Advance by data time, then jump to the last epoch at or before it.
+        const target = ep[idx] + (dt / 1000) * FPS_STEP_BASE * SPEED_EPOCH_SECONDS * parseInt(speedSel.value, 10);
+        let lo = Math.min(N - 1, idx + 1), hi = N - 1;
+        while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (ep[mid] <= target) lo = mid; else hi = mid - 1; }
+        idx = lo; scrub.value = idx; drawMarker(idx); lastTs = ts;
         if (idx >= N - 1) { stop(); return; }
       }
       requestAnimationFrame(frame);
@@ -1484,18 +1593,20 @@
 
   // ============================== Wiring ======================================
   $("dateFilter").addEventListener("change", renderList);
-  $("clearFilter").addEventListener("click", () => { $("dateFilter").value = ""; renderList(); });
+  $("clearFilter").addEventListener("click", () => { $("dateFilter").value = ""; cell = null; renderGrid(); renderList(); });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); Win.redraw(); Drift.redraw(); } });
 
   (async function init() {
     try {
       const index = await getJSON("data/index.json");
       sessions = index.sessions || [];
+      study = index.study || null;
       if (index.updated) $("updated").textContent = `Last updated ${new Date(index.updated).toLocaleString()}`;
     } catch (err) {
       showError(`The list of uploads could not be loaded (${err.message}). If you opened this file directly from your computer, serve it with "python -m http.server" instead.`);
       return;
     }
+    renderGrid();
     renderList();
     if (!sessions.length) { $("emptyState").hidden = false; return; }
     const wanted = decodeURIComponent(location.hash.slice(1));
