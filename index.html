@@ -150,6 +150,12 @@
   .drift-wrap { position: relative; width: 100%; max-width: 680px; aspect-ratio: 1 / 1; }
   .drift-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   .drift-wrap .tooltip { transform: none; }
+  .anim-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; align-items: start; max-width: 860px; }
+  .anim-row.with-gauges { grid-template-columns: minmax(0, 1fr) 142px; }
+  .drift-grid:has(.with-gauges) { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+  @media (max-width: 1000px) { .drift-grid:has(.with-gauges) { grid-template-columns: minmax(0, 1fr); } }
+  .gauges { position: relative; align-self: stretch; }
+  .gauges canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 
   .win-inputs { display: flex; flex-wrap: wrap; gap: .8rem 1.2rem; align-items: end; margin-bottom: .6rem; }
   .win-inputs label { display: flex; flex-direction: column; font-size: .88rem; color: var(--muted); gap: .2rem; }
@@ -369,7 +375,7 @@
           <div class="drift-grid">
             <div class="a-head">
               <h4>Animation</h4>
-              <p class="sub">Played back over time with a 30-minute trail, recolored every 30 minutes.</p>
+              <p class="sub">Played back over time with a 30-minute trail, recolored every 30 minutes. <span id="gaugeNote" hidden>The gauges beside the plot move up and down with PDOP and H. Precision at the current time; the dashed line on each is the upload's mean.</span></p>
               <div class="controls">
                 <button type="button" id="playBtn">Play</button>
                 <label for="speedSel" class="note">Speed</label>
@@ -388,10 +394,13 @@
                 <span><i class="dot" style="border-color:var(--drms2)"></i><span id="drms2Legend">2 STD (2DRMS)</span></span>
               </div>
             </div>
-            <div class="drift-wrap a-wrap" id="driftWrap">
-              <canvas id="driftBg"></canvas>
-              <canvas id="driftFg"></canvas>
-              <div class="tooltip" id="driftTip"></div>
+            <div class="anim-row a-wrap">
+              <div class="drift-wrap" id="driftWrap">
+                <canvas id="driftBg"></canvas>
+                <canvas id="driftFg"></canvas>
+                <div class="tooltip" id="driftTip"></div>
+              </div>
+              <div class="gauges" id="gaugeBox" hidden><canvas id="gaugeCanvas" aria-label="PDOP and H. Precision at the current time"></canvas></div>
             </div>
 
             <div class="s-head">
@@ -1610,6 +1619,9 @@
     // so a given speed setting plays at the same pace whatever the logging rate.
     const SPEED_EPOCH_SECONDS = 5;
     let N = 0, dx, dy, ep, brk, ids, px, py, hourly = [], hpx = [], drms = 0, drms2 = 0;
+    // PDOP / H. Precision gauges beside the animation
+    const gBox = $("gaugeBox"), gCanvas = $("gaugeCanvas"), gctx = gCanvas.getContext("2d");
+    let gauges = [];
     let scale = 1, idx = 0, playing = false, lastTs = null;
     const cx = SIZE / 2, cy = SIZE / 2;
     const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light"
@@ -1639,6 +1651,16 @@
       shade = new Uint8Array(N);
       for (let i = 0; i < N; i++) shade[i] = Math.round(clamp(ep[i] / total, 0, 1) * (SHADES - 1));
       ids = d.ids || null;
+      gauges = [getSeries("x:PDOP"), getSeries("x:H. Precision")].filter(Boolean);
+      for (const G of gauges) {
+        let lo = Infinity, hi = -Infinity, sum = 0, n = 0;
+        for (const v of G.values) if (v !== null) { lo = Math.min(lo, v); hi = Math.max(hi, v); sum += v; n++; }
+        if (!n) { lo = 0; hi = 1; }
+        const pad = Math.max((hi - lo) * .05, 1e-6);
+        G.lo = lo - pad; G.hi = hi + pad; G.mean = n ? sum / n : null;
+      }
+      gBox.hidden = !gauges.length; $("gaugeNote").hidden = !gauges.length;
+      gBox.parentElement.classList.toggle("with-gauges", gauges.length > 0);
       drms = s.drms_mm / 1000; drms2 = 2 * drms;
       $("drmsLegend").textContent = `1 STD (DRMS ${s.drms_mm.toFixed(1)} mm)`;
       $("drms2Legend").textContent = `2 STD (2DRMS ${(2 * s.drms_mm).toFixed(1)} mm)`;
@@ -1934,8 +1956,59 @@
       fctx.fillStyle = bucketColor(ep[i]); fctx.beginPath(); fctx.arc(px[i], py[i], 5.5, 0, 2 * Math.PI); fctx.fill();
       fctx.strokeStyle = css("--panel"); fctx.lineWidth = 1.5; fctx.stroke();
       const r = Math.hypot(dx[i], dy[i]);
-      readout.textContent = `${pointLabel(i)}   ${timeText(i)}   dE = ${f3(dx[i])} m   dN = ${f3(dy[i])} m   r = ${f3(r)} m`;
+      const extra = gauges.map(G => `   ${G.name} = ${G.values[i] === null ? "no value" : fmtNum(G.values[i], G.dec) + unitSuffix(G)}`).join("");
+      readout.textContent = `${pointLabel(i)}   ${timeText(i)}   dE = ${f3(dx[i])} m   dN = ${f3(dy[i])} m   r = ${f3(r)} m${extra}`;
+      drawGauges(i);
     }
+
+    // One vertical gauge per value: the colored marker and fill move up and down
+    // with the value at the current epoch of the animation.
+    function drawGauges(i) {
+      if (!gauges.length) return;
+      const W = gBox.clientWidth, H = gBox.clientHeight;
+      if (!W || !H) return;
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      if (gCanvas.width !== Math.round(W * ratio) || gCanvas.height !== Math.round(H * ratio)) {
+        gCanvas.width = Math.round(W * ratio); gCanvas.height = Math.round(H * ratio);
+      }
+      gctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      gctx.clearRect(0, 0, W, H);
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
+      // Match the plot area of the drift chart (PAD at the top and bottom of a SIZE square).
+      const k = H / SIZE, top = PAD * k + 30, bot = H - PAD * k;
+      const colW = W / gauges.length, tw = 14;
+      gauges.forEach((G, g) => {
+        const col = css(G.color), x0 = g * colW, tx = x0 + colW - tw - 11;
+        const Y = v => bot - (v - G.lo) / (G.hi - G.lo) * (bot - top);
+        const v = G.values[i];
+        gctx.textAlign = "center"; gctx.textBaseline = "alphabetic";
+        gctx.fillStyle = col; gctx.font = `600 11px ${font}`; gctx.fillText(G.name, x0 + colW / 2, top - 20);
+        gctx.fillStyle = ink; gctx.font = `600 12px ${font}`;
+        gctx.fillText(v === null ? "–" : fmtNum(v, G.dec) + unitSuffix(G), x0 + colW / 2, top - 5);
+        gctx.fillStyle = grid; gctx.fillRect(tx, top, tw, bot - top);
+        gctx.strokeStyle = rule; gctx.lineWidth = 1; gctx.strokeRect(tx, top, tw, bot - top);
+        const raw = (G.hi - G.lo) / 5, mag = Math.pow(10, Math.floor(Math.log10(raw))), nn = raw / mag;
+        const step = (nn < 1.5 ? 1 : nn < 3.5 ? 2 : nn < 7.5 ? 5 : 10) * mag;
+        const dec = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+        gctx.font = `10px ${font}`; gctx.textAlign = "right"; gctx.textBaseline = "middle"; gctx.fillStyle = muted;
+        for (let t = Math.ceil(G.lo / step) * step; t <= G.hi + 1e-12; t += step) {
+          gctx.fillText(t.toFixed(dec), tx - 6, Y(t));
+          gctx.beginPath(); gctx.moveTo(tx - 3, Y(t)); gctx.lineTo(tx, Y(t)); gctx.strokeStyle = muted; gctx.stroke();
+        }
+        if (v !== null) {
+          gctx.globalAlpha = .35; gctx.fillStyle = col; gctx.fillRect(tx, Y(v), tw, bot - Y(v)); gctx.globalAlpha = 1;
+          gctx.strokeStyle = col; gctx.lineWidth = 3;
+          gctx.beginPath(); gctx.moveTo(tx - 4, Y(v)); gctx.lineTo(tx + tw + 4, Y(v)); gctx.stroke();
+          gctx.fillStyle = col; gctx.beginPath();
+          gctx.moveTo(tx + tw + 4, Y(v)); gctx.lineTo(tx + tw + 10, Y(v) - 5); gctx.lineTo(tx + tw + 10, Y(v) + 5); gctx.closePath(); gctx.fill();
+        }
+        if (G.mean !== null) {
+          gctx.strokeStyle = ink; gctx.lineWidth = 1.2; gctx.setLineDash([3, 2]);
+          gctx.beginPath(); gctx.moveTo(tx - 2, Y(G.mean)); gctx.lineTo(tx + tw + 2, Y(G.mean)); gctx.stroke(); gctx.setLineDash([]);
+        }
+      });
+    }
+    new ResizeObserver(() => { if (N) drawGauges(idx); }).observe(gBox);
 
     function frame(ts) {
       if (!playing) return;
