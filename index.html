@@ -14,7 +14,7 @@
     --day: #2563eb; --night: #c62828; --sig1: #f59e0b; --sig2: #7c3aed;
     --drms1: #c98500; --drms2: #a32d2d; --tip-bg: rgba(255,255,255,.97);
     --pos: #137333; --neg: #c5221f;
-    --c1: #2563eb; --c2: #d97706; --c3: #0f9d58;
+    --c1: #2563eb; --c2: #d97706; --c3: #0f9d58; --cE: #0f8a4f; --cU: #c2185b;
     --body: "Barlow", "Segoe UI", system-ui, sans-serif;
     --cond: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
     box-sizing: border-box;
@@ -28,7 +28,7 @@
       --day: #6f9bff; --night: #ef6b6b; --sig1: #fbbf24; --sig2: #a78bfa;
       --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
       --pos: #5bd08a; --neg: #ff8a80;
-      --c1: #6f9bff; --c2: #f5b041; --c3: #4cd38a;
+      --c1: #6f9bff; --c2: #f5b041; --c3: #4cd38a; --cE: #4cd38a; --cU: #f06292;
     }
   }
   :root[data-theme="dark"] {
@@ -37,7 +37,7 @@
     --day: #6f9bff; --night: #ef6b6b; --sig1: #fbbf24; --sig2: #a78bfa;
     --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
     --pos: #5bd08a; --neg: #ff8a80;
-    --c1: #6f9bff; --c2: #f5b041; --c3: #4cd38a;
+    --c1: #6f9bff; --c2: #f5b041; --c3: #4cd38a; --cE: #4cd38a; --cU: #f06292;
   }
   *, *::before, *::after { box-sizing: inherit; }
   html { scroll-padding-top: env(safe-area-inset-top, 0px); }
@@ -265,7 +265,7 @@
 
         <section class="plot" id="pairCard">
           <h3>Position and PDOP over time</h3>
-          <p>Each coordinate on its own chart (left axis, meters) with PDOP on the right axis, so you can see whether changes in position line up with changes in satellite geometry. The three charts share one time axis: zooming or panning one moves all three, and hovering shows the same moment on each. The values at the hovered time are shown above each chart. Use the buttons or scroll to zoom, drag to pan, and double-click to reset.</p>
+          <p>Each coordinate on its own chart (left axis, meters), with its mean and ±1σ and ±2σ lines, and PDOP on the right axis, so you can see whether changes in position line up with changes in satellite geometry. The three charts share one time axis: zooming or panning one moves all three, and hovering shows the same moment on each. The values at the hovered time are shown above each chart. Use the buttons or scroll to zoom, drag to pan, and double-click to reset.</p>
           <div class="controls">
             <label class="pick" id="pairWithLabel">Compare with <select id="pairWith"></select></label>
             <div class="seg" role="group" aria-label="Zoom">
@@ -276,15 +276,15 @@
           </div>
           <p class="win-msg" id="pairMissing" hidden>This upload has no PDOP column, so only the coordinates are plotted.</p>
           <div class="pair">
-            <div class="legend"><span style="color:var(--c1)"><i class="sw" style="border-top-width:3px"></i>Northing (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span></div>
+            <div class="legend"><span style="color:var(--c1)"><i class="sw" style="border-top-width:3px"></i>Northing (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_n">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_n">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_n">±2σ</span></span></div>
             <div class="pair-shell" id="pairShell_n"><canvas id="pair_n" aria-label="Northing and PDOP over time"></canvas><div class="pair-readout" id="pairTip_n" aria-live="polite"></div></div>
           </div>
           <div class="pair">
-            <div class="legend"><span style="color:var(--c1)"><i class="sw" style="border-top-width:3px"></i>Easting (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span></div>
+            <div class="legend"><span style="color:var(--cE)"><i class="sw" style="border-top-width:3px"></i>Easting (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_e">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_e">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_e">±2σ</span></span></div>
             <div class="pair-shell" id="pairShell_e"><canvas id="pair_e" aria-label="Easting and PDOP over time"></canvas><div class="pair-readout" id="pairTip_e" aria-live="polite"></div></div>
           </div>
           <div class="pair">
-            <div class="legend"><span style="color:var(--c1)"><i class="sw" style="border-top-width:3px"></i>Elevation (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span></div>
+            <div class="legend"><span style="color:var(--cU)"><i class="sw" style="border-top-width:3px"></i>Elevation (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_u">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_u">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_u">±2σ</span></span></div>
             <div class="pair-shell" id="pairShell_u"><canvas id="pair_u" aria-label="Elevation and PDOP over time"></canvas><div class="pair-readout" id="pairTip_u" aria-live="polite"></div></div>
           </div>
           <p class="chart-note" id="pairNote"></p>
@@ -951,9 +951,10 @@
   // Three charts (Northing, Easting, Elevation), each with PDOP (or another
   // extra column) on a second axis. They share one time view and hover.
   const PAIR = (() => {
+    const PAIR_COLORS = { n: "--c1", e: "--cE", u: "--cU" };
     const charts = ["n", "e", "u"].map(c => {
       const canvas = $(`pair_${c}`);
-      return { c, canvas, ctx: canvas.getContext("2d"), shell: $(`pairShell_${c}`), tip: $(`pairTip_${c}`) };
+      return { c, col: PAIR_COLORS[c], canvas, ctx: canvas.getContext("2d"), shell: $(`pairShell_${c}`), tip: $(`pairTip_${c}`) };
     });
     const withSel = $("pairWith");
     const MIN_SPAN = 60, AXIS_R = 72, READOUT_H = 48;
@@ -990,7 +991,15 @@
       for (const ch of charts) {
         ch.A = getSeries(ch.c); [ch.lo, ch.hi] = range(ch.A.values, 0.001);
         let sum = 0; for (const v of ch.A.mm) sum += v;
-        ch.meanMm = sum / ch.A.mm.length;
+        const n = ch.A.mm.length;
+        ch.meanMm = sum / n;
+        let ss = 0; for (const v of ch.A.mm) ss += (v - ch.meanMm) ** 2;
+        ch.sd = n > 1 ? Math.sqrt(ss / (n - 1)) / 1000 : 0;          // sample σ, meters
+        ch.mean = ch.A.values.reduce((a, v) => a + v, 0) / n;      // meters
+        ch.lo = Math.min(ch.lo, ch.mean - 2.2 * ch.sd); ch.hi = Math.max(ch.hi, ch.mean + 2.2 * ch.sd);
+        $(`pairMean_${ch.c}`).textContent = `Mean (${fmtNum(ch.mean, 3)} m)`;
+        $(`pairS1_${ch.c}`).textContent = `±1σ (${ch.sd.toFixed(4)} m)`;
+        $(`pairS2_${ch.c}`).textContent = `±2σ (${(2 * ch.sd).toFixed(4)} m)`;
       }
       $("pairNote").textContent = `Each chart's left axis is scaled to that coordinate's own range in this upload. Lines break across gaps longer than ${cur.gap} seconds.`;
       setRight();
@@ -1056,7 +1065,7 @@
       const w = shell.clientWidth, h = shell.clientHeight;
       if (!w) return;
       const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
-      const cA = css("--c1"), cB = css("--c2");
+      const cA = css(ch.col), cB = css("--c2");
       ctx.clearRect(0, 0, w, h);
       const L = 118, R = w - (B ? AXIS_R : 18), Tp = READOUT_H, Bt = h - 62;
       const X = t => L + (t - v0) / (v1 - v0) * (R - L);
@@ -1114,6 +1123,12 @@
       if (B) { ctx.strokeStyle = cB; ctx.globalAlpha = .75; drawLine(ctx, B.values, X, YB, R - L); }
       ctx.strokeStyle = cA; ctx.globalAlpha = .9; drawLine(ctx, A.values, X, YA, R - L);
       ctx.globalAlpha = 1;
+      // Mean and ±1σ / ±2σ reference lines for the coordinate, drawn over the data.
+      const ref = (v, color, dash, wd) => { ctx.strokeStyle = color; ctx.lineWidth = wd; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(L, YA(v)); ctx.lineTo(R, YA(v)); ctx.stroke(); };
+      ref(ch.mean, ink, [13, 5, 3, 5, 3, 5], 1.6);
+      ref(ch.mean + ch.sd, css("--sig1"), [7, 5], 1.4); ref(ch.mean - ch.sd, css("--sig1"), [7, 5], 1.4);
+      ref(ch.mean + 2 * ch.sd, css("--sig2"), [2, 4], 1.6); ref(ch.mean - 2 * ch.sd, css("--sig2"), [2, 4], 1.6);
+      ctx.setLineDash([]);
       if (hover >= 0) {
         const x = X(T[hover]);
         ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, Tp); ctx.lineTo(x, Bt); ctx.stroke(); ctx.setLineDash([]);
@@ -1151,7 +1166,7 @@
         const when = new Date(cur.startMs + T[i] * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
         const parts = [`<span><b>${when}</b></span>`];
         if (cur.data.ids && cur.data.ids[i]) parts.push(`<span>Point <b>${cur.data.ids[i]}</b></span>`);
-        parts.push(`<span>${sq("--c1")}${ch.A.name} ${val(ch.A)}</span>`);
+        parts.push(`<span>${sq(ch.col)}${ch.A.name} ${val(ch.A)}</span>`);
         parts.push(`<span>Residual <b>${res > 0.05 ? "+" : res < -0.05 ? "−" : ""}${Math.abs(res).toFixed(1)} mm</b></span>`);
         const isB = S => B && S && B.id === S.id;
         if (PDOP) parts.push(`<span>${isB(PDOP) ? sq("--c2") : ""}PDOP ${val(PDOP)}</span>`);
