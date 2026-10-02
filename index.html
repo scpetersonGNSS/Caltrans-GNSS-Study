@@ -375,7 +375,7 @@
           <div class="drift-grid">
             <div class="a-head">
               <h4>Animation</h4>
-              <p class="sub">Played back over time with a 30-minute trail, recolored every 30 minutes. <span id="gaugeNote" hidden>The gauges beside the plot move up and down with PDOP and H. Precision at the current time; the dashed line on each is the upload's mean, and the solid H and L lines are its highest and lowest values.</span> While playing, the animation steps through the data every 20 seconds for smoother movement; when paused, it shows the exact epoch and its values.</p>
+              <p class="sub">Played back over time with a 30-minute trail, recolored every 30 minutes. <span id="gaugeNote" hidden>The gauges beside the plot move up and down with PDOP and H. Precision at the current time; the dashed line on each is the upload's mean, and the solid H and L lines are its highest and lowest values.</span> While playing, the drift plot moves through every epoch, and the gauges update every 20 seconds to keep them steady; when paused, the gauges show the exact epoch's values.</p>
               <div class="controls">
                 <button type="button" id="playBtn">Play</button>
                 <label for="speedSel" class="note">Speed</label>
@@ -446,7 +446,7 @@
   const MIN_GAP_SECONDS = 30;      // lines break across gaps longer than this
   const TAIL_SECONDS = 1800;       // drift trail length
   const BUCKET_SECONDS = 1800;     // drift trail recolor interval
-  const PLAY_STEP_SECONDS = 20;    // while playing, the animation steps through the data this often
+  const PLAY_STEP_SECONDS = 20;    // while playing, the PDOP / H. Precision gauges update this often
   // ---------------------------------------------------------------------------
 
   const $ = id => document.getElementById(id);
@@ -1650,7 +1650,7 @@
         dx[i] = (d.e_mm[i] - me) / 1000; dy[i] = (d.n_mm[i] - mn) / 1000; ep[i] = d.t[i];
         brk[i] = i > 0 && d.t[i] - d.t[i - 1] > cur.gap ? 1 : 0;
       }
-      // Epochs used while playing: one every PLAY_STEP_SECONDS, plus the last one.
+      // Epochs the gauges use while playing: one every PLAY_STEP_SECONDS, plus the last one.
       samp = [];
       for (let i = 0, next = -Infinity; i < N; i++) if (ep[i] >= next) { samp.push(i); next = ep[i] + PLAY_STEP_SECONDS; }
       if (samp[samp.length - 1] !== N - 1) samp.push(N - 1);
@@ -1950,18 +1950,14 @@
     }
     const pointLabel = i => ids && ids[i] ? `Point ${ids[i]}` : `Epoch ${i + 1}`;
 
-    // coarse = true while playing: the trail uses one epoch every PLAY_STEP_SECONDS.
-    function drawMarker(i, coarse = false) {
+    // The trail always uses every epoch. playing = true: the gauges (and their values
+    // in the readout) use the latest 20-second step instead of the exact epoch.
+    function drawMarker(i, playing = false) {
       fctx.clearRect(0, 0, SIZE, SIZE);
       if (!N) return;
       const s0 = windowStart(i);
-      let seq = null;
-      if (coarse) {
-        seq = [];
-        for (let k = sampFrom(s0); k < samp.length && samp[k] < i; k++) seq.push(samp[k]);
-        seq.push(i);
-      }
-      let prev = coarse ? seq[0] : s0;
+      const gi = playing ? samp[Math.max(0, sampFrom(i + 1) - 1)] : i;
+      let prev = s0;
       fctx.lineWidth = 1.6; fctx.beginPath(); fctx.moveTo(px[prev], py[prev]);
       let col = bucketColor(ep[prev]); fctx.strokeStyle = col;
       const step = k => {
@@ -1970,15 +1966,14 @@
         if (c !== col) { fctx.stroke(); col = c; fctx.strokeStyle = col; fctx.beginPath(); fctx.moveTo(px[prev], py[prev]); }
         fctx.lineTo(px[k], py[k]); prev = k;
       };
-      if (coarse) for (let j = 1; j < seq.length; j++) step(seq[j]);
-      else for (let k = s0 + 1; k <= i; k++) step(k);
+      for (let k = s0 + 1; k <= i; k++) step(k);
       fctx.stroke();
       fctx.fillStyle = bucketColor(ep[i]); fctx.beginPath(); fctx.arc(px[i], py[i], 5.5, 0, 2 * Math.PI); fctx.fill();
       fctx.strokeStyle = css("--panel"); fctx.lineWidth = 1.5; fctx.stroke();
       const r = Math.hypot(dx[i], dy[i]);
-      const extra = gauges.map(G => `   ${G.name} = ${G.values[i] === null ? "no value" : fmtNum(G.values[i], G.dec) + unitSuffix(G)}`).join("");
+      const extra = gauges.map(G => `   ${G.name} = ${G.values[gi] === null ? "no value" : fmtNum(G.values[gi], G.dec) + unitSuffix(G)}`).join("");
       readout.textContent = `${pointLabel(i)}   ${timeText(i)}   dE = ${f3(dx[i])} m   dN = ${f3(dy[i])} m   r = ${f3(r)} m${extra}`;
-      drawGauges(i);
+      drawGauges(gi);
     }
 
     // One vertical gauge per value: the colored marker and fill move up and down
@@ -2047,13 +2042,13 @@
       if (lastTs === null) lastTs = ts;
       const dt = ts - lastTs;
       if (dt > 16) {
-        // Advance by data time, then show the last 20-second step at or before it.
+        // Advance by data time, then show the last epoch at or before it.
         playT += (dt / 1000) * FPS_STEP_BASE * SPEED_EPOCH_SECONDS * parseInt(speedSel.value, 10);
         lastTs = ts;
         if (playT >= ep[N - 1]) { idx = N - 1; scrub.value = idx; stop(); return; }
-        let lo = 0, hi = samp.length - 1, m = -1;
-        while (lo <= hi) { const mid = (lo + hi) >> 1; if (ep[samp[mid]] <= playT) { m = mid; lo = mid + 1; } else hi = mid - 1; }
-        if (m >= 0 && samp[m] > idx) { idx = samp[m]; scrub.value = idx; drawMarker(idx, true); }
+        let lo = idx, hi = N - 1;
+        while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (ep[mid] <= playT) lo = mid; else hi = mid - 1; }
+        if (lo > idx) { idx = lo; scrub.value = idx; drawMarker(idx, true); }
       }
       requestAnimationFrame(frame);
     }
