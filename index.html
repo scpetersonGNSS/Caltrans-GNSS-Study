@@ -145,6 +145,10 @@
   .readout { min-height: 2.9em; }
   #staticReadout { margin-top: .4rem; }
   #staticReadout b { font-weight: 600; }
+  /* Fixed-height readout so hovering never changes the page layout */
+  .fixed-strip { height: 4.4em; line-height: 1.35; min-height: 0; overflow: hidden; display: flex; flex-wrap: wrap; align-content: center; gap: .1rem 1.1rem; font-size: .85rem; color: var(--muted); }
+  .fixed-strip span { white-space: nowrap; }
+  .fixed-strip b { color: var(--ink); }
   .cbar { display: inline-flex; align-items: center; gap: .45rem; }
   .cbar i { display: inline-block; width: 90px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, #440154, #3b528b, #21918c, #5ec962, #fde725); }
   .drift-wrap { position: relative; width: 100%; max-width: 680px; aspect-ratio: 1 / 1; }
@@ -405,7 +409,7 @@
 
             <div class="s-head">
               <h4>All positions</h4>
-              <p class="sub">Every epoch in the upload at once. Hover or tap a point for its values. Use the buttons or scroll to zoom, drag to pan or to draw a zoom box, and double-click to reset.</p>
+              <p class="sub">Every epoch in the upload at once. Hover or tap a point to show its values above the plot (paused while the animation plays). Use the buttons or scroll to zoom, drag to pan or to draw a zoom box, and double-click to reset.</p>
               <div class="legend">
                 <span class="cbar"><span>Start</span><i></i><span id="cbarEnd">End</span></span>
                 <span><i class="dot" style="border-color:var(--drms1)"></i><span id="drmsLegendS">DRMS</span></span>
@@ -423,7 +427,7 @@
                 </div>
                 <button type="button" id="staticReset" disabled>Reset zoom</button>
               </div>
-              <div class="readout" id="staticReadout">Hover over a point to see its time, Northing, and Easting.</div>
+              <div class="readout fixed-strip" id="staticReadout" aria-live="polite"><span>Hover over a point to see its time, residuals, PDOP, and H. Precision.</span></div>
             </div>
             <div class="drift-wrap s-wrap" id="staticWrap">
               <canvas id="driftStatic"></canvas>
@@ -1724,7 +1728,7 @@
       baseN = d.base_m.n; baseE = d.base_m.e; nMM = d.n_mm; eMM = d.e_mm;
       lastExtent = halfExtent;
       sView = { cxm: 0, cym: 0, half: halfExtent }; sHover = -1; sDrag = null;
-      $("staticReadout").textContent = "Hover over a point to see its time, Northing, and Easting.";
+      showStaticPoint(-1);
       showHourly = true;
       drawBackground(halfExtent);
       drawStatic();
@@ -1893,20 +1897,19 @@
       return best;
     }
 
-    function showStaticPoint(i, ev) {
-      sHover = i; drawStaticOverlay();
+    // Values for the hovered point go in the fixed strip above the plot. Hover is
+    // ignored while the animation plays, so nothing on the page moves.
+    function showStaticPoint(i) {
+      if (playing) i = -1;
+      sHover = i; drawStaticOverlay(); stip.style.opacity = 0;
       const ro = $("staticReadout");
-      if (i < 0) { stip.style.opacity = 0; return; }
-      const [, , r] = canvasXY(ev);
-      let same = 0;
-      for (let j = 0; j < N; j++) if (nMM[j] === nMM[i] && eMM[j] === eMM[i]) same++;
-      const stack = same > 1 ? `${same} epochs recorded at this exact position; showing the first.` : "";
-      ro.innerHTML = `${pointLabel(i)} &nbsp; ${timeText(i)} &nbsp; Northing <b>${absN(i)} m</b> &nbsp; Easting <b>${absE(i)} m</b> &nbsp; dN ${sgn(dy[i])} m &nbsp; dE ${sgn(dx[i])} m${stack ? `<br><span class="note">${stack}</span>` : ""}`;
-      stip.innerHTML = `<strong>${pointLabel(i)}</strong>${timeText(i)}<br>Northing: <b>${absN(i)} m</b><br>Easting: <b>${absE(i)} m</b><br>dN ${sgn(dy[i])} m, dE ${sgn(dx[i])} m${same > 1 ? `<br>${same} epochs at this position` : ""}`;
-      const tx = (sPx[i] / SIZE) * r.width, ty = (sPy[i] / SIZE) * r.height;
-      stip.style.left = `${Math.min(tx + 12, r.width - 210)}px`;
-      stip.style.top = `${clamp(ty - 10, 0, r.height - 110)}px`;
-      stip.style.opacity = 1;
+      if (i < 0) { ro.innerHTML = playing ? `<span>Point values are paused while the animation plays.</span>` : `<span>Hover over a point to see its time, residuals, PDOP, and H. Precision.</span>`; return; }
+      const mm = v => { const t = (v * 1000).toFixed(1); return (v > 0 && t !== "0.0" ? "+" : "") + (t === "-0.0" ? "0.0" : t.replace("-", "−")); };
+      const parts = [`<span><b>${timeText(i)}</b></span>`, `<span>${pointLabel(i)}</span>`,
+        `<span><span style="color:var(--cN)">■</span> Residual N <b>${mm(dy[i])} mm</b></span>`,
+        `<span><span style="color:var(--cE)">■</span> Residual E <b>${mm(dx[i])} mm</b></span>`];
+      for (const G of gauges) parts.push(`<span><span style="color:var(${G.color})">■</span> ${G.name} <b>${G.values[i] === null ? "no value" : fmtNum(G.values[i], G.dec) + unitSuffix(G)}</b></span>`);
+      ro.innerHTML = parts.join("");
     }
 
     function setView(cxm, cym, half) {
@@ -1950,7 +1953,8 @@
         drawStaticOverlay();
         return;
       }
-      showStaticPoint(inPlot(X, Y) ? nearestStatic(X, Y, 10) : -1, ev);
+      if (playing) return;   // no point lookups while the animation plays
+      showStaticPoint(inPlot(X, Y) ? nearestStatic(X, Y, 10) : -1);
     });
     function endDrag(ev) {
       if (!sDrag || ev.pointerId !== sDrag.id) return;
@@ -1964,7 +1968,7 @@
         const [bx, by] = inv(Math.max(d.x0, d.x1), Math.max(d.y0, d.y1));
         setView((ax + bx) / 2, (ay + by) / 2, Math.max(bx - ax, ay - by) / 2);
       } else {
-        showStaticPoint(nearestStatic(d.x0, d.y0, 18), ev);   // a tap selects the nearest point
+        if (!playing) showStaticPoint(nearestStatic(d.x0, d.y0, 18));   // a tap selects the nearest point
       }
     }
     sfg.addEventListener("pointerup", endDrag);
@@ -2103,12 +2107,13 @@
       requestAnimationFrame(frame);
     }
     // Stopping (pause, end, or scrub) redraws at full resolution with the exact epoch's values.
-    function stop() { const was = playing; playing = false; playBtn.textContent = "Play"; if (was && N) drawMarker(idx); }
+    function stop() { const was = playing; playing = false; playBtn.textContent = "Play"; if (was && N) { drawMarker(idx); showStaticPoint(-1); } }
     playBtn.addEventListener("click", () => {
       if (!N) return;
       if (idx >= N - 1) idx = 0;
       if (playing) { stop(); return; }
       playing = true; playBtn.textContent = "Pause"; lastTs = null; playT = ep[idx];
+      showStaticPoint(-1);
       requestAnimationFrame(frame);
     });
     scrub.addEventListener("input", () => { stop(); idx = parseInt(scrub.value, 10); drawMarker(idx); });
