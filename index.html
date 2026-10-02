@@ -389,7 +389,7 @@
               </div>
               <div class="readout" id="driftReadout"></div>
               <div class="legend" style="margin-top:.4rem">
-                <span><i class="dot" style="background:var(--muted);border-color:var(--muted)"></i>Hourly position (on the hour)</span>
+                <span><i class="dot" style="background:var(--muted);border-color:var(--muted)"></i>Hourly position (on the hour; shown before you press Play)</span>
                 <span><i class="dot" style="border-color:var(--drms1)"></i><span id="drmsLegend">1 STD (DRMS)</span></span>
                 <span><i class="dot" style="border-color:var(--drms2)"></i><span id="drms2Legend">2 STD (2DRMS)</span></span>
               </div>
@@ -411,6 +411,7 @@
                 <span><i class="dot" style="border-color:var(--drms1)"></i><span id="drmsLegendS">DRMS</span></span>
                 <span><i class="dot" style="border-color:var(--drms2)"></i><span id="drms2LegendS">2DRMS</span></span>
               </div>
+              <div class="legend" id="extremeLegend" hidden></div>
               <div class="controls" style="margin:.5rem 0 0">
                 <div class="seg" role="group" aria-label="Drag mode" id="dragModeSeg">
                   <button type="button" data-mode="pan" aria-pressed="true">Pan</button>
@@ -1623,7 +1624,7 @@
     // PDOP / H. Precision gauges beside the animation
     const gBox = $("gaugeBox"), gCanvas = $("gaugeCanvas"), gctx = gCanvas.getContext("2d");
     let gauges = [];
-    let samp = [], cb = null, playT = 0;
+    let samp = [], cb = null, playT = 0, extremes = [];
     const sampFrom = i => { let lo = 0, hi = samp.length; while (lo < hi) { const m = (lo + hi) >> 1; if (samp[m] < i) lo = m + 1; else hi = m; } return lo; };
     let scale = 1, idx = 0, playing = false, lastTs = null;
     const cx = SIZE / 2, cy = SIZE / 2;
@@ -1669,6 +1670,25 @@
         G.lo = lo - pad; G.hi = hi + pad; G.mean = n ? sum / n : null;
         G.min = n ? lo : null; G.max = n ? hi : null;
       }
+      // Epochs with the highest and lowest PDOP / H. Precision (first one if tied).
+      extremes = [];
+      for (const G of gauges) {
+        let iMax = -1, iMin = -1;
+        G.values.forEach((v, i) => {
+          if (v === null) return;
+          if (iMax < 0 || v > G.values[iMax]) iMax = i;
+          if (iMin < 0 || v < G.values[iMin]) iMin = i;
+        });
+        if (iMax >= 0) extremes.push({ G, i: iMax, high: true }, { G, i: iMin, high: false });
+      }
+      const xl = $("extremeLegend"); xl.textContent = ""; xl.hidden = !extremes.length;
+      for (const x of extremes) {
+        const sp = document.createElement("span");
+        const mk = document.createElement("span"); mk.style.color = `var(${x.G.color})`; mk.textContent = x.high ? "▲" : "▼";
+        const tx = document.createElement("span");
+        tx.textContent = `${x.high ? "Highest" : "Lowest"} ${x.G.name} ${fmtNum(x.G.values[x.i], x.G.dec)}${unitSuffix(x.G)} (${timeText(x.i)})`;
+        sp.append(mk, tx); xl.append(sp);
+      }
       gBox.hidden = !gauges.length; $("gaugeNote").hidden = !gauges.length;
       gBox.parentElement.classList.toggle("with-gauges", gauges.length > 0);
       drms = s.drms_mm / 1000; drms2 = 2 * drms;
@@ -1705,6 +1725,7 @@
       lastExtent = halfExtent;
       sView = { cxm: 0, cym: 0, half: halfExtent }; sHover = -1; sDrag = null;
       $("staticReadout").textContent = "Hover over a point to see its time, Northing, and Easting.";
+      showHourly = true;
       drawBackground(halfExtent);
       drawStatic();
       drawMarker(0);
@@ -1757,10 +1778,14 @@
       bctx.restore();
     }
 
+    // Hourly positions are drawn only at the start, before Play is pressed.
+    let showHourly = true;
+    function setHourly(show) { if (show !== showHourly) { showHourly = show; drawBackground(); } }
     function drawBackground(halfExtent) {
       if (halfExtent) lastExtent = halfExtent; else halfExtent = lastExtent;
       const text = css("--ink"), muted = css("--muted"), font = css("--body");
       drawFrame(bctx, halfExtent);
+      if (!showHourly) { bctx.fillStyle = text; bctx.beginPath(); bctx.arc(cx, cy, 3, 0, 2 * Math.PI); bctx.fill(); return; }
       bctx.strokeStyle = muted; bctx.lineWidth = 1.2; bctx.beginPath();
       hpx.forEach((p, i) => i === 0 ? bctx.moveTo(p[0], p[1]) : bctx.lineTo(p[0], p[1]));
       bctx.stroke();
@@ -1801,6 +1826,30 @@
         sctx.strokeStyle = col; sctx.lineWidth = 2; sctx.setLineDash([5, 4]); sctx.stroke(); sctx.setLineDash([]);
       });
       sctx.fillStyle = css("--ink"); sctx.beginPath(); sctx.arc(ox, oy, 3, 0, 2 * Math.PI); sctx.fill();
+      // Highlight the epochs with the highest / lowest PDOP and H. Precision.
+      const panel = css("--panel"), font = css("--body");
+      const placed = [];
+      extremes.forEach(x => {
+        const [X, Y] = T(dx[x.i], dy[x.i]), col = css(x.G.color), s = 8;
+        sctx.beginPath(); sctx.arc(X, Y, 13, 0, 2 * Math.PI); sctx.strokeStyle = col; sctx.lineWidth = 2; sctx.stroke();
+        sctx.beginPath();
+        if (x.high) { sctx.moveTo(X, Y - s); sctx.lineTo(X + s, Y + s * .7); sctx.lineTo(X - s, Y + s * .7); }
+        else { sctx.moveTo(X, Y + s); sctx.lineTo(X + s, Y - s * .7); sctx.lineTo(X - s, Y - s * .7); }
+        sctx.closePath(); sctx.fillStyle = col; sctx.fill(); sctx.strokeStyle = panel; sctx.lineWidth = 1.5; sctx.stroke();
+        const label = `${x.high ? "High" : "Low"} ${x.G.name}`;
+        sctx.font = `600 11px ${font}`; sctx.textBaseline = "middle";
+        const right = X < SIZE - PAD - 110;
+        sctx.textAlign = right ? "left" : "right";
+        const lx = right ? X + 17 : X - 17, w = sctx.measureText(label).width;
+        const x0 = right ? lx : lx - w;
+        // Move the label down (then up) until it does not overlap one already placed.
+        let ly = Y;
+        for (let k = 1; k < 12 && placed.some(r => x0 < r.x1 && x0 + w > r.x0 && Math.abs(ly - r.y) < 13); k++)
+          ly = Y + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 13;
+        placed.push({ x0, x1: x0 + w, y: ly });
+        sctx.lineWidth = 3; sctx.strokeStyle = panel; sctx.strokeText(label, lx, ly);
+        sctx.fillStyle = col; sctx.fillText(label, lx, ly);
+      });
       sctx.restore();
       const full = sView.half >= lastExtent && !sView.cxm && !sView.cym;
       $("staticReset").disabled = full;
@@ -1957,6 +2006,7 @@
       if (!N) return;
       const s0 = windowStart(i);
       const gi = playing ? samp[Math.max(0, sampFrom(i + 1) - 1)] : i;
+      setHourly(!playing && i === 0);
       let prev = s0;
       fctx.lineWidth = 1.6; fctx.beginPath(); fctx.moveTo(px[prev], py[prev]);
       let col = bucketColor(ep[prev]); fctx.strokeStyle = col;
