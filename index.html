@@ -14,7 +14,13 @@
     --day: #2563eb; --night: #c62828; --sig1: #f59e0b; --sig2: #7c3aed;
     --drms1: #c98500; --drms2: #a32d2d; --tip-bg: rgba(255,255,255,.97);
     --pos: #137333; --neg: #c5221f;
-    --c1: #2563eb; --c2: #d97706; --c3: #0f9d58; --cE: #0f8a4f; --cU: #c2185b;
+    /* One color per value, used everywhere on the page (second shade: overnight line) */
+    --cN: #2563eb; --cN2: #82b1ff;   /* Northing */
+    --cE: #0f8a4f; --cE2: #6fcf9a;   /* Easting */
+    --cU: #c2185b; --cU2: #f48fb1;   /* Elevation */
+    --cP: #d97706; --cP2: #f6c26b;   /* PDOP */
+    --cH: #0891b2; --cH2: #67d3e6;   /* H. Precision */
+    --cX: #7c6f64; --cX2: #bcaaa4;   /* any other column */
     --body: "Barlow", "Segoe UI", system-ui, sans-serif;
     --cond: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
     box-sizing: border-box;
@@ -28,7 +34,8 @@
       --day: #6f9bff; --night: #ef6b6b; --sig1: #fbbf24; --sig2: #a78bfa;
       --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
       --pos: #5bd08a; --neg: #ff8a80;
-      --c1: #6f9bff; --c2: #f5b041; --c3: #4cd38a; --cE: #4cd38a; --cU: #f06292;
+      --cN: #6f9bff; --cN2: #3557a8; --cE: #4cd38a; --cE2: #237a50; --cU: #f06292; --cU2: #9c3a63;
+      --cP: #f5b041; --cP2: #9a6a1f; --cH: #22d3ee; --cH2: #1b7f92; --cX: #bcaaa4; --cX2: #6d5f58;
     }
   }
   :root[data-theme="dark"] {
@@ -37,7 +44,8 @@
     --day: #6f9bff; --night: #ef6b6b; --sig1: #fbbf24; --sig2: #a78bfa;
     --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
     --pos: #5bd08a; --neg: #ff8a80;
-    --c1: #6f9bff; --c2: #f5b041; --c3: #4cd38a; --cE: #4cd38a; --cU: #f06292;
+    --cN: #6f9bff; --cN2: #3557a8; --cE: #4cd38a; --cE2: #237a50; --cU: #f06292; --cU2: #9c3a63;
+      --cP: #f5b041; --cP2: #9a6a1f; --cH: #22d3ee; --cH2: #1b7f92; --cX: #bcaaa4; --cX2: #6d5f58;
   }
   *, *::before, *::after { box-sizing: inherit; }
   html { scroll-padding-top: env(safe-area-inset-top, 0px); }
@@ -101,8 +109,8 @@
   .seg button:last-child { border-right: 0; }
   .seg button[aria-pressed="true"] { background: var(--brass); color: #fff; }
   .seg.period button[aria-pressed="true"][data-period="day"] { background: var(--day); }
-  .seg.period button[aria-pressed="true"][data-period="night"] { background: var(--night); }
-  .seg.period button[aria-pressed="true"][data-period="both"] { background: linear-gradient(90deg, var(--day), var(--night)); }
+  .seg.period button[aria-pressed="true"][data-period="night"] { background: var(--day); }
+  .seg.period button[aria-pressed="true"][data-period="both"] { background: var(--day); }
   .seg.period button[aria-pressed="true"][data-period="sequential"] { background: #374151; }
   .pick { display: inline-flex; align-items: center; gap: .45rem; font-size: .9rem; color: var(--muted); }
   .pick select { min-width: 9.5rem; }
@@ -225,7 +233,7 @@
       <dl class="stats" id="stats"></dl>
 
       <div class="plots">
-        <section class="plot">
+        <section class="plot" id="tsCard">
           <h3 id="tsTitle">Northing over time</h3>
           <p>Choose a value and a period, and hover to read the values above the chart. Use the buttons or scroll to zoom, drag to pan or to draw a zoom box, and double-click to reset.</p>
           <div class="controls">
@@ -250,8 +258,8 @@
             <button type="button" id="resetZoom" disabled>Reset zoom</button>
           </div>
           <div class="legend">
-            <span id="dayLegend" style="color:var(--day)"><i class="sw"></i><span id="dayLegendText">Daytime</span></span>
-            <span id="nightLegend" style="color:var(--night)" hidden><i class="sw"></i><span id="nightLegendText">Overnight</span></span>
+            <span id="dayLegend"><i class="sw" style="color:var(--day);border-top-width:3px"></i><span id="dayLegendText">Daytime</span></span>
+            <span id="nightLegend" hidden><i class="sw" style="color:var(--night);border-top-width:3px"></i><span id="nightLegendText">Overnight</span></span>
             <span><i class="sw mean"></i><span id="meanLegend">Mean</span></span>
             <span><i class="sw s1"></i><span id="s1Legend">±1σ</span></span>
             <span><i class="sw s2"></i><span id="s2Legend">±2σ</span></span>
@@ -276,15 +284,15 @@
           </div>
           <p class="win-msg" id="pairMissing" hidden>This upload has no PDOP column, so only the coordinates are plotted.</p>
           <div class="pair">
-            <div class="legend"><span style="color:var(--c1)"><i class="sw" style="border-top-width:3px"></i>Northing (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_n">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_n">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_n">±2σ</span></span></div>
+            <div class="legend"><span style="color:var(--cN)"><i class="sw" style="border-top-width:3px"></i>Northing (m)</span><span class="pair-b" style="color:var(--cP)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_n">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_n">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_n">±2σ</span></span></div>
             <div class="pair-shell" id="pairShell_n"><canvas id="pair_n" aria-label="Northing and PDOP over time"></canvas><div class="pair-readout" id="pairTip_n" aria-live="polite"></div></div>
           </div>
           <div class="pair">
-            <div class="legend"><span style="color:var(--cE)"><i class="sw" style="border-top-width:3px"></i>Easting (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_e">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_e">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_e">±2σ</span></span></div>
+            <div class="legend"><span style="color:var(--cE)"><i class="sw" style="border-top-width:3px"></i>Easting (m)</span><span class="pair-b" style="color:var(--cP)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_e">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_e">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_e">±2σ</span></span></div>
             <div class="pair-shell" id="pairShell_e"><canvas id="pair_e" aria-label="Easting and PDOP over time"></canvas><div class="pair-readout" id="pairTip_e" aria-live="polite"></div></div>
           </div>
           <div class="pair">
-            <div class="legend"><span style="color:var(--cU)"><i class="sw" style="border-top-width:3px"></i>Elevation (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_u">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_u">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_u">±2σ</span></span></div>
+            <div class="legend"><span style="color:var(--cU)"><i class="sw" style="border-top-width:3px"></i>Elevation (m)</span><span class="pair-b" style="color:var(--cP)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_u">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_u">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_u">±2σ</span></span></div>
             <div class="pair-shell" id="pairShell_u"><canvas id="pair_u" aria-label="Elevation and PDOP over time"></canvas><div class="pair-readout" id="pairTip_u" aria-live="polite"></div></div>
           </div>
           <p class="chart-note" id="pairNote"></p>
@@ -325,7 +333,7 @@
             <div class="win-grid">
               <div>
                 <div class="legend">
-                  <span style="color:var(--day)"><i class="sw"></i>Observations</span>
+                  <span id="winObsLegend" style="color:var(--cN)"><i class="sw"></i>Observations</span>
                   <span><i class="sw mean"></i>Window average</span>
                   <span><i class="sw s1"></i>Window ±1σ</span>
                   <span><i class="sw s2"></i>Window ±2σ</span>
@@ -472,7 +480,18 @@
     return [["n", "Northing"], ["e", "Easting"], ["u", "Elevation"],
       ...Object.keys(d.extra || {}).map(k => [`x:${k}`, k])];
   }
+  // Each value keeps one color everywhere on the page: [main color, overnight shade].
+  function colorFor(id) {
+    const map = { n: "N", e: "E", u: "U", "x:PDOP": "P", "x:H. Precision": "H" };
+    const k = map[id] || "X";
+    return [`--c${k}`, `--c${k}2`];
+  }
   function getSeries(id) {
+    const S = getSeriesData(id);
+    if (S) [S.color, S.color2] = colorFor(id);
+    return S;
+  }
+  function getSeriesData(id) {
     const d = cur.data;
     if (COMP[id]) {
       const key = COMP[id].key, base = d.base_m[id];
@@ -703,12 +722,14 @@
       }
       const nm = SER.name, u = unitSuffix(SER);
       DATA = {
-        day: { label: `Daytime ${nm}`, colorVar: "--day", startMs: c.day, points: day },
-        night: { label: `Overnight ${nm}`, colorVar: "--night", startMs: c.night, points: night },
+        day: { label: `Daytime ${nm}`, colorVar: SER.color, startMs: c.day, points: day },
+        night: { label: `Overnight ${nm}`, colorVar: SER.color2, startMs: c.night, points: night },
       };
       DATA.nightSequential = { ...DATA.night, timeOffset: HALF, points: night.map(([s, v, i]) => [s + HALF, v, i]) };
 
       $("tsTitle").textContent = `${nm} over time`;
+      $("tsCard").style.setProperty("--day", `var(${SER.color})`);
+      $("tsCard").style.setProperty("--night", `var(${SER.color2})`);
       $("dayLegendText").textContent = `Daytime ${nm}`;
       $("nightLegendText").textContent = `Overnight ${nm}`;
       $("meanLegend").textContent = `Mean (${fmtV(mean)}${u})`;
@@ -782,8 +803,8 @@
         ctx.beginPath(); ctx.moveTo(px, geometry.top); ctx.lineTo(px, geometry.bottom); ctx.stroke();
         if (!isSeq() && period === "both") {
           ctx.textAlign = "center";
-          ctx.fillStyle = css("--day"); ctx.fillText(timeLabel(DATA.day, t), px, geometry.bottom + 13);
-          ctx.fillStyle = css("--night"); ctx.fillText(timeLabel(DATA.night, t), px, geometry.bottom + 29);
+          ctx.fillStyle = css(SER.color); ctx.fillText(timeLabel(DATA.day, t), px, geometry.bottom + 13);
+          ctx.fillStyle = css(SER.color2); ctx.fillText(timeLabel(DATA.night, t), px, geometry.bottom + 29);
         } else {
           ctx.save(); ctx.translate(px, geometry.bottom + 14); ctx.rotate(-Math.PI / 4);
           ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.fillText(timeLabel(labelSeries, t), 0, 0); ctx.restore();
@@ -866,8 +887,9 @@
         if (d.ids && d.ids[i]) parts.push(`<span>Point <b>${d.ids[i]}</b></span>`);
         parts.push(`<span><span style="color:${css(series.colorVar)}">■</span> ${series.label} <b>${fmtNum(point[1], SER.dec)}${u}</b></span>`);
         parts.push(`<span>Residual <b>${resTxt}</b></span>`);
-        if (PDOP && SER.id !== PDOP.id) parts.push(`<span>PDOP ${val(PDOP, i)}</span>`);
-        if (HPREC && SER.id !== HPREC.id) parts.push(`<span>H. Precision ${val(HPREC, i)}</span>`);
+        const sq = S => `<span style="color:${css(S.color)}">■</span> `;
+        if (PDOP && SER.id !== PDOP.id) parts.push(`<span>${sq(PDOP)}PDOP ${val(PDOP, i)}</span>`);
+        if (HPREC && SER.id !== HPREC.id) parts.push(`<span>${sq(HPREC)}H. Precision ${val(HPREC, i)}</span>`);
         return (k ? `<span style="flex-basis:100%;height:0"></span>` : "") + parts.join("");
       }).join("");
     }
@@ -961,7 +983,7 @@
   // Three charts (Northing, Easting, Elevation), each with PDOP (or another
   // extra column) on a second axis. They share one time view and hover.
   const PAIR = (() => {
-    const PAIR_COLORS = { n: "--c1", e: "--cE", u: "--cU" };
+    const PAIR_COLORS = { n: "--cN", e: "--cE", u: "--cU" };
     const charts = ["n", "e", "u"].map(c => {
       const canvas = $(`pair_${c}`);
       return { c, col: PAIR_COLORS[c], canvas, ctx: canvas.getContext("2d"), shell: $(`pairShell_${c}`), tip: $(`pairTip_${c}`) };
@@ -1017,7 +1039,7 @@
     function setRight() {
       B = hasExtra ? getSeries(withSel.value) : null;
       if (B) [B.lo, B.hi] = range(B.values, 1e-4);
-      document.querySelectorAll("#pairCard .pair-b").forEach(el => { el.hidden = !B; });
+      document.querySelectorAll("#pairCard .pair-b").forEach(el => { el.hidden = !B; if (B) el.style.color = `var(${B.color})`; });
       document.querySelectorAll("#pairCard .pair-b-name").forEach(el => { el.textContent = B ? axisTitle(B) : ""; });
       resizeAll();
     }
@@ -1075,7 +1097,7 @@
       const w = shell.clientWidth, h = shell.clientHeight;
       if (!w) return;
       const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
-      const cA = css(ch.col), cB = css("--c2");
+      const cA = css(ch.col), cB = B ? css(B.color) : "";
       ctx.clearRect(0, 0, w, h);
       const L = 118, R = w - (B ? AXIS_R : 18), Tp = READOUT_H, Bt = h - 62;
       const X = t => L + (t - v0) / (v1 - v0) * (R - L);
@@ -1179,9 +1201,9 @@
         parts.push(`<span>${sq(ch.col)}${ch.A.name} ${val(ch.A)}</span>`);
         parts.push(`<span>Residual <b>${res > 0.05 ? "+" : res < -0.05 ? "−" : ""}${Math.abs(res).toFixed(1)} mm</b></span>`);
         const isB = S => B && S && B.id === S.id;
-        if (PDOP) parts.push(`<span>${isB(PDOP) ? sq("--c2") : ""}PDOP ${val(PDOP)}</span>`);
-        if (HPREC) parts.push(`<span>${isB(HPREC) ? sq("--c2") : ""}H. Precision ${val(HPREC)}</span>`);
-        if (B && !isB(PDOP) && !isB(HPREC)) parts.push(`<span>${sq("--c2")}${B.name} ${val(B)}</span>`);
+        if (PDOP) parts.push(`<span>${sq(PDOP.color)}PDOP ${val(PDOP)}</span>`);
+        if (HPREC) parts.push(`<span>${sq(HPREC.color)}H. Precision ${val(HPREC)}</span>`);
+        if (B && !isB(PDOP) && !isB(HPREC)) parts.push(`<span>${sq(B.color)}${B.name} ${val(B)}</span>`);
         el.innerHTML = parts.join("");
       }
     }
@@ -1421,20 +1443,22 @@
       hl(st.mean, ink, [13, 5, 3, 5, 3, 5], 1.5);
       hl(st.mean + st.sd, css("--sig1"), [7, 5]); hl(st.mean - st.sd, css("--sig1"), [7, 5]);
       hl(st.mean + 2 * st.sd, css("--sig2"), [2, 4]); hl(st.mean - 2 * st.sd, css("--sig2"), [2, 4]);
-      ctx.strokeStyle = css("--day"); ctx.lineWidth = 1.1; ctx.beginPath();
+      const wcol = css(colorFor(c)[0]);
+      $("winObsLegend").style.color = `var(${colorFor(c)[0]})`;
+      ctx.strokeStyle = wcol; ctx.lineWidth = 1.1; ctx.beginPath();
       sel.idx.forEach((i, k) => {
         const x = X(d.t[i]), y = Y(d[key][i]);
         if (k === 0 || d.t[i] - d.t[sel.idx[k - 1]] > cur.gap) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       });
       ctx.stroke();
       if (sel.idx.length <= 400) {
-        ctx.fillStyle = css("--day");
+        ctx.fillStyle = wcol;
         for (const i of sel.idx) { ctx.beginPath(); ctx.arc(X(d.t[i]), Y(d[key][i]), 2.4, 0, Math.PI * 2); ctx.fill(); }
       }
       if (hover >= 0) {
         const x = X(d.t[hover]), y = Y(d[key][hover]);
         ctx.strokeStyle = muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, B); ctx.stroke(); ctx.setLineDash([]);
-        ctx.fillStyle = css("--day"); ctx.strokeStyle = css("--panel"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = wcol; ctx.strokeStyle = css("--panel"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
       ctx.restore();
       ctx.fillStyle = ink; ctx.font = `600 13px ${font}`; ctx.textAlign = "center";
