@@ -14,6 +14,7 @@
     --day: #2563eb; --night: #c62828; --sig1: #f59e0b; --sig2: #7c3aed;
     --drms1: #c98500; --drms2: #a32d2d; --tip-bg: rgba(255,255,255,.97);
     --pos: #137333; --neg: #c5221f;
+    --c1: #2563eb; --c2: #d97706; --c3: #0f9d58;
     --body: "Barlow", "Segoe UI", system-ui, sans-serif;
     --cond: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
     box-sizing: border-box;
@@ -27,6 +28,7 @@
       --day: #6f9bff; --night: #ef6b6b; --sig1: #fbbf24; --sig2: #a78bfa;
       --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
       --pos: #5bd08a; --neg: #ff8a80;
+      --c1: #6f9bff; --c2: #f5b041; --c3: #4cd38a;
     }
   }
   :root[data-theme="dark"] {
@@ -35,6 +37,7 @@
     --day: #6f9bff; --night: #ef6b6b; --sig1: #fbbf24; --sig2: #a78bfa;
     --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
     --pos: #5bd08a; --neg: #ff8a80;
+    --c1: #6f9bff; --c2: #f5b041; --c3: #4cd38a;
   }
   *, *::before, *::after { box-sizing: inherit; }
   html { scroll-padding-top: env(safe-area-inset-top, 0px); }
@@ -101,6 +104,12 @@
   .seg.period button[aria-pressed="true"][data-period="night"] { background: var(--night); }
   .seg.period button[aria-pressed="true"][data-period="both"] { background: linear-gradient(90deg, var(--day), var(--night)); }
   .seg.period button[aria-pressed="true"][data-period="sequential"] { background: #374151; }
+  .pick { display: inline-flex; align-items: center; gap: .45rem; font-size: .9rem; color: var(--muted); }
+  .pick select { min-width: 9.5rem; }
+  .pair + .pair { margin-top: 1.4rem; }
+  .pair .legend { margin-bottom: .3rem; }
+  .pair-shell { position: relative; height: min(46vh, 400px); min-height: 300px; }
+  .pair-shell canvas { width: 100%; height: 100%; display: block; touch-action: none; }
   .legend { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font-size: .88rem; color: var(--muted); margin-bottom: .5rem; }
   .legend span { display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; }
   .sw { display: inline-block; width: 28px; height: 0; border-top: 2px solid currentColor; }
@@ -215,13 +224,9 @@
       <div class="plots">
         <section class="plot">
           <h3 id="tsTitle">Northing over time</h3>
-          <p>Select a period and hover to inspect. Use the buttons or scroll to zoom, drag to pan or to draw a zoom box, and double-click to reset.</p>
+          <p>Choose a value and a period, and hover to inspect. Use the buttons or scroll to zoom, drag to pan or to draw a zoom box, and double-click to reset.</p>
           <div class="controls">
-            <div class="seg" role="group" aria-label="Component" id="compSeg">
-              <button type="button" data-comp="n" aria-pressed="true">Northing</button>
-              <button type="button" data-comp="e" aria-pressed="false">Easting</button>
-              <button type="button" data-comp="u" aria-pressed="false">Elevation</button>
-            </div>
+            <label class="pick">Value <select id="compSel"></select></label>
             <div class="seg period" role="group" aria-label="Time period" id="periodSeg">
               <button type="button" data-period="day" aria-pressed="true">7 AM–7 PM</button>
               <button type="button" data-period="night" aria-pressed="false">7 PM–7 AM</button>
@@ -253,6 +258,33 @@
             <div class="tooltip" id="tsTip" role="status" aria-live="polite"></div>
           </div>
           <p class="chart-note" id="tsNote"></p>
+        </section>
+
+        <section class="plot" id="pairCard">
+          <h3>Position and PDOP over time</h3>
+          <p>Each coordinate on its own chart (left axis, meters) with PDOP on the right axis, so you can see whether changes in position line up with changes in satellite geometry. The three charts share one time axis: zooming or panning one moves all three, and hovering shows the same moment on each. Use the buttons or scroll to zoom, drag to pan, and double-click to reset.</p>
+          <div class="controls">
+            <label class="pick" id="pairWithLabel">Compare with <select id="pairWith"></select></label>
+            <div class="seg" role="group" aria-label="Zoom">
+              <button type="button" id="pairZoomIn">+ Zoom in</button>
+              <button type="button" id="pairZoomOut" disabled>− Zoom out</button>
+            </div>
+            <button type="button" id="pairReset" disabled>Reset zoom</button>
+          </div>
+          <p class="win-msg" id="pairMissing" hidden>This upload has no PDOP column, so only the coordinates are plotted.</p>
+          <div class="pair">
+            <div class="legend"><span style="color:var(--c1)"><i class="sw" style="border-top-width:3px"></i>Northing (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span></div>
+            <div class="pair-shell" id="pairShell_n"><canvas id="pair_n" aria-label="Northing and PDOP over time"></canvas><div class="tooltip" id="pairTip_n"></div></div>
+          </div>
+          <div class="pair">
+            <div class="legend"><span style="color:var(--c1)"><i class="sw" style="border-top-width:3px"></i>Easting (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span></div>
+            <div class="pair-shell" id="pairShell_e"><canvas id="pair_e" aria-label="Easting and PDOP over time"></canvas><div class="tooltip" id="pairTip_e"></div></div>
+          </div>
+          <div class="pair">
+            <div class="legend"><span style="color:var(--c1)"><i class="sw" style="border-top-width:3px"></i>Elevation (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span></div>
+            <div class="pair-shell" id="pairShell_u"><canvas id="pair_u" aria-label="Elevation and PDOP over time"></canvas><div class="tooltip" id="pairTip_u"></div></div>
+          </div>
+          <p class="chart-note" id="pairNote"></p>
         </section>
 
         <section class="plot" id="windowCard">
@@ -426,6 +458,35 @@
   };
   const f3 = v => { const t = v.toFixed(3); return t === "-0.000" ? "0.000" : t; };
 
+  // ======================= Values that can be plotted ==========================
+  // Northing / Easting / Elevation plus any extra numeric columns (PDOP, ...)
+  // that the processing script stored for this upload.
+  const fmtNum = (v, dec) => v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const unitSuffix = S => S.unit ? ` ${S.unit}` : "";
+  const axisTitle = S => S.unit ? `${S.name} (${S.unit})` : S.name;
+  function seriesOptions() {
+    const d = cur.data;
+    return [["n", "Northing"], ["e", "Easting"], ["u", "Elevation"],
+      ...Object.keys(d.extra || {}).map(k => [`x:${k}`, k])];
+  }
+  function getSeries(id) {
+    const d = cur.data;
+    if (COMP[id]) {
+      const key = COMP[id].key, base = d.base_m[id];
+      return { id, name: COMP[id].name, unit: "m", dec: 3, coord: true, mm: d[key], values: d[key].map(v => base + v / 1000) };
+    }
+    const x = id && id.startsWith("x:") && d.extra && d.extra[id.slice(2)];
+    if (!x) return null;
+    return { id, name: id.slice(2), unit: x.unit || "", dec: x.dec, coord: false, values: x.v.map(v => v === null ? null : v / x.scale) };
+  }
+  function fillSelect(sel, opts, wanted, withNone) {
+    sel.textContent = "";
+    if (withNone) { const o = document.createElement("option"); o.value = ""; o.textContent = "None"; sel.append(o); }
+    for (const [v, label] of opts) { const o = document.createElement("option"); o.value = v; o.textContent = label; sel.append(o); }
+    sel.value = opts.some(o => o[0] === wanted) ? wanted : withNone ? "" : opts[0][0];
+    return sel.value;
+  }
+
   async function getJSON(url) {
     const r = await fetch(url, { cache: "no-store" });
     if (!r.ok) throw new Error(`${url} returned ${r.status}`);
@@ -539,6 +600,7 @@
       history.replaceState(null, "", `#${id}`);
       renderSummary();
       TS.load();
+      PAIR.load();
       Win.load();
       Drift.load();
       renderList();
@@ -576,7 +638,8 @@
   const TS = (() => {
     const canvas = $("tsCanvas"), shell = $("tsShell"), tip = $("tsTip"), ctx = canvas.getContext("2d");
     let comp = "n", period = "day", cycle = 0;
-    let DATA = null, STATS = null, cycles = [];
+    let DATA = null, STATS = null, cycles = [], SER = null;
+    const fmtV = v => fmtNum(v, SER.dec);
     let viewStart = 0, viewEnd = HALF, dragState = null, hoverPoints = [], geometry = null, tsMode = "pan";
     const MIN_SPAN = 60;
     const isSeq = () => period === "sequential";
@@ -611,27 +674,30 @@
       });
       sel.hidden = cycles.length < 2;
       cycle = 0; sel.value = "0";
+      comp = fillSelect($("compSel"), seriesOptions(), comp, false);
       build();
     }
 
     function build() {
-      const d = cur.data, key = COMP[comp].key, base = d.base_m[comp];
-      const vals = d[key].map(v => base + v / 1000);
-      const n = vals.length;
-      let mean = 0; for (const v of vals) mean += v; mean /= n;
-      let ss = 0, maxDev = 0; for (const v of vals) { ss += (v - mean) ** 2; maxDev = Math.max(maxDev, Math.abs(v - mean)); }
+      const d = cur.data;
+      SER = getSeries(comp);
+      const vals = SER.values;
+      let n = 0, mean = 0; for (const v of vals) if (v !== null) { mean += v; n++; }
+      mean /= n || 1;
+      let ss = 0, maxDev = 0; for (const v of vals) if (v !== null) { ss += (v - mean) ** 2; maxDev = Math.max(maxDev, Math.abs(v - mean)); }
       const sd = n > 1 ? Math.sqrt(ss / (n - 1)) : 0;
-      const pad = Math.max(maxDev * 1.12, sd * 2.6, 0.002);
+      const pad = Math.max(maxDev * 1.12, sd * 2.6, SER.coord ? 0.002 : Math.max(Math.abs(mean) * 0.002, 1e-6));
       STATS = { mean, sd, yMin: mean - pad, yMax: mean + pad, n };
 
       const c = cycles[cycle];
       const day = [], night = [];
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < vals.length; i++) {
+        if (vals[i] === null) continue;
         const ms = cur.startMs + d.t[i] * 1000;
         if (ms >= c.day && ms < c.night) day.push([(ms - c.day) / 1000, vals[i]]);
         else if (ms >= c.night && ms < c.next) night.push([(ms - c.night) / 1000, vals[i]]);
       }
-      const nm = COMP[comp].name;
+      const nm = SER.name, u = unitSuffix(SER);
       DATA = {
         day: { label: `Daytime ${nm}`, colorVar: "--day", startMs: c.day, points: day },
         night: { label: `Overnight ${nm}`, colorVar: "--night", startMs: c.night, points: night },
@@ -641,9 +707,9 @@
       $("tsTitle").textContent = `${nm} over time`;
       $("dayLegendText").textContent = `Daytime ${nm}`;
       $("nightLegendText").textContent = `Overnight ${nm}`;
-      $("meanLegend").textContent = `Mean (${fmtValue(mean)} m)`;
-      $("s1Legend").textContent = `±1σ (${sd.toFixed(4)} m)`;
-      $("s2Legend").textContent = `±2σ (${(2 * sd).toFixed(4)} m)`;
+      $("meanLegend").textContent = `Mean (${fmtV(mean)}${u})`;
+      $("s1Legend").textContent = `±1σ (${sd.toFixed(SER.dec + 1)}${u})`;
+      $("s2Legend").textContent = `±2σ (${(2 * sd).toFixed(SER.dec + 1)}${u})`;
       $("tsNote").textContent = `Reference lines use all ${n.toLocaleString()} observations in this upload (sample σ). Lines break across gaps longer than ${cur.gap} seconds.`;
       viewStart = 0; viewEnd = duration(); hoverPoints = []; tip.style.opacity = 0;
       resize();
@@ -695,7 +761,7 @@
         const v = STATS.yMin + (STATS.yMax - STATS.yMin) * i / 6, py = y(v);
         ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.setLineDash([]);
         ctx.beginPath(); ctx.moveTo(geometry.left, py); ctx.lineTo(geometry.right, py); ctx.stroke();
-        ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.fillText(fmtValue(v), geometry.left - 10, py);
+        ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.fillText(fmtV(v), geometry.left - 10, py);
       }
 
       const span = viewEnd - viewStart;
@@ -759,7 +825,7 @@
         : period === "both" ? "Time (daytime / overnight)" : `Time (${period === "day" ? "7 AM–7 PM" : "7 PM–7 AM"})`;
       ctx.fillText(axisLabel, (geometry.left + geometry.right) / 2, height - 14);
       ctx.save(); ctx.translate(18, (geometry.top + geometry.bottom) / 2); ctx.rotate(-Math.PI / 2);
-      ctx.fillText(`${COMP[comp].name} (m)`, 0, 0); ctx.restore();
+      ctx.fillText(axisTitle(SER), 0, 0); ctx.restore();
 
       if (hoverPoints.length) {
         const px = x(hoverPoints[0].point[0]);
@@ -809,12 +875,12 @@
         .filter(m => m.point && Math.abs(m.point[0] - target) <= cur.gap);
       if (!matches.length) { hideTip(); draw(); return; }
       hoverPoints = matches; draw();
-      const nm = COMP[comp].name;
+      const nm = SER.name, u = unitSuffix(SER);
       tip.innerHTML = matches.map(({ series, point }) => {
         const res = point[1] - STATS.mean;
         const t = new Date(series.startMs + (point[0] - (series.timeOffset || 0)) * 1000)
           .toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
-        return `<div class="tip-series"><strong style="color:${css(series.colorVar)}">${series.label}</strong>${t}<br>${nm}: <b>${fmtValue(point[1])} m</b><br>Residual from mean: <b style="color:${css(res >= 0 ? "--pos" : "--neg")}">${fmtResidual(res)} m</b></div>`;
+        return `<div class="tip-series"><strong style="color:${css(series.colorVar)}">${series.label}</strong>${t}<br>${nm}: <b>${fmtV(point[1])}${u}</b><br>Residual from mean: <b style="color:${css(res >= 0 ? "--pos" : "--neg")}">${res > 0 ? "+" : res < 0 ? "−" : ""}${Math.abs(res).toFixed(SER.dec + 1)}${u}</b></div>`;
       }).join("");
       const px = geometry.x(matches[0].point[0]);
       const py = matches.reduce((a, m) => a + geometry.y(m.point[1]), 0) / matches.length;
@@ -866,11 +932,7 @@
       $("nightLegend").hidden = period === "day";
       resetZoom();
     }));
-    document.querySelectorAll("#compSeg button").forEach(b => b.addEventListener("click", () => {
-      comp = b.dataset.comp;
-      document.querySelectorAll("#compSeg button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
-      if (cur) build();
-    }));
+    $("compSel").addEventListener("change", e => { comp = e.target.value; if (cur) build(); });
     $("cycleSel").addEventListener("change", e => { cycle = Number(e.target.value); build(); });
     new ResizeObserver(() => resize()).observe(shell);
     // Absolute time range currently shown in the chart, or null for the overlay view.
@@ -880,6 +942,254 @@
       return { a: base + viewStart * 1000, b: base + viewEnd * 1000 };
     }
     return { load, redraw: draw, currentWindow };
+  })();
+
+  // ===================== Position and PDOP over time ==========================
+  // Three charts (Northing, Easting, Elevation), each with PDOP (or another
+  // extra column) on a second axis. They share one time view and hover.
+  const PAIR = (() => {
+    const charts = ["n", "e", "u"].map(c => {
+      const canvas = $(`pair_${c}`);
+      return { c, canvas, ctx: canvas.getContext("2d"), shell: $(`pairShell_${c}`), tip: $(`pairTip_${c}`) };
+    });
+    const withSel = $("pairWith");
+    const MIN_SPAN = 60, AXIS_R = 72;
+    let want = "x:PDOP", hasExtra = false;
+    let T = null, total = 1, v0 = 0, v1 = 1, B = null, hover = -1, active = null, drag = null, pending = false;
+
+    function range(vals, minPad) {
+      let lo = Infinity, hi = -Infinity;
+      for (const v of vals) if (v !== null) { if (v < lo) lo = v; if (v > hi) hi = v; }
+      if (!isFinite(lo)) { lo = 0; hi = 1; }
+      const pad = Math.max((hi - lo) * .08, minPad);
+      return [lo - pad, hi + pad];
+    }
+    function niceStep(range, target) {
+      const raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+      return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * mag;
+    }
+    const TIME_STEPS = [60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400];
+    const lowerBound = t => { let lo = 0, hi = T.length; while (lo < hi) { const m = (lo + hi) >> 1; if (T[m] < t) lo = m + 1; else hi = m; } return lo; };
+
+    function load() {
+      const extras = seriesOptions().filter(o => o[0].startsWith("x:"));
+      hasExtra = extras.length > 0;
+      $("pairWithLabel").hidden = !hasExtra;
+      $("pairMissing").hidden = hasExtra;
+      if (hasExtra) fillSelect(withSel, extras, want, false);
+      T = cur.data.t; total = Math.max(MIN_SPAN, T[T.length - 1]);
+      v0 = 0; v1 = total; hover = -1; active = null;
+      for (const ch of charts) { ch.A = getSeries(ch.c); [ch.lo, ch.hi] = range(ch.A.values, 0.001); }
+      $("pairNote").textContent = `Each chart's left axis is scaled to that coordinate's own range in this upload. Lines break across gaps longer than ${cur.gap} seconds.`;
+      setRight();
+    }
+    function setRight() {
+      B = hasExtra ? getSeries(withSel.value) : null;
+      if (B) [B.lo, B.hi] = range(B.values, 1e-4);
+      document.querySelectorAll("#pairCard .pair-b").forEach(el => { el.hidden = !B; });
+      document.querySelectorAll("#pairCard .pair-b-name").forEach(el => { el.textContent = B ? axisTitle(B) : ""; });
+      resizeAll();
+    }
+
+    function resizeAll() {
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      for (const ch of charts) {
+        const rect = ch.shell.getBoundingClientRect();
+        if (!rect.width) continue;
+        ch.canvas.width = Math.round(rect.width * ratio); ch.canvas.height = Math.round(rect.height * ratio);
+        ch.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+      drawAll();
+    }
+    const drawAll = () => { if (T) charts.forEach(draw); };
+
+    // Draws one line. When there are many more points than pixels, each pixel
+    // column is drawn as its min-max range, which looks the same and is faster.
+    function drawLine(ctx, vals, X, Y, plotW) {
+      const i0 = Math.max(0, lowerBound(v0) - 1), i1 = Math.min(T.length - 1, lowerBound(v1) + 1);
+      ctx.beginPath();
+      let prev = -1;
+      if (i1 - i0 < plotW * 3) {
+        for (let i = i0; i <= i1; i++) {
+          const v = vals[i];
+          if (v === null) { prev = -1; continue; }
+          if (prev < 0 || T[i] - T[prev] > cur.gap) ctx.moveTo(X(T[i]), Y(v)); else ctx.lineTo(X(T[i]), Y(v));
+          prev = i;
+        }
+      } else {
+        let col = null, mn = 0, mx = 0, first = 0, last = 0, open = false;
+        const flush = () => {
+          if (col === null) return;
+          const x = col + .5;
+          if (open) ctx.lineTo(x, Y(first)); else { ctx.moveTo(x, Y(first)); open = true; }
+          ctx.lineTo(x, Y(mn)); ctx.lineTo(x, Y(mx)); ctx.lineTo(x, Y(last));
+          col = null;
+        };
+        for (let i = i0; i <= i1; i++) {
+          const v = vals[i];
+          if (v === null) { flush(); open = false; prev = -1; continue; }
+          if (prev >= 0 && T[i] - T[prev] > cur.gap) { flush(); open = false; }
+          const c = Math.floor(X(T[i]));
+          if (c !== col) { flush(); col = c; mn = mx = first = last = v; }
+          else { if (v < mn) mn = v; if (v > mx) mx = v; last = v; }
+          prev = i;
+        }
+        flush();
+      }
+      ctx.stroke();
+    }
+
+    function draw(ch) {
+      const { ctx, shell, A } = ch;
+      const w = shell.clientWidth, h = shell.clientHeight;
+      if (!w) return;
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
+      const cA = css("--c1"), cB = css("--c2");
+      ctx.clearRect(0, 0, w, h);
+      const L = 118, R = w - (B ? AXIS_R : 18), Tp = 12, Bt = h - 62;
+      const X = t => L + (t - v0) / (v1 - v0) * (R - L);
+      const YA = v => Bt - (v - ch.lo) / (ch.hi - ch.lo) * (Bt - Tp);
+      const YB = B ? v => Bt - (v - B.lo) / (B.hi - B.lo) * (Bt - Tp) : null;
+      ch.geo = { L, R, T: Tp, B: Bt, X };
+      const full = v0 <= 0 && v1 >= total;
+      ch.canvas.style.cursor = drag ? "grabbing" : full ? "crosshair" : "grab";
+
+      // Time axis
+      ctx.font = `12px ${font}`;
+      const span = v1 - v0;
+      const step = TIME_STEPS.find(s => (R - L) * s / span >= 90) || 86400;
+      const startS = cur.startMs / 1000, longFmt = step >= 3600 && span > 18 * 3600;
+      for (let t = Math.ceil((startS + v0) / step) * step - startS; t <= v1 + 1e-9; t += step) {
+        const x = X(t);
+        ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, Tp); ctx.lineTo(x, Bt); ctx.stroke();
+        const d = new Date(cur.startMs + t * 1000);
+        const lab = longFmt ? d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", hour12: true })
+          : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+        ctx.save(); ctx.translate(x, Bt + 12); ctx.rotate(-Math.PI / 6);
+        ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(lab, 0, 0); ctx.restore();
+      }
+      // Left axis: the coordinate, in meters
+      const sa = niceStep(ch.hi - ch.lo, 5), da = Math.max(3, -Math.floor(Math.log10(sa) + 1e-9));
+      ctx.textBaseline = "middle";
+      for (let v = Math.ceil(ch.lo / sa) * sa; v <= ch.hi + 1e-12; v += sa) {
+        const y = YA(v);
+        ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke();
+        ctx.fillStyle = cA; ctx.textAlign = "right"; ctx.fillText(fmtNum(v, da), L - 8, y);
+      }
+      ctx.strokeStyle = cA; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Tp); ctx.lineTo(L, Bt); ctx.stroke();
+      ctx.save(); ctx.fillStyle = cA; ctx.font = `600 13px ${font}`; ctx.textAlign = "center";
+      ctx.translate(16, (Tp + Bt) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(axisTitle(A), 0, 0); ctx.restore();
+      // Right axis: PDOP (or the chosen extra value)
+      if (B) {
+        const sb = niceStep(B.hi - B.lo, 5), db = Math.max(0, -Math.floor(Math.log10(sb) + 1e-9));
+        ctx.font = `12px ${font}`; ctx.lineWidth = 1;
+        for (let v = Math.ceil(B.lo / sb) * sb; v <= B.hi + 1e-12; v += sb) {
+          const y = YB(v);
+          ctx.strokeStyle = cB; ctx.beginPath(); ctx.moveTo(R, y); ctx.lineTo(R + 5, y); ctx.stroke();
+          ctx.fillStyle = cB; ctx.textAlign = "left"; ctx.fillText(fmtNum(v, db), R + 8, y);
+        }
+        ctx.strokeStyle = cB; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(R, Tp); ctx.lineTo(R, Bt); ctx.stroke();
+        ctx.save(); ctx.fillStyle = cB; ctx.font = `600 13px ${font}`; ctx.textAlign = "center";
+        ctx.translate(w - 12, (Tp + Bt) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(axisTitle(B), 0, 0); ctx.restore();
+      }
+      ctx.strokeStyle = rule; ctx.lineWidth = 1; ctx.strokeRect(L, Tp, R - L, Bt - Tp);
+
+      ctx.save(); ctx.beginPath(); ctx.rect(L, Tp, R - L, Bt - Tp); ctx.clip();
+      ctx.lineWidth = .9;
+      if (B) { ctx.strokeStyle = cB; ctx.globalAlpha = .75; drawLine(ctx, B.values, X, YB, R - L); }
+      ctx.strokeStyle = cA; ctx.globalAlpha = .9; drawLine(ctx, A.values, X, YA, R - L);
+      ctx.globalAlpha = 1;
+      if (hover >= 0) {
+        const x = X(T[hover]);
+        ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, Tp); ctx.lineTo(x, Bt); ctx.stroke(); ctx.setLineDash([]);
+        const dot = (y, col) => { ctx.fillStyle = col; ctx.strokeStyle = css("--panel"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); };
+        if (B && B.values[hover] !== null) dot(YB(B.values[hover]), cB);
+        dot(YA(A.values[hover]), cA);
+      }
+      ctx.restore();
+      ctx.fillStyle = ink; ctx.font = `600 13px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillText("Time", (L + R) / 2, h - 6);
+    }
+
+    function updateButtons() {
+      const full = v0 <= 0 && v1 >= total;
+      $("pairReset").disabled = full; $("pairZoomOut").disabled = full;
+      $("pairZoomIn").disabled = v1 - v0 <= MIN_SPAN + 1e-6;
+    }
+    function setView(a, b) {
+      const span = clamp(b - a, MIN_SPAN, total);
+      v0 = clamp(a, 0, total - span); v1 = v0 + span;
+      hideHover(); updateButtons(); drawAll();
+    }
+    function hideHover() { hover = -1; active = null; charts.forEach(ch => { ch.tip.style.opacity = 0; }); }
+    const zoom = f => { const mid = (v0 + v1) / 2, span = (v1 - v0) * f; setView(mid - span / 2, mid + span / 2); };
+
+    for (const ch of charts) {
+      const cv = ch.canvas;
+      const pos = ev => { const r = cv.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+      const inPlot = (mx, my) => ch.geo && mx >= ch.geo.L && mx <= ch.geo.R && my >= ch.geo.T && my <= ch.geo.B;
+      cv.addEventListener("pointerdown", ev => {
+        const [mx, my] = pos(ev);
+        if (ev.button !== 0 || !inPlot(mx, my) || (v0 <= 0 && v1 >= total)) return;
+        ev.preventDefault();
+        drag = { id: ev.pointerId, ch, x0: mx, x1: mx, a: v0, b: v1 };
+        cv.setPointerCapture(ev.pointerId); hideHover(); drawAll();
+      });
+      cv.addEventListener("pointermove", ev => {
+        if (!T || !ch.geo) return;
+        const [mx, my] = pos(ev);
+        if (drag) {
+          if (drag.ch !== ch) return;
+          drag.x1 = mx;
+          if (!pending) {
+            pending = true;
+            requestAnimationFrame(() => {
+              pending = false; if (!drag) return;
+              const shift = -(drag.x1 - drag.x0) / (ch.geo.R - ch.geo.L) * (drag.b - drag.a);
+              setView(drag.a + shift, drag.b + shift);
+            });
+          }
+          return;
+        }
+        if (!inPlot(mx, my)) { if (hover >= 0) { hideHover(); drawAll(); } return; }
+        const g = ch.geo, t = v0 + (mx - g.L) / (g.R - g.L) * (v1 - v0);
+        let i = Math.min(T.length - 1, lowerBound(t));
+        if (i > 0 && Math.abs(T[i - 1] - t) < Math.abs(T[i] - t)) i--;
+        if (Math.abs(T[i] - t) > Math.max(cur.gap, (v1 - v0) / (g.R - g.L) * 4)) { if (hover >= 0) { hideHover(); drawAll(); } return; }
+        hideHover(); hover = i; active = ch; drawAll();
+        const when = new Date(cur.startMs + T[i] * 1000).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+        const pid = cur.data.ids && cur.data.ids[i] ? `Point ${cur.data.ids[i]}<br>` : "";
+        const bv = B ? B.values[i] : null;
+        ch.tip.innerHTML = `<strong>${when}</strong>${pid}<span style="color:${css("--c1")}">■</span> ${ch.A.name}: <b>${fmtNum(ch.A.values[i], 3)} m</b>` +
+          (B ? `<br><span style="color:${css("--c2")}">■</span> ${B.name}: ${bv === null ? "no value" : `<b>${fmtNum(bv, B.dec)}${unitSuffix(B)}</b>`}` : "");
+        ch.tip.style.left = `${Math.min(g.X(T[i]), ch.shell.clientWidth - 250)}px`;
+        ch.tip.style.top = `${clamp(my, 50, ch.shell.clientHeight - 50)}px`;
+        ch.tip.style.opacity = 1;
+      });
+      const endDrag = ev => {
+        if (!drag || ev.pointerId !== drag.id) return;
+        if (cv.hasPointerCapture(ev.pointerId)) cv.releasePointerCapture(ev.pointerId);
+        drag = null; drawAll();
+      };
+      cv.addEventListener("pointerup", endDrag);
+      cv.addEventListener("pointercancel", endDrag);
+      cv.addEventListener("pointerleave", () => { if (!drag && active === ch) { hideHover(); drawAll(); } });
+      cv.addEventListener("wheel", ev => {
+        const [mx, my] = pos(ev);
+        if (!inPlot(mx, my)) return;
+        ev.preventDefault();
+        const g = ch.geo, ratio = (mx - g.L) / (g.R - g.L), anchor = v0 + ratio * (v1 - v0);
+        const span = clamp((v1 - v0) * (ev.deltaY < 0 ? .76 : 1.32), MIN_SPAN, total);
+        setView(anchor - ratio * span, anchor - ratio * span + span);
+      }, { passive: false });
+      cv.addEventListener("dblclick", ev => { ev.preventDefault(); setView(0, total); });
+      new ResizeObserver(() => resizeAll()).observe(ch.shell);
+    }
+    $("pairZoomIn").addEventListener("click", () => zoom(1 / 1.5));
+    $("pairZoomOut").addEventListener("click", () => zoom(1.5));
+    $("pairReset").addEventListener("click", () => setView(0, total));
+    withSel.addEventListener("change", () => { want = withSel.value; if (cur) setRight(); });
+    return { load, redraw: drawAll };
   })();
 
   // ========================= Time window statistics ===========================
@@ -1594,7 +1904,7 @@
   // ============================== Wiring ======================================
   $("dateFilter").addEventListener("change", renderList);
   $("clearFilter").addEventListener("click", () => { $("dateFilter").value = ""; cell = null; renderGrid(); renderList(); });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); Win.redraw(); Drift.redraw(); } });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); PAIR.redraw(); Win.redraw(); Drift.redraw(); } });
 
   (async function init() {
     try {
