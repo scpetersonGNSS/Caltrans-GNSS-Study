@@ -227,7 +227,7 @@
       <div class="plots">
         <section class="plot">
           <h3 id="tsTitle">Northing over time</h3>
-          <p>Choose a value and a period, and hover to inspect. Use the buttons or scroll to zoom, drag to pan or to draw a zoom box, and double-click to reset.</p>
+          <p>Choose a value and a period, and hover to read the values above the chart. Use the buttons or scroll to zoom, drag to pan or to draw a zoom box, and double-click to reset.</p>
           <div class="controls">
             <label class="pick">Value <select id="compSel"></select></label>
             <div class="seg period" role="group" aria-label="Time period" id="periodSeg">
@@ -258,7 +258,7 @@
           </div>
           <div class="chart-shell" id="tsShell">
             <canvas id="tsCanvas" aria-label="Interactive time-series chart"></canvas>
-            <div class="tooltip" id="tsTip" role="status" aria-live="polite"></div>
+            <div class="pair-readout" id="tsReadout" aria-live="polite"></div>
           </div>
           <p class="chart-note" id="tsNote"></p>
         </section>
@@ -639,9 +639,9 @@
 
   // ====================== Day/night time series ===============================
   const TS = (() => {
-    const canvas = $("tsCanvas"), shell = $("tsShell"), tip = $("tsTip"), ctx = canvas.getContext("2d");
+    const canvas = $("tsCanvas"), shell = $("tsShell"), readout = $("tsReadout"), ctx = canvas.getContext("2d");
     let comp = "n", period = "day", cycle = 0;
-    let DATA = null, STATS = null, cycles = [], SER = null;
+    let DATA = null, STATS = null, cycles = [], SER = null, PDOP = null, HPREC = null;
     const fmtV = v => fmtNum(v, SER.dec);
     let viewStart = 0, viewEnd = HALF, dragState = null, hoverPoints = [], geometry = null, tsMode = "pan";
     const MIN_SPAN = 60;
@@ -684,6 +684,7 @@
     function build() {
       const d = cur.data;
       SER = getSeries(comp);
+      PDOP = getSeries("x:PDOP"); HPREC = getSeries("x:H. Precision");
       const vals = SER.values;
       let n = 0, mean = 0; for (const v of vals) if (v !== null) { mean += v; n++; }
       mean /= n || 1;
@@ -697,15 +698,15 @@
       for (let i = 0; i < vals.length; i++) {
         if (vals[i] === null) continue;
         const ms = cur.startMs + d.t[i] * 1000;
-        if (ms >= c.day && ms < c.night) day.push([(ms - c.day) / 1000, vals[i]]);
-        else if (ms >= c.night && ms < c.next) night.push([(ms - c.night) / 1000, vals[i]]);
+        if (ms >= c.day && ms < c.night) day.push([(ms - c.day) / 1000, vals[i], i]);
+        else if (ms >= c.night && ms < c.next) night.push([(ms - c.night) / 1000, vals[i], i]);
       }
       const nm = SER.name, u = unitSuffix(SER);
       DATA = {
         day: { label: `Daytime ${nm}`, colorVar: "--day", startMs: c.day, points: day },
         night: { label: `Overnight ${nm}`, colorVar: "--night", startMs: c.night, points: night },
       };
-      DATA.nightSequential = { ...DATA.night, timeOffset: HALF, points: night.map(([s, v]) => [s + HALF, v]) };
+      DATA.nightSequential = { ...DATA.night, timeOffset: HALF, points: night.map(([s, v, i]) => [s + HALF, v, i]) };
 
       $("tsTitle").textContent = `${nm} over time`;
       $("dayLegendText").textContent = `Daytime ${nm}`;
@@ -714,7 +715,7 @@
       $("s1Legend").textContent = `±1σ (${sd.toFixed(SER.dec + 1)}${u})`;
       $("s2Legend").textContent = `±2σ (${(2 * sd).toFixed(SER.dec + 1)}${u})`;
       $("tsNote").textContent = `Reference lines use all ${n.toLocaleString()} observations in this upload (sample σ). Lines break across gaps longer than ${cur.gap} seconds.`;
-      viewStart = 0; viewEnd = duration(); hoverPoints = []; tip.style.opacity = 0;
+      viewStart = 0; viewEnd = duration(); hoverPoints = []; setReadout(null);
       resize();
     }
 
@@ -745,7 +746,9 @@
       const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
       ctx.clearRect(0, 0, width, height);
       const narrow = width < 560;
-      const margin = { top: 18, right: narrow ? 12 : 30, bottom: 74, left: narrow ? 92 : 112 };
+      // The overlay view can show two readings (daytime and overnight), so it gets a taller readout strip.
+      const margin = { top: period === "both" ? 92 : 52, right: narrow ? 12 : 30, bottom: 74, left: narrow ? 92 : 112 };
+      readout.style.left = `${margin.left}px`; readout.style.right = `${margin.right}px`; readout.style.height = `${margin.top - 4}px`;
       geometry = { left: margin.left, right: width - margin.right, top: margin.top, bottom: height - margin.bottom };
       geometry.plotWidth = geometry.right - geometry.left;
       geometry.plotHeight = geometry.bottom - geometry.top;
@@ -849,7 +852,26 @@
       const a = p[lo], b = p[Math.max(0, lo - 1)];
       return Math.abs(a[0] - target) < Math.abs(b[0] - target) ? a : b;
     }
-    const hideTip = () => { hoverPoints = []; tip.style.opacity = 0; };
+    // Fixed readout strip above the chart (same style as the Position and PDOP charts).
+    function setReadout(matches) {
+      if (!matches || !matches.length) { readout.innerHTML = `<span>Hover over the chart to read the values at that time.</span>`; return; }
+      const u = unitSuffix(SER), d = cur.data;
+      const val = (S, i) => S.values[i] === null ? "no value" : `<b>${fmtNum(S.values[i], S.dec)}${unitSuffix(S)}</b>`;
+      readout.innerHTML = matches.map(({ series, point }, k) => {
+        const i = point[2], res = point[1] - STATS.mean;
+        const sign = res > 0 ? "+" : res < 0 ? "−" : "";
+        const resTxt = SER.coord ? `${Math.abs(res * 1000) < 0.05 ? "" : sign}${Math.abs(res * 1000).toFixed(1)} mm` : `${sign}${Math.abs(res).toFixed(SER.dec + 1)}${u}`;
+        const when = new Date(cur.startMs + d.t[i] * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+        const parts = [`<span><b>${when}</b></span>`];
+        if (d.ids && d.ids[i]) parts.push(`<span>Point <b>${d.ids[i]}</b></span>`);
+        parts.push(`<span><span style="color:${css(series.colorVar)}">■</span> ${series.label} <b>${fmtNum(point[1], SER.dec)}${u}</b></span>`);
+        parts.push(`<span>Residual <b>${resTxt}</b></span>`);
+        if (PDOP && SER.id !== PDOP.id) parts.push(`<span>PDOP ${val(PDOP, i)}</span>`);
+        if (HPREC && SER.id !== HPREC.id) parts.push(`<span>H. Precision ${val(HPREC, i)}</span>`);
+        return (k ? `<span style="flex-basis:100%;height:0"></span>` : "") + parts.join("");
+      }).join("");
+    }
+    const hideTip = () => { hoverPoints = []; setReadout(null); };
     function resetZoom() { viewStart = 0; viewEnd = duration(); dragState = null; hideTip(); draw(); }
     const secondsAt = mx => viewStart + ((mx - geometry.left) / geometry.plotWidth) * (viewEnd - viewStart);
 
@@ -877,19 +899,7 @@
       const matches = visibleSeries().map(series => ({ series, point: nearestPoint(target, series) }))
         .filter(m => m.point && Math.abs(m.point[0] - target) <= cur.gap);
       if (!matches.length) { hideTip(); draw(); return; }
-      hoverPoints = matches; draw();
-      const nm = SER.name, u = unitSuffix(SER);
-      tip.innerHTML = matches.map(({ series, point }) => {
-        const res = point[1] - STATS.mean;
-        const t = new Date(series.startMs + (point[0] - (series.timeOffset || 0)) * 1000)
-          .toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
-        return `<div class="tip-series"><strong style="color:${css(series.colorVar)}">${series.label}</strong>${t}<br>${nm}: <b>${fmtV(point[1])}${u}</b><br>Residual from mean: <b style="color:${css(res >= 0 ? "--pos" : "--neg")}">${res > 0 ? "+" : res < 0 ? "−" : ""}${Math.abs(res).toFixed(SER.dec + 1)}${u}</b></div>`;
-      }).join("");
-      const px = geometry.x(matches[0].point[0]);
-      const py = matches.reduce((a, m) => a + geometry.y(m.point[1]), 0) / matches.length;
-      tip.style.left = `${Math.min(px, shell.clientWidth - 230)}px`;
-      tip.style.top = `${clamp(py, 50, shell.clientHeight - 50)}px`;
-      tip.style.opacity = 1;
+      hoverPoints = matches; draw(); setReadout(matches);
     });
     function finishDrag(ev) {
       if (!dragState || ev.pointerId !== dragState.pointerId) return;
