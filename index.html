@@ -108,7 +108,10 @@
   .pick select { min-width: 9.5rem; }
   .pair + .pair { margin-top: 1.4rem; }
   .pair .legend { margin-bottom: .3rem; }
-  .pair-shell { position: relative; height: min(46vh, 400px); min-height: 300px; }
+  .pair-shell { position: relative; height: min(50vh, 450px); min-height: 350px; }
+  .pair-readout { position: absolute; top: 0; left: 118px; right: 72px; height: 46px; display: flex; flex-wrap: wrap; align-content: center; gap: .1rem 1.1rem; font-size: .82rem; line-height: 1.3; color: var(--muted); overflow: hidden; pointer-events: none; }
+  .pair-readout span { white-space: nowrap; }
+  .pair-readout b { color: var(--ink); font-weight: 600; }
   .pair-shell canvas { width: 100%; height: 100%; display: block; touch-action: none; }
   .legend { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font-size: .88rem; color: var(--muted); margin-bottom: .5rem; }
   .legend span { display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; }
@@ -262,7 +265,7 @@
 
         <section class="plot" id="pairCard">
           <h3>Position and PDOP over time</h3>
-          <p>Each coordinate on its own chart (left axis, meters) with PDOP on the right axis, so you can see whether changes in position line up with changes in satellite geometry. The three charts share one time axis: zooming or panning one moves all three, and hovering shows the same moment on each. Use the buttons or scroll to zoom, drag to pan, and double-click to reset.</p>
+          <p>Each coordinate on its own chart (left axis, meters) with PDOP on the right axis, so you can see whether changes in position line up with changes in satellite geometry. The three charts share one time axis: zooming or panning one moves all three, and hovering shows the same moment on each. The values at the hovered time are shown above each chart. Use the buttons or scroll to zoom, drag to pan, and double-click to reset.</p>
           <div class="controls">
             <label class="pick" id="pairWithLabel">Compare with <select id="pairWith"></select></label>
             <div class="seg" role="group" aria-label="Zoom">
@@ -274,15 +277,15 @@
           <p class="win-msg" id="pairMissing" hidden>This upload has no PDOP column, so only the coordinates are plotted.</p>
           <div class="pair">
             <div class="legend"><span style="color:var(--c1)"><i class="sw" style="border-top-width:3px"></i>Northing (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span></div>
-            <div class="pair-shell" id="pairShell_n"><canvas id="pair_n" aria-label="Northing and PDOP over time"></canvas><div class="tooltip" id="pairTip_n"></div></div>
+            <div class="pair-shell" id="pairShell_n"><canvas id="pair_n" aria-label="Northing and PDOP over time"></canvas><div class="pair-readout" id="pairTip_n" aria-live="polite"></div></div>
           </div>
           <div class="pair">
             <div class="legend"><span style="color:var(--c1)"><i class="sw" style="border-top-width:3px"></i>Easting (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span></div>
-            <div class="pair-shell" id="pairShell_e"><canvas id="pair_e" aria-label="Easting and PDOP over time"></canvas><div class="tooltip" id="pairTip_e"></div></div>
+            <div class="pair-shell" id="pairShell_e"><canvas id="pair_e" aria-label="Easting and PDOP over time"></canvas><div class="pair-readout" id="pairTip_e" aria-live="polite"></div></div>
           </div>
           <div class="pair">
             <div class="legend"><span style="color:var(--c1)"><i class="sw" style="border-top-width:3px"></i>Elevation (m)</span><span class="pair-b" style="color:var(--c2)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span></div>
-            <div class="pair-shell" id="pairShell_u"><canvas id="pair_u" aria-label="Elevation and PDOP over time"></canvas><div class="tooltip" id="pairTip_u"></div></div>
+            <div class="pair-shell" id="pairShell_u"><canvas id="pair_u" aria-label="Elevation and PDOP over time"></canvas><div class="pair-readout" id="pairTip_u" aria-live="polite"></div></div>
           </div>
           <p class="chart-note" id="pairNote"></p>
         </section>
@@ -953,7 +956,11 @@
       return { c, canvas, ctx: canvas.getContext("2d"), shell: $(`pairShell_${c}`), tip: $(`pairTip_${c}`) };
     });
     const withSel = $("pairWith");
-    const MIN_SPAN = 60, AXIS_R = 72;
+    const MIN_SPAN = 60, AXIS_R = 72, READOUT_H = 48;
+    // Vertical share of each chart used by the coordinate (top) and by PDOP
+    // (bottom), as fractions of the plot height. The gap keeps them apart.
+    const BAND_A = [0, 0.6], BAND_B = [0.67, 1];
+    let PDOP = null, HPREC = null;
     let want = "x:PDOP", hasExtra = false;
     let T = null, total = 1, v0 = 0, v1 = 1, B = null, hover = -1, active = null, drag = null, pending = false;
 
@@ -979,7 +986,12 @@
       if (hasExtra) fillSelect(withSel, extras, want, false);
       T = cur.data.t; total = Math.max(MIN_SPAN, T[T.length - 1]);
       v0 = 0; v1 = total; hover = -1; active = null;
-      for (const ch of charts) { ch.A = getSeries(ch.c); [ch.lo, ch.hi] = range(ch.A.values, 0.001); }
+      PDOP = getSeries("x:PDOP"); HPREC = getSeries("x:H. Precision");
+      for (const ch of charts) {
+        ch.A = getSeries(ch.c); [ch.lo, ch.hi] = range(ch.A.values, 0.001);
+        let sum = 0; for (const v of ch.A.mm) sum += v;
+        ch.meanMm = sum / ch.A.mm.length;
+      }
       $("pairNote").textContent = `Each chart's left axis is scaled to that coordinate's own range in this upload. Lines break across gaps longer than ${cur.gap} seconds.`;
       setRight();
     }
@@ -1001,7 +1013,7 @@
       }
       drawAll();
     }
-    const drawAll = () => { if (T) charts.forEach(draw); };
+    const drawAll = () => { if (T) { charts.forEach(draw); if (hover < 0) updateReadouts(); } };
 
     // Draws one line. When there are many more points than pixels, each pixel
     // column is drawn as its min-max range, which looks the same and is faster.
@@ -1046,10 +1058,12 @@
       const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
       const cA = css("--c1"), cB = css("--c2");
       ctx.clearRect(0, 0, w, h);
-      const L = 118, R = w - (B ? AXIS_R : 18), Tp = 12, Bt = h - 62;
+      const L = 118, R = w - (B ? AXIS_R : 18), Tp = READOUT_H, Bt = h - 62;
       const X = t => L + (t - v0) / (v1 - v0) * (R - L);
-      const YA = v => Bt - (v - ch.lo) / (ch.hi - ch.lo) * (Bt - Tp);
-      const YB = B ? v => Bt - (v - B.lo) / (B.hi - B.lo) * (Bt - Tp) : null;
+      const band = f => [Tp + f[0] * (Bt - Tp), Tp + f[1] * (Bt - Tp)];
+      const [aTop, aBot] = B ? band(BAND_A) : [Tp, Bt], [bTop, bBot] = band(BAND_B);
+      const YA = v => aBot - (v - ch.lo) / (ch.hi - ch.lo) * (aBot - aTop);
+      const YB = B ? v => bBot - (v - B.lo) / (B.hi - B.lo) * (bBot - bTop) : null;
       ch.geo = { L, R, T: Tp, B: Bt, X };
       const full = v0 <= 0 && v1 >= total;
       ch.canvas.style.cursor = drag ? "grabbing" : full ? "crosshair" : "grab";
@@ -1076,21 +1090,22 @@
         ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke();
         ctx.fillStyle = cA; ctx.textAlign = "right"; ctx.fillText(fmtNum(v, da), L - 8, y);
       }
-      ctx.strokeStyle = cA; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, Tp); ctx.lineTo(L, Bt); ctx.stroke();
+      ctx.strokeStyle = cA; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, aTop); ctx.lineTo(L, aBot); ctx.stroke();
       ctx.save(); ctx.fillStyle = cA; ctx.font = `600 13px ${font}`; ctx.textAlign = "center";
-      ctx.translate(16, (Tp + Bt) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(axisTitle(A), 0, 0); ctx.restore();
+      ctx.translate(16, (aTop + aBot) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(axisTitle(A), 0, 0); ctx.restore();
       // Right axis: PDOP (or the chosen extra value)
       if (B) {
         const sb = niceStep(B.hi - B.lo, 5), db = Math.max(0, -Math.floor(Math.log10(sb) + 1e-9));
         ctx.font = `12px ${font}`; ctx.lineWidth = 1;
         for (let v = Math.ceil(B.lo / sb) * sb; v <= B.hi + 1e-12; v += sb) {
           const y = YB(v);
+          ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke();
           ctx.strokeStyle = cB; ctx.beginPath(); ctx.moveTo(R, y); ctx.lineTo(R + 5, y); ctx.stroke();
           ctx.fillStyle = cB; ctx.textAlign = "left"; ctx.fillText(fmtNum(v, db), R + 8, y);
         }
-        ctx.strokeStyle = cB; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(R, Tp); ctx.lineTo(R, Bt); ctx.stroke();
+        ctx.strokeStyle = cB; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(R, bTop); ctx.lineTo(R, bBot); ctx.stroke();
         ctx.save(); ctx.fillStyle = cB; ctx.font = `600 13px ${font}`; ctx.textAlign = "center";
-        ctx.translate(w - 12, (Tp + Bt) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(axisTitle(B), 0, 0); ctx.restore();
+        ctx.translate(w - 12, (bTop + bBot) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(axisTitle(B), 0, 0); ctx.restore();
       }
       ctx.strokeStyle = rule; ctx.lineWidth = 1; ctx.strokeRect(L, Tp, R - L, Bt - Tp);
 
@@ -1121,7 +1136,30 @@
       v0 = clamp(a, 0, total - span); v1 = v0 + span;
       hideHover(); updateButtons(); drawAll();
     }
-    function hideHover() { hover = -1; active = null; charts.forEach(ch => { ch.tip.style.opacity = 0; }); }
+    function hideHover() { hover = -1; active = null; updateReadouts(); }
+
+    // Fixed readout strip above each chart, so it never covers the data.
+    function updateReadouts() {
+      const i = hover;
+      for (const ch of charts) {
+        const el = ch.tip, g = ch.geo;
+        if (g) { el.style.left = `${g.L}px`; el.style.right = `${ch.shell.clientWidth - g.R}px`; }
+        if (i < 0 || !T) { el.innerHTML = `<span>Hover over a chart to read the values at that time.</span>`; continue; }
+        const sq = col => `<span style="color:${css(col)}">■</span> `;
+        const val = (S, unit = true) => S.values[i] === null ? "no value" : `<b>${fmtNum(S.values[i], S.dec)}${unit ? unitSuffix(S) : ""}</b>`;
+        const res = ch.A.mm[i] - ch.meanMm;
+        const when = new Date(cur.startMs + T[i] * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+        const parts = [`<span><b>${when}</b></span>`];
+        if (cur.data.ids && cur.data.ids[i]) parts.push(`<span>Point <b>${cur.data.ids[i]}</b></span>`);
+        parts.push(`<span>${sq("--c1")}${ch.A.name} ${val(ch.A)}</span>`);
+        parts.push(`<span>Residual <b>${res > 0.05 ? "+" : res < -0.05 ? "−" : ""}${Math.abs(res).toFixed(1)} mm</b></span>`);
+        const isB = S => B && S && B.id === S.id;
+        if (PDOP) parts.push(`<span>${isB(PDOP) ? sq("--c2") : ""}PDOP ${val(PDOP)}</span>`);
+        if (HPREC) parts.push(`<span>${isB(HPREC) ? sq("--c2") : ""}H. Precision ${val(HPREC)}</span>`);
+        if (B && !isB(PDOP) && !isB(HPREC)) parts.push(`<span>${sq("--c2")}${B.name} ${val(B)}</span>`);
+        el.innerHTML = parts.join("");
+      }
+    }
     const zoom = f => { const mid = (v0 + v1) / 2, span = (v1 - v0) * f; setView(mid - span / 2, mid + span / 2); };
 
     for (const ch of charts) {
@@ -1156,15 +1194,7 @@
         let i = Math.min(T.length - 1, lowerBound(t));
         if (i > 0 && Math.abs(T[i - 1] - t) < Math.abs(T[i] - t)) i--;
         if (Math.abs(T[i] - t) > Math.max(cur.gap, (v1 - v0) / (g.R - g.L) * 4)) { if (hover >= 0) { hideHover(); drawAll(); } return; }
-        hideHover(); hover = i; active = ch; drawAll();
-        const when = new Date(cur.startMs + T[i] * 1000).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
-        const pid = cur.data.ids && cur.data.ids[i] ? `Point ${cur.data.ids[i]}<br>` : "";
-        const bv = B ? B.values[i] : null;
-        ch.tip.innerHTML = `<strong>${when}</strong>${pid}<span style="color:${css("--c1")}">■</span> ${ch.A.name}: <b>${fmtNum(ch.A.values[i], 3)} m</b>` +
-          (B ? `<br><span style="color:${css("--c2")}">■</span> ${B.name}: ${bv === null ? "no value" : `<b>${fmtNum(bv, B.dec)}${unitSuffix(B)}</b>`}` : "");
-        ch.tip.style.left = `${Math.min(g.X(T[i]), ch.shell.clientWidth - 250)}px`;
-        ch.tip.style.top = `${clamp(my, 50, ch.shell.clientHeight - 50)}px`;
-        ch.tip.style.opacity = 1;
+        hover = i; active = ch; drawAll(); updateReadouts();
       });
       const endDrag = ev => {
         if (!drag || ev.pointerId !== drag.id) return;
