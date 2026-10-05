@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-05T18:06:05Z",
+  "updated": "2026-10-05T22:47:17Z",
   "sessions": [
     {
       "id": "20260926-082350",
@@ -98,6 +98,39 @@
         "Galileo"
       ],
       "raw_file": "data/raw/20260926-082130_SJER_GRE.asc"
+    },
+    {
+      "id": "20260926-082128",
+      "source_file": "SJER_GRC.asc",
+      "start": "2026-09-26T08:21:28",
+      "end": "2026-09-27T08:46:35",
+      "duration_h": 24.42,
+      "epochs": 85886,
+      "interval_s": 1,
+      "gaps": 19,
+      "skipped_rows": 0,
+      "mean_m": {
+        "n": 566653.231,
+        "e": 2066859.515,
+        "u": 356.39
+      },
+      "std_mm": {
+        "n": 6.6,
+        "e": 6.7,
+        "u": 19.3
+      },
+      "drms_mm": 9.4,
+      "uploaded": "2026-10-05T22:47:17Z",
+      "sha256": "4c309f0b14202279f4425f8d518626a1b186d7624a3524b7c61906b54fb93540",
+      "site": "SJER",
+      "test": "GRC",
+      "test_number": 5,
+      "constellations": [
+        "GPS",
+        "GLONASS",
+        "BeiDou"
+      ],
+      "raw_file": "data/raw/20260926-082128_SJER_GRC.asc"
     },
     {
       "id": "20260926-082125",
