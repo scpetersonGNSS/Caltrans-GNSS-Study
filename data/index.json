@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-06T17:47:42Z",
+  "updated": "2026-10-06T19:18:10Z",
   "sessions": [
     {
       "id": "20260926-082350",
@@ -164,6 +164,39 @@
         "BeiDou"
       ],
       "raw_file": "data/raw/20260926-082125_SJER_GEC.asc"
+    },
+    {
+      "id": "20260926-080901",
+      "source_file": "Elk_GEC.asc",
+      "start": "2026-09-26T08:09:01",
+      "end": "2026-09-27T08:46:26",
+      "duration_h": 24.62,
+      "epochs": 88287,
+      "interval_s": 1.0,
+      "gaps": 6,
+      "skipped_rows": 0,
+      "mean_m": {
+        "n": 628885.728,
+        "e": 1929408.571,
+        "u": 74.337
+      },
+      "std_mm": {
+        "n": 4.7,
+        "e": 4.1,
+        "u": 11.6
+      },
+      "drms_mm": 6.2,
+      "uploaded": "2026-10-06T19:18:10Z",
+      "sha256": "2ce412937f8fddfef21f2376c05b5c009e3fd32e3cee7003ddf35fdae31a95ed",
+      "site": "ELK",
+      "test": "GEC",
+      "test_number": 3,
+      "constellations": [
+        "GPS",
+        "Galileo",
+        "BeiDou"
+      ],
+      "raw_file": "data/raw/20260926-080901_Elk_GEC.asc"
     },
     {
       "id": "20260926-080855",
