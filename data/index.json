@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-05T22:47:17Z",
+  "updated": "2026-10-06T00:12:21Z",
   "sessions": [
     {
       "id": "20260926-082350",
@@ -164,6 +164,37 @@
         "BeiDou"
       ],
       "raw_file": "data/raw/20260926-082125_SJER_GEC.asc"
+    },
+    {
+      "id": "20260926-080720",
+      "source_file": "Elk_G.asc",
+      "start": "2026-09-26T08:07:20",
+      "end": "2026-09-27T08:48:10",
+      "duration_h": 24.68,
+      "epochs": 88486,
+      "interval_s": 1,
+      "gaps": 5,
+      "skipped_rows": 0,
+      "mean_m": {
+        "n": 628892.607,
+        "e": 1929409.001,
+        "u": 74.392
+      },
+      "std_mm": {
+        "n": 5.9,
+        "e": 4.9,
+        "u": 15.2
+      },
+      "drms_mm": 7.6,
+      "uploaded": "2026-10-06T00:12:21Z",
+      "sha256": "f58403923710384c7f82f7686403f2f06d552406e309a708ab7c7cf62da196d0",
+      "site": "ELK",
+      "test": "G",
+      "test_number": 1,
+      "constellations": [
+        "GPS"
+      ],
+      "raw_file": "data/raw/20260926-080720_Elk_G.asc"
     },
     {
       "id": "20260831-072247",
