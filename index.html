@@ -2,322 +2,2163 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Caltrans GNSS Study — Static Occupation Data</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GNSS Static Occupation Data</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
 <style>
-/* ======================================================================
-   SETTINGS — the only part you should ever need to edit
-   ====================================================================== */
-</style>
-<script>
-const CONFIG = {
-  repo:   "scpetersonGNSS/Caltrans-GNSS-Study", // GitHub owner/repo
-  branch: "main",                               // branch the files live on
-  folder: "data/raw",                           // where you upload .asc files
-  extensions: [".asc", ".csv", ".txt"],         // file types the site will show
-  gapFactor: 3   // a pause longer than 3x the normal epoch spacing is drawn as a break
-};
-// Site codes recognised at the start of a file name (e.g. SJER_GREC.asc)
-const SITES = {
-  SJER:    "Site 1: San Joaquin Experimental Range",
-  RANGE:   "Site 1: San Joaquin Experimental Range",
-  FRESNO:  "Site 2: Fresno State",
-  FS:      "Site 2: Fresno State",
-  FSU:     "Site 2: Fresno State",
-  ELKHORN: "Site 3: Elkhorn",
-  ELK:     "Site 3: Elkhorn"
-};
-const TESTS = { G: "Test 1 (GPS)", GREC: "Test 2 (GPS+GLO+GAL+BDS)", GEC: "Test 3 (GPS+GAL+BDS)",
-                GRE: "Test 4 (GPS+GLO+GAL)", GRC: "Test 5 (GPS+GLO+BDS)" };
-</script>
-<style>
-:root{
-  --paper:#F7F9FA; --panel:#FFFFFF; --ink:#18262F; --muted:#5B6B75; --rule:#D5DDE2;
-  --blue:#1F5F8B; --gold:#C98A00; --north:#1F5F8B; --east:#2E8B57; --elev:#A23B3B;
-}
-*{box-sizing:border-box}
-html,body{margin:0;background:var(--paper);color:var(--ink);
-  font-family:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.5}
-header{padding:28px clamp(16px,4vw,48px) 20px;border-bottom:3px solid var(--ink);background:var(--panel)}
-header h1{margin:0;font-size:clamp(1.5rem,3vw,2.1rem);font-weight:700;letter-spacing:-.01em}
-header p{margin:4px 0 0;color:var(--muted);max-width:70ch}
-.wrap{display:grid;grid-template-columns:300px 1fr;gap:0;min-height:calc(100vh - 110px)}
-aside{border-right:1px solid var(--rule);background:var(--panel);padding:20px 16px;overflow-y:auto}
-aside h2{font-size:.95rem;margin:18px 0 6px;color:var(--muted);font-weight:600}
-aside h2:first-child{margin-top:0}
-.file{display:block;width:100%;text-align:left;background:none;border:0;border-left:3px solid transparent;
-  padding:8px 10px;margin:2px 0;cursor:pointer;font:inherit;color:var(--ink);border-radius:0 4px 4px 0}
-.file:hover{background:#EEF3F6}
-.file:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
-.file.active{border-left-color:var(--gold);background:#FFF7E3}
-.file .name{font-weight:600;font-size:.95rem;word-break:break-all}
-.file .meta{font-size:.82rem;color:var(--muted)}
-.drop{margin-top:24px;border:2px dashed var(--rule);border-radius:6px;padding:14px;font-size:.88rem;color:var(--muted)}
-.drop.over{border-color:var(--blue);background:#EEF3F6}
-.drop label{color:var(--blue);text-decoration:underline;cursor:pointer}
-main{padding:24px clamp(16px,3vw,40px) 48px;min-width:0}
-.title h2{margin:0;font-size:1.5rem}
-.title p{margin:2px 0 0;color:var(--muted)}
-.title a{color:var(--blue)}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--rule);
-  border:1px solid var(--rule);margin:18px 0 22px}
-.stat{background:var(--panel);padding:10px 14px}
-.stat .v{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums}
-.stat .k{font-size:.82rem;color:var(--muted)}
-.plot{background:var(--panel);border:1px solid var(--rule);margin-bottom:22px}
-.msg{color:var(--muted);padding:40px 0}
-.err{color:#A23B3B}
-@media (max-width:820px){ .wrap{grid-template-columns:1fr} aside{border-right:0;border-bottom:1px solid var(--rule);max-height:45vh} }
+  :root {
+    --bg: #F3F5F4; --panel: #FFFFFF; --ink: #1D2B33; --muted: #5E6E76; --rule: #D5DCDC;
+    --grid: #E8EBEB; --brass: #A7802F; --brass-soft: rgba(167,128,47,.12);
+    --day: #2563eb; --night: #c62828; --sig1: #f59e0b; --sig2: #7c3aed;
+    --drms1: #c98500; --drms2: #a32d2d; --tip-bg: rgba(255,255,255,.97);
+    --pos: #137333; --neg: #c5221f;
+    /* One color per value, used everywhere on the page (second shade: overnight line) */
+    --cN: #2563eb; --cN2: #82b1ff;   /* Northing */
+    --cE: #0f8a4f; --cE2: #6fcf9a;   /* Easting */
+    --cU: #c2185b; --cU2: #f48fb1;   /* Elevation */
+    --cP: #d97706; --cP2: #f6c26b;   /* PDOP */
+    --cH: #0891b2; --cH2: #67d3e6;   /* H. Precision */
+    --cX: #7c6f64; --cX2: #bcaaa4;   /* any other column */
+    --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+    --cond: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141B1F; --panel: #1B2429; --ink: #E4E9EA; --muted: #95A4AA; --rule: #2E3A40;
+      --grid: #253036; --brass: #D1A650; --brass-soft: rgba(209,166,80,.14);
+      --day: #6f9bff; --night: #ef6b6b; --sig1: #fbbf24; --sig2: #a78bfa;
+      --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
+      --pos: #5bd08a; --neg: #ff8a80;
+      --cN: #6f9bff; --cN2: #3557a8; --cE: #4cd38a; --cE2: #237a50; --cU: #f06292; --cU2: #9c3a63;
+      --cP: #f5b041; --cP2: #9a6a1f; --cH: #22d3ee; --cH2: #1b7f92; --cX: #bcaaa4; --cX2: #6d5f58;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141B1F; --panel: #1B2429; --ink: #E4E9EA; --muted: #95A4AA; --rule: #2E3A40;
+    --grid: #253036; --brass: #D1A650; --brass-soft: rgba(209,166,80,.14);
+    --day: #6f9bff; --night: #ef6b6b; --sig1: #fbbf24; --sig2: #a78bfa;
+    --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
+    --pos: #5bd08a; --neg: #ff8a80;
+    --cN: #6f9bff; --cN2: #3557a8; --cE: #4cd38a; --cE2: #237a50; --cU: #f06292; --cU2: #9c3a63;
+      --cP: #f5b041; --cP2: #9a6a1f; --cH: #22d3ee; --cH2: #1b7f92; --cX: #bcaaa4; --cX2: #6d5f58;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+  header.site { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 1.1rem clamp(1rem, 3vw, 2rem); border-bottom: 1px solid var(--rule); }
+  header.site h1 { margin: 0; font-family: var(--cond); font-weight: 600; font-size: 1.5rem; }
+  header.site p { margin: 0; color: var(--muted); font-size: .95rem; }
+
+  .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: clamp(1rem, 2.5vw, 2rem); padding: clamp(1rem, 3vw, 2rem); max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+  aside h2 { font-family: var(--cond); font-weight: 600; font-size: 1.15rem; margin: 0 0 .6rem; }
+  .filter { display: flex; gap: .5rem; align-items: center; margin-bottom: .9rem; flex-wrap: wrap; }
+  .filter label { font-size: .9rem; color: var(--muted); width: 100%; }
+  input[type="date"], button, select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: .4rem .6rem; }
+  button { cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--brass); }
+  button:disabled { opacity: .45; cursor: default; }
+  :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+  .sessions { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); max-height: 70vh; overflow-y: auto; }
+  .sessions button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; background: transparent; padding: .7rem .6rem .7rem .8rem; border-left: 3px solid transparent; }
+  .sessions button[aria-current="true"] { border-left-color: var(--brass); background: var(--brass-soft); }
+  .sessions .when { display: block; font-weight: 600; }
+  .sessions .meta { display: block; font-size: .85rem; color: var(--muted); }
+  .note { color: var(--muted); font-size: .92rem; }
+
+  .study { margin-bottom: 1.6rem; }
+  .study table { border-collapse: collapse; width: 100%; font-size: .85rem; background: var(--panel); }
+  .study th, .study td { border: 1px solid var(--rule); padding: 0; text-align: center; }
+  .study thead th { font-family: var(--cond); font-weight: 600; padding: .3rem .15rem; color: var(--muted); font-size: .82rem; line-height: 1.15; }
+  .study tbody th { text-align: left; padding: .3rem .45rem; font-weight: 600; white-space: nowrap; }
+  .study td button { width: 100%; border: 0; border-radius: 0; background: transparent; padding: .45rem 0; font-weight: 600; }
+  .study td button.has { background: var(--brass-soft); }
+  .study td button.none { color: var(--muted); font-weight: 400; }
+  .study td button[aria-pressed="true"] { background: var(--brass); color: #fff; opacity: 1; }
+  .study .note { font-size: .82rem; margin: .5rem 0 0; line-height: 1.4; }
+  .tag { display: inline-block; font-size: .78rem; font-weight: 600; padding: .05rem .4rem; border-radius: 4px; background: var(--brass-soft); color: var(--ink); margin-bottom: .2rem; }
+  .tag.untagged { background: var(--grid); color: var(--muted); }
+  .study-line { font-family: var(--cond); font-weight: 600; font-size: 1.25rem; margin: 0 0 .5rem; }
+
+  .coord { margin: 0 0 .4rem; display: flex; flex-wrap: wrap; gap: .4rem 2.2rem; }
+  .coord div { display: flex; flex-direction: column; }
+  .coord span.lbl { font-size: .9rem; color: var(--muted); }
+  .coord span.val { font-family: var(--cond); font-weight: 500; font-size: clamp(1.9rem, 4.2vw, 3rem); line-height: 1.05; }
+  .coord span.val small { font-size: .5em; color: var(--muted); margin-left: .15em; }
+  .session-line { color: var(--muted); margin: .2rem 0 1.2rem; max-width: 75ch; }
+  .session-line a { color: var(--brass); }
+  .stats { display: flex; flex-wrap: wrap; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); margin: 0 0 1.8rem; }
+  .stats div { padding: .6rem 1.4rem .6rem 0; margin-right: 1.4rem; border-right: 1px solid var(--rule); }
+  .stats div:last-child { border-right: 0; }
+  .stats dt { font-size: .85rem; color: var(--muted); }
+  .stats dd { margin: 0; font-weight: 600; font-size: 1.1rem; }
+
+  .plots { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+  section.plot { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 1.2rem 1.4rem 1rem; min-width: 0; }
+  section.plot h3 { margin: 0 0 .2rem; font-family: var(--cond); font-weight: 600; font-size: 1.25rem; }
+  section.plot > p { margin: 0 0 .8rem; font-size: .9rem; color: var(--muted); }
+  .controls { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: center; margin-bottom: .7rem; }
+  .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; border-right: 1px solid var(--rule); padding: .35rem .8rem; }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--brass); color: #fff; }
+  .seg.period button[aria-pressed="true"][data-period="day"] { background: var(--day); }
+  .seg.period button[aria-pressed="true"][data-period="night"] { background: var(--day); }
+  .seg.period button[aria-pressed="true"][data-period="both"] { background: var(--day); }
+  .seg.period button[aria-pressed="true"][data-period="sequential"] { background: #374151; }
+  .pick { display: inline-flex; align-items: center; gap: .45rem; font-size: .9rem; color: var(--muted); }
+  .pick select { min-width: 9.5rem; }
+  .pair + .pair { margin-top: 1.4rem; }
+  .pair .legend { margin-bottom: .3rem; }
+  .pair-shell { position: relative; height: min(50vh, 450px); min-height: 350px; }
+  .pair-readout { position: absolute; top: 0; left: 118px; right: 72px; height: 46px; display: flex; flex-wrap: wrap; align-content: center; gap: .1rem 1.1rem; font-size: .82rem; line-height: 1.3; color: var(--muted); overflow: hidden; pointer-events: none; }
+  .pair-readout span { white-space: nowrap; }
+  .pair-readout b { color: var(--ink); font-weight: 600; }
+  .pair-shell canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font-size: .88rem; color: var(--muted); margin-bottom: .5rem; }
+  .legend span { display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; }
+  .sw { display: inline-block; width: 28px; height: 0; border-top: 2px solid currentColor; }
+  .sw.mean { border-top: 2px dashed var(--ink); }
+  .sw.s1 { border-top: 2px dashed var(--sig1); }
+  .sw.s2 { border-top: 2px dotted var(--sig2); border-top-width: 3px; }
+  .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 2px solid; }
+  .chart-shell { position: relative; height: min(62vh, 620px); min-height: 420px; }
+  .chart-shell canvas { width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
+  .tooltip { position: absolute; pointer-events: none; min-width: 190px; padding: .55rem .7rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--tip-bg); box-shadow: 0 6px 18px rgba(0,0,0,.14); font-size: .82rem; line-height: 1.45; opacity: 0; transform: translate(12px, -50%); transition: opacity 70ms ease; z-index: 5; white-space: nowrap; }
+  .tooltip strong { display: block; }
+  .tip-series + .tip-series { border-top: 1px solid var(--rule); margin-top: .45rem; padding-top: .45rem; }
+  .chart-note { margin: .5rem 0 0; font-size: .82rem; color: var(--muted); }
+  .readout { font-size: .88rem; color: var(--ink); }
+  input[type="range"] { width: min(320px, 100%); accent-color: var(--brass); }
+  .drift-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "ah sh" "aw sw"; gap: .6rem 2rem; align-items: end; }
+  .drift-grid .a-head { grid-area: ah; } .drift-grid .s-head { grid-area: sh; }
+  .drift-grid .a-wrap { grid-area: aw; } .drift-grid .s-wrap { grid-area: sw; }
+  @media (max-width: 1000px) { .drift-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "ah" "aw" "sh" "sw"; } .drift-grid .s-head { margin-top: 1.2rem; } }
+  .drift-grid h4 { margin: 0 0 .2rem; font-family: var(--cond); font-weight: 600; font-size: 1.1rem; }
+  .drift-grid .sub { margin: 0 0 .6rem; font-size: .88rem; color: var(--muted); }
+  .readout { min-height: 2.9em; }
+  #staticReadout { margin-top: .4rem; }
+  #staticReadout b { font-weight: 600; }
+  /* Fixed-height readout so hovering never changes the page layout */
+  .fixed-strip { height: 4.4em; line-height: 1.35; min-height: 0; overflow: hidden; display: flex; flex-wrap: wrap; align-content: center; gap: .1rem 1.1rem; font-size: .85rem; color: var(--muted); }
+  .fixed-strip span { white-space: nowrap; }
+  .fixed-strip b { color: var(--ink); }
+  .cbar { display: inline-flex; align-items: center; gap: .45rem; }
+  .cbar i { display: inline-block; width: 90px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, #440154, #3b528b, #21918c, #5ec962, #fde725); }
+  .drift-wrap { position: relative; width: 100%; max-width: 680px; aspect-ratio: 1 / 1; }
+  .drift-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .drift-wrap .tooltip { transform: none; }
+  .anim-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; align-items: start; max-width: 860px; }
+  .anim-row.with-gauges { grid-template-columns: minmax(0, 1fr) 142px; }
+  .drift-grid:has(.with-gauges) { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+  @media (max-width: 1000px) { .drift-grid:has(.with-gauges) { grid-template-columns: minmax(0, 1fr); } }
+  .gauges { position: relative; align-self: stretch; }
+  .gauges canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .win-inputs { display: flex; flex-wrap: wrap; gap: .8rem 1.2rem; align-items: end; margin-bottom: .6rem; }
+  .win-inputs label { display: flex; flex-direction: column; font-size: .88rem; color: var(--muted); gap: .2rem; }
+  input[type="datetime-local"] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: .35rem .5rem; }
+  button.primary { background: var(--brass); color: #fff; border-color: var(--brass); }
+  .table-scroll { overflow-x: auto; margin-top: .6rem; }
+  table.wstats { border-collapse: collapse; width: 100%; min-width: 900px; font-size: .95rem; }
+  table.wstats thead tr.grp th { text-align: center; font-weight: 600; color: var(--ink); border-bottom: 2px solid var(--rule); }
+  table.wstats th.gw, table.wstats td.gw { background: var(--brass-soft); }
+  table.wstats td.diff { font-weight: 600; }
+  .win-view { margin-top: 1.6rem; padding-top: 1.2rem; border-top: 1px solid var(--rule); }
+  .win-view h4 { margin: 0 0 .2rem; font-family: var(--cond); font-weight: 600; font-size: 1.15rem; }
+  .win-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1.5rem; align-items: start; }
+  @media (max-width: 1100px) { .win-grid { grid-template-columns: minmax(0, 1fr); } }
+  .win-ts { position: relative; height: 380px; }
+  .win-sc { position: relative; width: 100%; max-width: 440px; aspect-ratio: 1 / 1; }
+  .win-ts canvas, .win-sc canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+  .win-ts .tooltip, .win-sc .tooltip { transform: none; }
+  details.win-data { margin-top: 1.2rem; }
+  details.win-data summary { cursor: pointer; font-weight: 600; }
+  .data-scroll { max-height: 380px; overflow: auto; margin-top: .6rem; border: 1px solid var(--rule); border-radius: 6px; }
+  table.epochs { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  table.epochs th, table.epochs td { padding: .3rem .7rem; text-align: right; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  table.epochs th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500; }
+  table.epochs th:nth-child(-n+2), table.epochs td:nth-child(-n+2) { text-align: left; }
+  table.wstats th, table.wstats td { text-align: right; padding: .45rem .7rem; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  table.wstats th:first-child, table.wstats td:first-child { text-align: left; }
+  table.wstats thead th { font-size: .82rem; color: var(--muted); font-weight: 500; }
+  table.wstats td.em { font-weight: 600; }
+  .win-msg { font-size: .9rem; color: var(--muted); margin: .4rem 0 0; }
+  .win-msg.warn { color: var(--neg); }
+  .empty { max-width: 60ch; padding: 2rem 0; }
+  .empty h2 { font-family: var(--cond); font-weight: 600; }
+  footer { color: var(--muted); font-size: .85rem; padding: 0 clamp(1rem, 3vw, 2rem) 2rem; max-width: 1500px; margin: 0 auto; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Caltrans GNSS Study</h1>
-  <p>Static occupation data exported from Trimble Business Center. Pick a dataset to see how the measured position wandered over the occupation.</p>
+<header class="site">
+  <h1>GNSS Static Occupation Data</h1>
+  <p id="updated"></p>
 </header>
-<div class="wrap">
+
+<div class="layout">
   <aside>
-    <div id="list"><p class="msg">Loading datasets…</p></div>
-    <div class="drop" id="drop">
-      Check a file before uploading: drag a .asc here or <label for="local">choose one</label>.
-      It stays on your computer.
-      <input type="file" id="local" accept=".asc,.csv,.txt" hidden>
+    <section class="study" id="studyBox" hidden>
+      <h2 id="studyTitle">Study progress</h2>
+      <table id="studyGrid"></table>
+      <p class="note" id="studyKey"></p>
+    </section>
+
+    <h2>Uploads</h2>
+    <div class="filter">
+      <label for="dateFilter">Show uploads that include a date</label>
+      <input type="date" id="dateFilter">
+      <button type="button" id="clearFilter">Show all</button>
     </div>
+    <p class="note" id="cellNote" hidden></p>
+    <ul class="sessions" id="sessionList"></ul>
+    <p class="note" id="listNote" hidden></p>
   </aside>
-  <main id="main"><p class="msg">Select a dataset on the left.</p></main>
+
+  <main>
+    <div id="emptyState" class="empty" hidden>
+      <h2>No uploads yet</h2>
+      <p>Add a collector export to the <code>uploads</code> folder of this site's repository, named with its site and test codes (for example <code>SJER_G.asc</code>). It appears here a minute or two after it's committed.</p>
+    </div>
+    <div id="errorState" class="empty" hidden>
+      <h2>Data could not be loaded</h2>
+      <p id="errorText"></p>
+    </div>
+
+    <div id="sessionView" hidden>
+      <p class="study-line" id="studyLine"></p>
+      <div class="coord">
+        <div><span class="lbl">Mean northing</span><span class="val" id="mN"></span></div>
+        <div><span class="lbl">Mean easting</span><span class="val" id="mE"></span></div>
+        <div><span class="lbl">Mean elevation</span><span class="val" id="mU"></span></div>
+      </div>
+      <p class="session-line" id="sessionLine"></p>
+      <dl class="stats" id="stats"></dl>
+
+      <div class="plots">
+        <section class="plot" id="tsCard">
+          <h3 id="tsTitle">Northing over time</h3>
+          <p>Choose a value and a period, and hover to read the values above the chart. Use the buttons or scroll to zoom, drag to pan or to draw a zoom box, and double-click to reset.</p>
+          <div class="controls">
+            <label class="pick">Value <select id="compSel"></select></label>
+            <div class="seg period" role="group" aria-label="Time period" id="periodSeg">
+              <button type="button" data-period="day" aria-pressed="true">7 AM–7 PM</button>
+              <button type="button" data-period="night" aria-pressed="false">7 PM–7 AM</button>
+              <button type="button" data-period="both" aria-pressed="false">24 Hours Overlay</button>
+              <button type="button" data-period="sequential" aria-pressed="false">24 Hours Sequential</button>
+            </div>
+            <select id="cycleSel" aria-label="24-hour window" hidden></select>
+          </div>
+          <div class="controls">
+            <div class="seg" role="group" aria-label="Drag mode" id="tsModeSeg">
+              <button type="button" data-mode="pan" aria-pressed="true">Pan</button>
+              <button type="button" data-mode="box" aria-pressed="false">Box zoom</button>
+            </div>
+            <div class="seg" role="group" aria-label="Zoom">
+              <button type="button" id="tsZoomIn" title="Zoom in">+ Zoom in</button>
+              <button type="button" id="tsZoomOut" title="Zoom out" disabled>− Zoom out</button>
+            </div>
+            <button type="button" id="resetZoom" disabled>Reset zoom</button>
+          </div>
+          <div class="legend">
+            <span id="dayLegend"><i class="sw" style="color:var(--day);border-top-width:3px"></i><span id="dayLegendText">Daytime</span></span>
+            <span id="nightLegend" hidden><i class="sw" style="color:var(--night);border-top-width:3px"></i><span id="nightLegendText">Overnight</span></span>
+            <span><i class="sw mean"></i><span id="meanLegend">Mean</span></span>
+            <span><i class="sw s1"></i><span id="s1Legend">±1σ</span></span>
+            <span><i class="sw s2"></i><span id="s2Legend">±2σ</span></span>
+          </div>
+          <div class="chart-shell" id="tsShell">
+            <canvas id="tsCanvas" aria-label="Interactive time-series chart"></canvas>
+            <div class="pair-readout" id="tsReadout" aria-live="polite"></div>
+          </div>
+          <p class="chart-note" id="tsNote"></p>
+        </section>
+
+        <section class="plot" id="pairCard">
+          <h3>Position and PDOP over time</h3>
+          <p>Each coordinate on its own chart (left axis, meters), with its mean and ±1σ and ±2σ lines, and PDOP on the right axis, so you can see whether changes in position line up with changes in satellite geometry. The three charts share one time axis: zooming or panning one moves all three, and hovering shows the same moment on each. The values at the hovered time are shown above each chart. Use the buttons or scroll to zoom, drag to pan, and double-click to reset.</p>
+          <div class="controls">
+            <label class="pick" id="pairWithLabel">Compare with <select id="pairWith"></select></label>
+            <div class="seg" role="group" aria-label="Zoom">
+              <button type="button" id="pairZoomIn">+ Zoom in</button>
+              <button type="button" id="pairZoomOut" disabled>− Zoom out</button>
+            </div>
+            <button type="button" id="pairReset" disabled>Reset zoom</button>
+          </div>
+          <p class="win-msg" id="pairMissing" hidden>This upload has no PDOP column, so only the coordinates are plotted.</p>
+          <div class="pair">
+            <div class="legend"><span style="color:var(--cN)"><i class="sw" style="border-top-width:3px"></i>Northing (m)</span><span class="pair-b" style="color:var(--cP)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_n">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_n">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_n">±2σ</span></span></div>
+            <div class="pair-shell" id="pairShell_n"><canvas id="pair_n" aria-label="Northing and PDOP over time"></canvas><div class="pair-readout" id="pairTip_n" aria-live="polite"></div></div>
+          </div>
+          <div class="pair">
+            <div class="legend"><span style="color:var(--cE)"><i class="sw" style="border-top-width:3px"></i>Easting (m)</span><span class="pair-b" style="color:var(--cP)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_e">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_e">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_e">±2σ</span></span></div>
+            <div class="pair-shell" id="pairShell_e"><canvas id="pair_e" aria-label="Easting and PDOP over time"></canvas><div class="pair-readout" id="pairTip_e" aria-live="polite"></div></div>
+          </div>
+          <div class="pair">
+            <div class="legend"><span style="color:var(--cU)"><i class="sw" style="border-top-width:3px"></i>Elevation (m)</span><span class="pair-b" style="color:var(--cP)"><i class="sw" style="border-top-width:3px"></i><span class="pair-b-name">PDOP</span></span><span><i class="sw mean"></i><span id="pairMean_u">Mean</span></span><span><i class="sw s1"></i><span id="pairS1_u">±1σ</span></span><span><i class="sw s2"></i><span id="pairS2_u">±2σ</span></span></div>
+            <div class="pair-shell" id="pairShell_u"><canvas id="pair_u" aria-label="Elevation and PDOP over time"></canvas><div class="pair-readout" id="pairTip_u" aria-live="polite"></div></div>
+          </div>
+          <p class="chart-note" id="pairNote"></p>
+        </section>
+
+        <section class="plot" id="windowCard">
+          <h3>Time window statistics</h3>
+          <p>Pick a start and end time within this upload to calculate the average, standard deviation, and 2 × standard deviation for that window. Both end times are included.</p>
+          <div class="win-inputs">
+            <label>From<input type="datetime-local" id="winFrom" step="1"></label>
+            <label>To<input type="datetime-local" id="winTo" step="1"></label>
+            <button type="button" class="primary" id="winCalc">Calculate</button>
+            <button type="button" id="winFromChart">Use the chart's current view</button>
+            <button type="button" id="winCopy" disabled>Copy results</button>
+          </div>
+          <p class="win-msg" id="winMsg"></p>
+          <div class="table-scroll">
+            <table class="wstats" id="winTable">
+              <thead>
+                <tr class="grp"><th></th><th colspan="4" class="gw">Selected window</th><th colspan="3">Whole upload</th><th></th></tr>
+                <tr><th>Component</th><th class="gw">Average (m)</th><th class="gw">Std. dev. (mm)</th><th class="gw">2 × std. dev. (mm)</th><th class="gw">Range (mm)</th><th>Average (m)</th><th>Std. dev. (mm)</th><th>2 × std. dev. (mm)</th><th>Window − whole average (mm)</th></tr>
+              </thead>
+              <tbody id="winBody"></tbody>
+            </table>
+          </div>
+          <p class="win-msg" id="winFoot"></p>
+
+          <div class="win-view" id="winView" hidden>
+            <h4>Selected data</h4>
+            <p class="win-msg" style="margin:0 0 .7rem">The time series shows the window's own average and ±σ lines, with the whole-upload average for comparison. The scatter is centered on the whole-upload average, so it shows where this window sits relative to it.</p>
+            <div class="controls">
+              <div class="seg" role="group" aria-label="Component" id="winCompSeg">
+                <button type="button" data-comp="n" aria-pressed="true">Northing</button>
+                <button type="button" data-comp="e" aria-pressed="false">Easting</button>
+                <button type="button" data-comp="u" aria-pressed="false">Elevation</button>
+              </div>
+            </div>
+            <div class="win-grid">
+              <div>
+                <div class="legend">
+                  <span id="winObsLegend" style="color:var(--cN)"><i class="sw"></i>Observations</span>
+                  <span><i class="sw mean"></i>Window average</span>
+                  <span><i class="sw s1"></i>Window ±1σ</span>
+                  <span><i class="sw s2"></i>Window ±2σ</span>
+                  <span style="color:var(--brass)"><i class="sw"></i>Whole-upload average</span>
+                </div>
+                <div class="win-ts" id="winTsWrap"><canvas id="winTs"></canvas><div class="tooltip" id="winTsTip"></div></div>
+              </div>
+              <div>
+                <div class="legend">
+                  <span class="cbar"><span>Window start</span><i></i><span>end</span></span>
+                  <span><i class="dot" style="border-color:var(--drms1)"></i>Window DRMS</span>
+                  <span><i class="dot" style="border-color:var(--drms2)"></i>Window 2DRMS</span>
+                  <span>✕ Window average</span>
+                  <span><i class="dot" style="background:var(--brass);border-color:var(--brass)"></i>Whole-upload average</span>
+                </div>
+                <div class="win-sc" id="winScWrap"><canvas id="winSc"></canvas><div class="tooltip" id="winScTip"></div></div>
+              </div>
+            </div>
+            <details class="win-data">
+              <summary id="winDataSummary">Show the data</summary>
+              <div class="controls" style="margin-top:.6rem"><button type="button" id="winCsv">Download the window's data (CSV)</button></div>
+              <div class="data-scroll">
+                <table class="epochs"><thead><tr><th>Point</th><th>Time</th><th>Northing (m)</th><th>Easting (m)</th><th>Elevation (m)</th></tr></thead><tbody id="winRows"></tbody></table>
+              </div>
+              <p class="win-msg" id="winRowsNote"></p>
+            </details>
+          </div>
+        </section>
+
+        <section class="plot">
+          <h3>Horizontal drift</h3>
+          <p>Each epoch's offset from the mean position, in meters.</p>
+          <div class="drift-grid">
+            <div class="a-head">
+              <h4>Animation</h4>
+              <p class="sub">Played back over time with a 30-minute trail, recolored every 30 minutes. <span id="gaugeNote" hidden>The gauges beside the plot move up and down with PDOP and H. Precision at the current time; the dashed line on each is the upload's mean, and the solid H and L lines are its highest and lowest values.</span> While playing, the drift plot moves through every epoch, and the gauges update every 20 seconds to keep them steady; when paused, the gauges show the exact epoch's values.</p>
+              <div class="controls">
+                <button type="button" id="playBtn">Play</button>
+                <label for="speedSel" class="note">Speed</label>
+                <select id="speedSel">
+                  <option value="5">5x</option>
+                  <option value="20" selected>20x</option>
+                  <option value="60">60x</option>
+                  <option value="200">200x</option>
+                </select>
+                <input type="range" id="scrub" min="0" max="1" value="0" step="1" aria-label="Playback position">
+              </div>
+              <div class="readout" id="driftReadout"></div>
+              <div class="legend" style="margin-top:.4rem">
+                <span><i class="dot" style="background:var(--muted);border-color:var(--muted)"></i>Hourly position (on the hour; shown before you press Play)</span>
+                <span><i class="dot" style="border-color:var(--drms1)"></i><span id="drmsLegend">1 STD (DRMS)</span></span>
+                <span><i class="dot" style="border-color:var(--drms2)"></i><span id="drms2Legend">2 STD (2DRMS)</span></span>
+              </div>
+            </div>
+            <div class="anim-row a-wrap">
+              <div class="drift-wrap" id="driftWrap">
+                <canvas id="driftBg"></canvas>
+                <canvas id="driftFg"></canvas>
+                <div class="tooltip" id="driftTip"></div>
+              </div>
+              <div class="gauges" id="gaugeBox" hidden><canvas id="gaugeCanvas" aria-label="PDOP and H. Precision at the current time"></canvas></div>
+            </div>
+
+            <div class="s-head">
+              <h4>All positions</h4>
+              <p class="sub">Every epoch in the upload at once. Hover or tap a point to show its values above the plot (paused while the animation plays). Use the buttons or scroll to zoom, drag to pan or to draw a zoom box, and double-click to reset.</p>
+              <div class="legend">
+                <span class="cbar"><span>Start</span><i></i><span id="cbarEnd">End</span></span>
+                <span><i class="dot" style="border-color:var(--drms1)"></i><span id="drmsLegendS">DRMS</span></span>
+                <span><i class="dot" style="border-color:var(--drms2)"></i><span id="drms2LegendS">2DRMS</span></span>
+              </div>
+              <div class="legend" id="extremeLegend" hidden></div>
+              <div class="controls" style="margin:.5rem 0 0">
+                <div class="seg" role="group" aria-label="Drag mode" id="dragModeSeg">
+                  <button type="button" data-mode="pan" aria-pressed="true">Pan</button>
+                  <button type="button" data-mode="box" aria-pressed="false">Box zoom</button>
+                </div>
+                <div class="seg" role="group" aria-label="Zoom">
+                  <button type="button" id="zoomIn" aria-label="Zoom in" title="Zoom in">+ Zoom in</button>
+                  <button type="button" id="zoomOut" aria-label="Zoom out" title="Zoom out" disabled>− Zoom out</button>
+                </div>
+                <button type="button" id="staticReset" disabled>Reset zoom</button>
+              </div>
+              <div class="readout fixed-strip" id="staticReadout" aria-live="polite"><span>Hover over a point to see its time, residuals, PDOP, and H. Precision.</span></div>
+            </div>
+            <div class="drift-wrap s-wrap" id="staticWrap">
+              <canvas id="driftStatic"></canvas>
+              <canvas id="staticFg" style="cursor:grab;touch-action:none"></canvas>
+              <div class="tooltip" id="staticTip"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
 </div>
+<footer>Coordinates in meters. Times as recorded by the collector.</footer>
 
 <script>
-/* ======================================================================
-   PARSING — reads TBC .asc exports directly (no conversion needed)
-   ====================================================================== */
-function parseTime(s){
-  s = (s||"").trim();
-  let m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})[ T]+(\d{1,2}):(\d{2})(?::(\d{2}(?:\.\d+)?))?\s*([AP]M)?/i);
-  let Y,Mo,D,h,mi,se;
-  if(m){ Mo=+m[1]; D=+m[2]; Y=+m[3]; h=+m[4]; mi=+m[5]; se=+(m[6]||0);
-    if(m[7]){ const pm=m[7].toUpperCase()==="PM"; if(h===12) h=pm?12:0; else if(pm) h+=12; } }
-  else { m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})[ T]+(\d{1,2}):(\d{2})(?::(\d{2}(?:\.\d+)?))?/);
-    if(!m) return null; Y=+m[1]; Mo=+m[2]; D=+m[3]; h=+m[4]; mi=+m[5]; se=+(m[6]||0); }
-  const ms = Date.UTC(Y,Mo-1,D,h,mi,Math.floor(se),Math.round((se%1)*1000));
-  const p = n=>String(n).padStart(2,"0");
-  return { ms, str:`${Y}-${p(Mo)}-${p(D)} ${p(h)}:${p(mi)}:${p(Math.floor(se))}` };
-}
+(() => {
+  "use strict";
+  // ---------------------------------------------------------------------------
+  // Settings
+  const DAY_START_HOUR = 7;        // daytime window starts at 7 AM, overnight at 7 PM
+  const MIN_GAP_SECONDS = 30;      // lines break across gaps longer than this
+  const TAIL_SECONDS = 1800;       // drift trail length
+  const BUCKET_SECONDS = 1800;     // drift trail recolor interval
+  const PLAY_STEP_SECONDS = 20;    // while playing, the PDOP / H. Precision gauges update this often
+  // ---------------------------------------------------------------------------
 
-function splitRow(line, delim){
-  if(delim===",") return line.split(",").map(s=>s.trim().replace(/^"|"$/g,""));
-  if(delim==="\t") return line.split("\t").map(s=>s.trim());
-  // whitespace-delimited: first 4 fields, the rest is the timestamp
-  const parts = line.trim().split(/\s+/);
-  return [...parts.slice(0,4), parts.slice(4).join(" ")];
-}
+  const $ = id => document.getElementById(id);
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const HALF = 12 * 3600, FULL = 24 * 3600;
+  const COMP = { n: { name: "Northing", key: "n_mm" }, e: { name: "Easting", key: "e_mm" }, u: { name: "Elevation", key: "u_mm" } };
+  let sessions = [];
+  let study = null;         // site and test definitions from index.json
+  let cell = null;          // { site, test } chosen in the progress grid, or null
+  let cur = null;           // { summary, data, startMs, gap }
+  const cache = new Map();
 
-function parseASC(text){
-  const lines = text.split(/\r?\n/).filter(l=>l.trim());
-  if(!lines.length) throw new Error("The file is empty.");
-  const delim = lines[0].includes(",") ? "," : lines[0].includes("\t") ? "\t" : " ";
-  let first = splitRow(lines[0], delim);
-  const hasHeader = first.slice(1,4).some(v=>isNaN(parseFloat(v)));
-  let idx = {id:0, n:1, e:2, z:3, t:4};
-  if(hasHeader){
-    const find = re => first.findIndex(h=>re.test(h));
-    const f = { id:find(/point|name|^id$/i), n:find(/north|^n$|^y$/i), e:find(/east|^e$|^x$/i),
-                z:find(/elev|height|ortho|^z$|^h$/i), t:find(/time|date/i) };
-    for(const k in f) if(f[k]>=0) idx[k]=f[k];
+  function parseLocal(s) {
+    const [d, t] = s.split("T");
+    const [y, mo, da] = d.split("-").map(Number);
+    const [h, mi, se] = t.split(":").map(Number);
+    return new Date(y, mo - 1, da, h, mi, se);
   }
-  const rows=[];
-  for(let i = hasHeader?1:0; i<lines.length; i++){
-    const c = splitRow(lines[i], delim);
-    const n=parseFloat(c[idx.n]), e=parseFloat(c[idx.e]), z=parseFloat(c[idx.z]);
-    const t = parseTime(c[idx.t]);
-    if(isFinite(n)&&isFinite(e)&&isFinite(z)&&t) rows.push({id:c[idx.id], n, e, z, ms:t.ms, ts:t.str});
+  const fmtNice = s => parseLocal(s).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  const dateOnly = s => s.slice(0, 10);
+  const m3 = v => v.toFixed(3);
+  const fmtValue = v => v.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const fmtResidual = v => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(4)}`;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const VIRIDIS_STOPS = [[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[109,205,89],[180,222,44],[253,231,37]];
+  const viridisColor = f => {
+    const x = Math.max(0, Math.min(1, f)) * (VIRIDIS_STOPS.length - 1), i = Math.min(VIRIDIS_STOPS.length - 2, Math.floor(x)), t = x - i;
+    const a = VIRIDIS_STOPS[i], b = VIRIDIS_STOPS[i + 1];
+    return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
+  };
+  const f3 = v => { const t = v.toFixed(3); return t === "-0.000" ? "0.000" : t; };
+
+  // ======================= Values that can be plotted ==========================
+  // Northing / Easting / Elevation plus any extra numeric columns (PDOP, ...)
+  // that the processing script stored for this upload.
+  const fmtNum = (v, dec) => v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const unitSuffix = S => S.unit ? ` ${S.unit}` : "";
+  const axisTitle = S => S.unit ? `${S.name} (${S.unit})` : S.name;
+  function seriesOptions() {
+    const d = cur.data;
+    return [["n", "Northing"], ["e", "Easting"], ["u", "Elevation"],
+      ...Object.keys(d.extra || {}).map(k => [`x:${k}`, k])];
   }
-  if(rows.length<2) throw new Error("Couldn't find Northing / Easting / Elevation / time columns in this file.");
-  rows.sort((a,b)=>a.ms-b.ms);
-  return rows;
-}
-
-/* ======================================================================
-   STATISTICS
-   ====================================================================== */
-const mean = a => a.reduce((s,v)=>s+v,0)/a.length;
-const std  = (a,m) => Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1));
-function analyze(rows){
-  const N=rows.map(r=>r.n), E=rows.map(r=>r.e), Z=rows.map(r=>r.z);
-  const mN=mean(N), mE=mean(E), mZ=mean(Z);
-  const sN=std(N,mN), sE=std(E,mE), sZ=std(Z,mZ);
-  const dts=[]; for(let i=1;i<rows.length;i++) dts.push(rows[i].ms-rows[i-1].ms);
-  const sorted=[...dts].sort((a,b)=>a-b), med=sorted[Math.floor(sorted.length/2)]||5000;
-  const gapIdx=new Set(); dts.forEach((d,i)=>{ if(d>CONFIG.gapFactor*med) gapIdx.add(i+1); });
-  return { mN,mE,mZ,sN,sE,sZ, drms:Math.sqrt(sN*sN+sE*sE), med, gapIdx,
-           start:rows[0], end:rows[rows.length-1], dur:rows[rows.length-1].ms-rows[0].ms };
-}
-
-/* ======================================================================
-   FILE LISTING — asks GitHub what's in data/raw, so new uploads appear automatically
-   ====================================================================== */
-function describeName(name){
-  const base = name.replace(/\.[^.]+$/,"");
-  const tokens = base.toUpperCase().split(/[_\-\s.]+/);
-  let site = null, test = null;
-  for(const t of tokens){ if(!site && SITES[t]) site=SITES[t]; if(!test && TESTS[t]) test=TESTS[t]; }
-  if(!test && /GPS[_\-\s]*ONLY/i.test(base)) test=TESTS.G;
-  return { site, test };
-}
-
-async function listFiles(){
-  const ok = n => CONFIG.extensions.some(x=>n.toLowerCase().endsWith(x));
-  try{
-    const r = await fetch(`https://api.github.com/repos/${CONFIG.repo}/contents/${CONFIG.folder}?ref=${CONFIG.branch}`);
-    if(!r.ok) throw new Error(r.status);
-    const j = await r.json();
-    return j.filter(f=>f.type==="file" && ok(f.name))
-            .map(f=>({ name:f.name, url:f.download_url, size:f.size }));
-  }catch(err){
-    // Fallback (e.g. GitHub's hourly API limit hit): an optional hand-kept list
-    const r = await fetch(`${CONFIG.folder}/manifest.json`).catch(()=>null);
-    if(r && r.ok){ const names = await r.json();
-      return names.filter(ok).map(n=>({ name:n, url:`${CONFIG.folder}/${encodeURIComponent(n)}` })); }
-    throw new Error("Couldn't reach GitHub to list the data folder. Try reloading in a minute.");
+  // Each value keeps one color everywhere on the page: [main color, overnight shade].
+  function colorFor(id) {
+    const map = { n: "N", e: "E", u: "U", "x:PDOP": "P", "x:H. Precision": "H" };
+    const k = map[id] || "X";
+    return [`--c${k}`, `--c${k}2`];
   }
-}
+  function getSeries(id) {
+    const S = getSeriesData(id);
+    if (S) [S.color, S.color2] = colorFor(id);
+    return S;
+  }
+  function getSeriesData(id) {
+    const d = cur.data;
+    if (COMP[id]) {
+      const key = COMP[id].key, base = d.base_m[id];
+      return { id, name: COMP[id].name, unit: "m", dec: 3, coord: true, mm: d[key], values: d[key].map(v => base + v / 1000) };
+    }
+    const x = id && id.startsWith("x:") && d.extra && d.extra[id.slice(2)];
+    if (!x) return null;
+    return { id, name: id.slice(2), unit: x.unit || "", dec: x.dec, coord: false, values: x.v.map(v => v === null ? null : v / x.scale) };
+  }
+  function fillSelect(sel, opts, wanted, withNone) {
+    sel.textContent = "";
+    if (withNone) { const o = document.createElement("option"); o.value = ""; o.textContent = "None"; sel.append(o); }
+    for (const [v, label] of opts) { const o = document.createElement("option"); o.value = v; o.textContent = label; sel.append(o); }
+    sel.value = opts.some(o => o[0] === wanted) ? wanted : withNone ? "" : opts[0][0];
+    return sel.value;
+  }
 
-// Read just the first few lines of each file to learn its date
-async function peekDate(file){
-  try{
-    const r = await fetch(file.url, { headers:{ Range:"bytes=0-1023" } });
-    const txt = (await r.text()).split(/\r?\n/).slice(0,4).join("\n");
-    for(const line of txt.split("\n")){ const t=parseTime(line.split(",").slice(-1)[0]) || parseTime(line); if(t) return t; }
-  }catch(e){}
-  return null;
-}
+  async function getJSON(url) {
+    const r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) throw new Error(`${url} returned ${r.status}`);
+    return r.json();
+  }
+  function showError(msg) {
+    $("errorText").textContent = msg;
+    $("errorState").hidden = false;
+    $("sessionView").hidden = true;
+  }
 
-/* ======================================================================
-   UI
-   ====================================================================== */
-const $ = id => document.getElementById(id);
-let FILES = [], cache = {};
+  // =========================== Study design ===================================
+  const siteOf = code => study && study.sites.find(x => x.code === code);
+  const testOf = code => study && study.tests.find(x => x.code === code);
+  const tagLabel = s => s.site ? `${s.site} · Test ${s.test_number} · ${s.test}` : "Untagged";
+  function studyDescription(s) {
+    if (!s.site) return "Not tagged with a test site or constellation test";
+    const site = siteOf(s.site);
+    const where = site ? `Site ${site.number}: ${site.name}` : s.site;
+    return `${where} — Test ${s.test_number}: ${s.test} (${(s.constellations || []).join(" + ")})`;
+  }
+  const inCell = (s, c) => s.site === c.site && s.test === c.test;
 
-function renderList(){
-  const groups = {};
-  for(const f of FILES){ const g = f.site || "Other uploads"; (groups[g] ||= []).push(f); }
-  const order = Object.keys(groups).sort((a,b)=> (a==="Other uploads") - (b==="Other uploads") || a.localeCompare(b));
-  $("list").innerHTML = order.map(g=>{
-    const items = groups[g].sort((a,b)=>(b.date?.ms||0)-(a.date?.ms||0));
-    return `<h2>${g}</h2>` + items.map(f=>`<button class="file" data-name="${encodeURIComponent(f.name)}">
-      <div class="name">${f.name}</div>
-      <div class="meta">${[f.date?f.date.str.slice(0,10):"", f.test||""].filter(Boolean).join(", ")}</div></button>`).join("");
-  }).join("") || `<p class="msg">No files in ${CONFIG.folder} yet.</p>`;
-  document.querySelectorAll(".file").forEach(b=>b.onclick=()=>openFile(decodeURIComponent(b.dataset.name)));
-  markActive();
-}
-function markActive(){
-  const cur = decodeURIComponent(location.hash.replace(/^#/,""));
-  document.querySelectorAll(".file").forEach(b=>b.classList.toggle("active", decodeURIComponent(b.dataset.name)===cur));
-}
+  function renderGrid() {
+    if (!study || !study.sites || !study.tests) return;
+    $("studyBox").hidden = false;
+    const tbl = $("studyGrid");
+    tbl.textContent = "";
+    const thead = document.createElement("thead"), hr = document.createElement("tr");
+    const corner = document.createElement("th"); corner.textContent = "Site"; hr.append(corner);
+    for (const t of study.tests) {
+      const th = document.createElement("th");
+      th.title = t.constellations.join(" + ");
+      th.append(`Test ${t.number}`, document.createElement("br"), t.code);
+      hr.append(th);
+    }
+    thead.append(hr); tbl.append(thead);
+    const tbody = document.createElement("tbody");
+    let done = 0;
+    for (const site of study.sites) {
+      const tr = document.createElement("tr");
+      const th = document.createElement("th"); th.textContent = site.code; th.title = `Site ${site.number}: ${site.name}`;
+      tr.append(th);
+      for (const t of study.tests) {
+        const c = { site: site.code, test: t.code };
+        const count = sessions.filter(s => inCell(s, c)).length;
+        if (count) done++;
+        const td = document.createElement("td"), b = document.createElement("button");
+        b.type = "button";
+        b.className = count ? "has" : "none";
+        b.textContent = count === 0 ? "–" : count === 1 ? "✓" : String(count);
+        b.disabled = !count;
+        b.setAttribute("aria-pressed", String(!!cell && inCell(c, cell)));
+        b.setAttribute("aria-label", `${site.name}, test ${t.number} (${t.code}): ${count} upload${count === 1 ? "" : "s"}`);
+        b.title = `${site.name} — Test ${t.number}: ${t.code} (${t.constellations.join(" + ")})`;
+        b.addEventListener("click", () => {
+          cell = cell && inCell(c, cell) ? null : c;
+          renderGrid(); renderList();
+          if (cell) {
+            const first = sessions.find(s => inCell(s, cell));
+            if (first) selectSession(first.id);
+          }
+        });
+        td.append(b); tr.append(td);
+      }
+      tbody.append(tr);
+    }
+    tbl.append(tbody);
+    $("studyTitle").textContent = `Study progress (${done} of ${study.sites.length * study.tests.length})`;
+    const sites = study.sites.map(s => `${s.code} = ${s.name}`).join(", ");
+    const cons = Object.entries(study.constellations || {}).map(([k, v]) => `${k} = ${v}`).join(", ");
+    $("studyKey").textContent = `${sites}. ${cons}. Click a filled cell to show only those uploads; click it again to show all.`;
+  }
 
-async function openFile(name){
-  const f = FILES.find(x=>x.name===name); if(!f) return;
-  history.replaceState(null,"","#"+encodeURIComponent(name)); markActive();
-  $("main").innerHTML = `<p class="msg">Loading ${name}…</p>`;
-  try{
-    if(!cache[name]){ const r = await fetch(f.url); if(!r.ok) throw new Error(`Download failed (${r.status})`);
-      cache[name] = parseASC(await r.text()); }
-    show(name, cache[name], f.url, f);
-  }catch(e){ $("main").innerHTML = `<p class="msg err">${name}: ${e.message}</p>`; }
-}
+  // =========================== Uploads list ===================================
+  function renderList() {
+    const day = $("dateFilter").value;
+    const list = $("sessionList");
+    list.textContent = "";
+    const shown = sessions.filter(s => (!day || (dateOnly(s.start) <= day && day <= dateOnly(s.end))) && (!cell || inCell(s, cell)));
+    $("cellNote").hidden = !cell;
+    if (cell) {
+      const site = siteOf(cell.site), test = testOf(cell.test);
+      $("cellNote").textContent = `Showing ${site ? site.name : cell.site}, test ${test ? test.number : ""} (${cell.test}) only.`;
+    }
+    $("listNote").hidden = shown.length > 0;
+    $("listNote").textContent = day ? "No uploads include that date." : "No uploads match.";
+    for (const s of shown) {
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("aria-current", cur && cur.summary.id === s.id ? "true" : "false");
+      const tag = document.createElement("span"); tag.className = s.site ? "tag" : "tag untagged"; tag.textContent = tagLabel(s);
+      const when = document.createElement("span"); when.className = "when"; when.textContent = fmtNice(s.start);
+      const meta = document.createElement("span"); meta.className = "meta";
+      meta.textContent = `${s.duration_h} h, ${s.epochs.toLocaleString()} epochs, DRMS ${s.drms_mm} mm`;
+      const file = document.createElement("span"); file.className = "meta"; file.textContent = s.source_file;
+      b.append(tag, when, meta, file);
+      b.addEventListener("click", () => selectSession(s.id));
+      li.append(b); list.append(li);
+    }
+  }
 
-const fmtDur = ms => { const h=Math.floor(ms/3.6e6), m=Math.round((ms%3.6e6)/6e4); return `${h} h ${m} min`; };
+  async function selectSession(id) {
+    const summary = sessions.find(s => s.id === id);
+    if (!summary) return;
+    try {
+      let data = cache.get(id);
+      if (!data) { data = await getJSON(`data/sessions/${id}.json`); cache.set(id, data); }
+      cur = { summary, data, startMs: parseLocal(data.start).getTime(), gap: Math.max(MIN_GAP_SECONDS, (data.interval_s || 5) * (data.gap_factor || 3)) };
+      history.replaceState(null, "", `#${id}`);
+      renderSummary();
+      TS.load();
+      PAIR.load();
+      Win.load();
+      Drift.load();
+      renderList();
+    } catch (err) {
+      showError(`The data for this upload could not be loaded (${err.message}).`);
+    }
+  }
 
-function show(name, rows, url, info){
-  const s = analyze(rows), d = info || describeName(name);
-  const sub = [d.site, d.test].filter(Boolean).join(", ");
-  $("main").innerHTML = `
-    <div class="title"><h2>${name}</h2>
-      <p>${sub ? sub+". " : ""}${s.start.ts} to ${s.end.ts}${url?` &nbsp;<a href="${url}" download>Download raw file</a>`:" (local preview, not uploaded)"}</p></div>
-    <div class="stats">
-      <div class="stat"><div class="v">${rows.length.toLocaleString()}</div><div class="k">Epochs (every ${(s.med/1000).toFixed(0)} s)</div></div>
-      <div class="stat"><div class="v">${fmtDur(s.dur)}</div><div class="k">Occupation length${s.gapIdx.size?`, ${s.gapIdx.size} gap${s.gapIdx.size>1?"s":""}`:""}</div></div>
-      <div class="stat"><div class="v">${s.mN.toFixed(3)}</div><div class="k">Mean Northing (m)</div></div>
-      <div class="stat"><div class="v">${s.mE.toFixed(3)}</div><div class="k">Mean Easting (m)</div></div>
-      <div class="stat"><div class="v">${s.mZ.toFixed(3)}</div><div class="k">Mean Elevation (m)</div></div>
-      <div class="stat"><div class="v">${(s.sN*1000).toFixed(1)} / ${(s.sE*1000).toFixed(1)}</div><div class="k">1σ North / East (mm)</div></div>
-      <div class="stat"><div class="v">${(s.drms*1000).toFixed(1)}</div><div class="k">Horizontal DRMS (mm)</div></div>
-      <div class="stat"><div class="v">${(s.sZ*1000).toFixed(1)}</div><div class="k">1σ Elevation (mm)</div></div>
-    </div>
-    <div class="plot" id="ts"></div>
-    <div class="plot" id="hz"></div>`;
-  plotTimeSeries(rows, s); plotHorizontal(rows, s);
-}
+  function renderSummary() {
+    const s = cur.summary;
+    $("errorState").hidden = true;
+    $("sessionView").hidden = false;
+    $("studyLine").textContent = studyDescription(s);
+    $("mN").innerHTML = `${m3(s.mean_m.n)}<small>m</small>`;
+    $("mE").innerHTML = `${m3(s.mean_m.e)}<small>m</small>`;
+    $("mU").innerHTML = `${m3(s.mean_m.u)}<small>m</small>`;
+    const line = $("sessionLine");
+    line.textContent = `${fmtNice(s.start)} to ${fmtNice(s.end)} from ${s.source_file}. `;
+    const a = document.createElement("a");
+    a.href = s.raw_file; a.download = s.raw_file.split("/").pop(); a.textContent = "Download the original file";
+    line.append(a, ".");
+    const stats = [["Duration", `${s.duration_h} h`], ["Epochs", s.epochs.toLocaleString()], ["Interval", `${s.interval_s} s`],
+      ["σ Northing", `${s.std_mm.n} mm`], ["σ Easting", `${s.std_mm.e} mm`], ["σ Elevation", `${s.std_mm.u} mm`],
+      ["DRMS", `${s.drms_mm} mm`], ["Gaps", s.gaps]];
+    const dl = $("stats"); dl.textContent = "";
+    for (const [k, v] of stats) {
+      const d = document.createElement("div");
+      const dt = document.createElement("dt"); dt.textContent = k;
+      const dd = document.createElement("dd"); dd.textContent = v;
+      d.append(dt, dd); dl.append(d);
+    }
+  }
 
-function plotTimeSeries(rows, s){
-  const comps = [["n","Northing",s.mN,s.sN,"--north"],["e","Easting",s.mE,s.sE,"--east"],["z","Elevation",s.mZ,s.sZ,"--elev"]];
-  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  const traces=[], shapes=[], layout={ height:640, margin:{l:70,r:20,t:40,b:40}, showlegend:false,
-    title:{text:"Deviation from mean (mm)",font:{size:15}}, font:{family:"Public Sans, sans-serif"},
-    plot_bgcolor:"#fff", paper_bgcolor:"#fff", hovermode:"x unified" };
-  comps.forEach(([k,label,m,sd,col],i)=>{
-    const x=[], y=[];
-    rows.forEach((r,j)=>{ if(s.gapIdx.has(j)){ x.push(null); y.push(null); } x.push(r.ts); y.push(+((r[k]-m)*1000).toFixed(1)); });
-    const ax = i?String(i+1):"";
-    traces.push({ x, y, type:"scattergl", mode:"lines", name:label, line:{width:1,color:css(col)},
-      xaxis:"x"+ax, yaxis:"y"+ax, connectgaps:false, hovertemplate:`${label}: %{y:.1f} mm<extra></extra>` });
-    const top = 1 - i/3, dom=[top-1/3+0.06, top-0.02];
-    layout["yaxis"+ax] = { domain:dom, title:{text:label,font:{size:12}}, zeroline:true, zerolinecolor:"#9AA8B0", gridcolor:"#EEF1F3", ticksuffix:" " };
-    layout["xaxis"+ax] = { anchor:"y"+ax, matches: i? "x":undefined, showticklabels:i===2, gridcolor:"#EEF1F3", type:"date" };
-    [1,2].forEach(n=>[1,-1].forEach(sg=>shapes.push({ type:"line", xref:`x${ax} domain`, yref:"y"+ax,
-      x0:0, x1:1, y0:sg*n*sd*1000, y1:sg*n*sd*1000, line:{width:1,dash:n===1?"dash":"dot",color:n===1?"#5B6B75":"#A9B5BC"} })));
-  });
-  layout.shapes = shapes;
-  Plotly.newPlot("ts", traces, layout, {responsive:true, displaylogo:false});
-}
+  // ====================== Day/night time series ===============================
+  const TS = (() => {
+    const canvas = $("tsCanvas"), shell = $("tsShell"), readout = $("tsReadout"), ctx = canvas.getContext("2d");
+    let comp = "n", period = "day", cycle = 0;
+    let DATA = null, STATS = null, cycles = [], SER = null, PDOP = null, HPREC = null;
+    const fmtV = v => fmtNum(v, SER.dec);
+    let viewStart = 0, viewEnd = HALF, dragState = null, hoverPoints = [], geometry = null, tsMode = "pan";
+    const MIN_SPAN = 60;
+    const isSeq = () => period === "sequential";
+    const duration = () => isSeq() ? FULL : HALF;
 
-function plotHorizontal(rows, s){
-  const dE = rows.map(r=>+((r.e-s.mE)*1000).toFixed(1)), dN = rows.map(r=>+((r.n-s.mN)*1000).toFixed(1));
-  const hrs = rows.map(r=>(r.ms-rows[0].ms)/3.6e6);
-  const r1 = s.drms*1000, r2 = 2*r1, lim = dE.reduce((m,v,i)=>Math.max(m,Math.abs(v),Math.abs(dN[i])), r2*1.25)*1.05;
-  const circ = (r,dash,label)=>({ type:"circle", x0:-r, x1:r, y0:-r, y1:r, line:{color:"#18262F",width:1.2,dash},
-    label:{text:label,textposition:"top center",font:{size:11}} });
-  Plotly.newPlot("hz", [{ x:dE, y:dN, type:"scattergl", mode:"markers",
-      marker:{ size:4, color:hrs, colorscale:"Viridis", opacity:.7,
-               colorbar:{ title:{text:"Hours from start",side:"right"}, thickness:12 } },
-      text: rows.map(r=>r.ts), hovertemplate:"%{text}<br>E %{x:.1f} mm, N %{y:.1f} mm<extra></extra>" }],
-    { height:560, margin:{l:70,r:20,t:40,b:60}, font:{family:"Public Sans, sans-serif"},
-      title:{text:"Horizontal scatter about the mean position",font:{size:15}},
-      xaxis:{ title:"Easting offset (mm)", range:[-lim,lim], zeroline:true, gridcolor:"#EEF1F3" },
-      yaxis:{ title:"Northing offset (mm)", range:[-lim,lim], scaleanchor:"x", zeroline:true, gridcolor:"#EEF1F3" },
-      shapes:[circ(r1,"dash",`DRMS ${r1.toFixed(1)} mm`), circ(r2,"dot",`2DRMS ${r2.toFixed(1)} mm`)] },
-    {responsive:true, displaylogo:false});
-}
+    function anchorsFor(startMs, endMs) {
+      const s = new Date(startMs);
+      let d = new Date(s.getFullYear(), s.getMonth(), s.getDate(), DAY_START_HOUR);
+      if (d.getTime() > startMs) d = new Date(s.getFullYear(), s.getMonth(), s.getDate() - 1, DAY_START_HOUR);
+      const out = [];
+      for (let k = 0; k < 400; k++) {
+        const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k, DAY_START_HOUR).getTime();
+        if (day > endMs) break;
+        const night = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k, DAY_START_HOUR + 12).getTime();
+        const next = new Date(d.getFullYear(), d.getMonth(), d.getDate() + k + 1, DAY_START_HOUR).getTime();
+        out.push({ day, night, next });
+      }
+      return out;
+    }
+    const shortDT = ms => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", hour12: true });
 
-/* Local preview (drag & drop) */
-function previewLocal(file){
-  const rd = new FileReader();
-  rd.onload = () => { try{ show(file.name, parseASC(rd.result), null, null); }
-                      catch(e){ $("main").innerHTML = `<p class="msg err">${file.name}: ${e.message}</p>`; } };
-  rd.readAsText(file);
-}
-$("local").onchange = e => e.target.files[0] && previewLocal(e.target.files[0]);
-const drop=$("drop");
-["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
-["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
-drop.addEventListener("drop",e=>e.dataTransfer.files[0] && previewLocal(e.dataTransfer.files[0]));
+    function load() {
+      const d = cur.data;
+      const endMs = cur.startMs + d.t[d.t.length - 1] * 1000;
+      cycles = anchorsFor(cur.startMs, endMs);
+      const sel = $("cycleSel");
+      sel.textContent = "";
+      cycles.forEach((c, i) => {
+        const o = document.createElement("option");
+        o.value = i; o.textContent = `${shortDT(c.day)} to ${shortDT(c.next)}`;
+        sel.append(o);
+      });
+      sel.hidden = cycles.length < 2;
+      cycle = 0; sel.value = "0";
+      comp = fillSelect($("compSel"), seriesOptions(), comp, false);
+      build();
+    }
 
-/* Start */
-(async()=>{
-  try{
-    FILES = (await listFiles()).map(f=>({...f, ...describeName(f.name)}));
+    function build() {
+      const d = cur.data;
+      SER = getSeries(comp);
+      PDOP = getSeries("x:PDOP"); HPREC = getSeries("x:H. Precision");
+      const vals = SER.values;
+      let n = 0, mean = 0; for (const v of vals) if (v !== null) { mean += v; n++; }
+      mean /= n || 1;
+      let ss = 0, maxDev = 0; for (const v of vals) if (v !== null) { ss += (v - mean) ** 2; maxDev = Math.max(maxDev, Math.abs(v - mean)); }
+      const sd = n > 1 ? Math.sqrt(ss / (n - 1)) : 0;
+      const pad = Math.max(maxDev * 1.12, sd * 2.6, SER.coord ? 0.002 : Math.max(Math.abs(mean) * 0.002, 1e-6));
+      STATS = { mean, sd, yMin: mean - pad, yMax: mean + pad, n };
+
+      const c = cycles[cycle];
+      const day = [], night = [];
+      for (let i = 0; i < vals.length; i++) {
+        if (vals[i] === null) continue;
+        const ms = cur.startMs + d.t[i] * 1000;
+        if (ms >= c.day && ms < c.night) day.push([(ms - c.day) / 1000, vals[i], i]);
+        else if (ms >= c.night && ms < c.next) night.push([(ms - c.night) / 1000, vals[i], i]);
+      }
+      const nm = SER.name, u = unitSuffix(SER);
+      DATA = {
+        day: { label: `Daytime ${nm}`, colorVar: SER.color, startMs: c.day, points: day },
+        night: { label: `Overnight ${nm}`, colorVar: SER.color2, startMs: c.night, points: night },
+      };
+      DATA.nightSequential = { ...DATA.night, timeOffset: HALF, points: night.map(([s, v, i]) => [s + HALF, v, i]) };
+
+      $("tsTitle").textContent = `${nm} over time`;
+      $("tsCard").style.setProperty("--day", `var(${SER.color})`);
+      $("tsCard").style.setProperty("--night", `var(${SER.color2})`);
+      $("dayLegendText").textContent = `Daytime ${nm}`;
+      $("nightLegendText").textContent = `Overnight ${nm}`;
+      $("meanLegend").textContent = `Mean (${fmtV(mean)}${u})`;
+      $("s1Legend").textContent = `±1σ (${sd.toFixed(SER.dec + 1)}${u})`;
+      $("s2Legend").textContent = `±2σ (${(2 * sd).toFixed(SER.dec + 1)}${u})`;
+      $("tsNote").textContent = `Reference lines use all ${n.toLocaleString()} observations in this upload (sample σ). Lines break across gaps longer than ${cur.gap} seconds.`;
+      viewStart = 0; viewEnd = duration(); hoverPoints = []; setReadout(null);
+      resize();
+    }
+
+    function resize() {
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      const rect = shell.getBoundingClientRect();
+      if (!rect.width) return;
+      canvas.width = Math.round(rect.width * ratio);
+      canvas.height = Math.round(rect.height * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      draw();
+    }
+
+    function visibleSeries() {
+      if (isSeq()) return [DATA.day, DATA.nightSequential];
+      if (period === "both") return [DATA.day, DATA.night];
+      return [DATA[period]];
+    }
+
+    function hLine(y, color, pattern, width) {
+      ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(pattern);
+      ctx.beginPath(); ctx.moveTo(geometry.left, y); ctx.lineTo(geometry.right, y); ctx.stroke(); ctx.restore();
+    }
+
+    function draw() {
+      if (!DATA) return;
+      const width = shell.clientWidth, height = shell.clientHeight;
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
+      ctx.clearRect(0, 0, width, height);
+      const narrow = width < 560;
+      // The overlay view can show two readings (daytime and overnight), so it gets a taller readout strip.
+      const margin = { top: period === "both" ? 92 : 52, right: narrow ? 12 : 30, bottom: 74, left: narrow ? 92 : 112 };
+      readout.style.left = `${margin.left}px`; readout.style.right = `${margin.right}px`; readout.style.height = `${margin.top - 4}px`;
+      geometry = { left: margin.left, right: width - margin.right, top: margin.top, bottom: height - margin.bottom };
+      geometry.plotWidth = geometry.right - geometry.left;
+      geometry.plotHeight = geometry.bottom - geometry.top;
+      const x = s => geometry.left + ((s - viewStart) / (viewEnd - viewStart)) * geometry.plotWidth;
+      const y = v => geometry.bottom - ((v - STATS.yMin) / (STATS.yMax - STATS.yMin)) * geometry.plotHeight;
+      geometry.x = x; geometry.y = y;
+      const fullView = viewStart === 0 && viewEnd === duration();
+      $("resetZoom").disabled = fullView;
+      $("tsZoomOut").disabled = fullView;
+      $("tsZoomIn").disabled = viewEnd - viewStart <= MIN_SPAN + 1e-6;
+      canvas.style.cursor = dragState && dragState.mode === "pan" ? "grabbing"
+        : tsMode === "pan" ? (fullView ? "default" : "grab") : "crosshair";
+
+      ctx.font = `12px ${font}`; ctx.textBaseline = "middle";
+      for (let i = 0; i <= 6; i++) {
+        const v = STATS.yMin + (STATS.yMax - STATS.yMin) * i / 6, py = y(v);
+        ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(geometry.left, py); ctx.lineTo(geometry.right, py); ctx.stroke();
+        ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.fillText(fmtV(v), geometry.left - 10, py);
+      }
+
+      const span = viewEnd - viewStart;
+      let step = span <= 600 ? 60 : span <= 3600 ? 300 : span <= 10800 ? 900 : span <= 21600 ? 1800 : 3600;
+      const minSpacing = !isSeq() && period === "both" ? 52 : 44;
+      while (geometry.plotWidth * step / span < minSpacing) step *= 2;
+      const labelSeries = isSeq() || period === "both" ? DATA.day : DATA[period];
+      const timeLabel = (series, t) => new Date(series.startMs + t * 1000).toLocaleTimeString("en-US", { hour: "numeric", minute: step < 3600 ? "2-digit" : undefined, hour12: true });
+      for (let t = Math.ceil(viewStart / step) * step; t <= viewEnd; t += step) {
+        const px = x(t);
+        ctx.strokeStyle = grid; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(px, geometry.top); ctx.lineTo(px, geometry.bottom); ctx.stroke();
+        if (!isSeq() && period === "both") {
+          ctx.textAlign = "center";
+          ctx.fillStyle = css(SER.color); ctx.fillText(timeLabel(DATA.day, t), px, geometry.bottom + 13);
+          ctx.fillStyle = css(SER.color2); ctx.fillText(timeLabel(DATA.night, t), px, geometry.bottom + 29);
+        } else {
+          ctx.save(); ctx.translate(px, geometry.bottom + 14); ctx.rotate(-Math.PI / 4);
+          ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.fillText(timeLabel(labelSeries, t), 0, 0); ctx.restore();
+        }
+      }
+      ctx.strokeStyle = rule; ctx.lineWidth = 1;
+      ctx.strokeRect(geometry.left, geometry.top, geometry.plotWidth, geometry.plotHeight);
+
+      ctx.save();
+      ctx.beginPath(); ctx.rect(geometry.left, geometry.top, geometry.plotWidth, geometry.plotHeight); ctx.clip();
+      hLine(y(STATS.mean), ink, [13, 5, 3, 5, 3, 5], 1.5);
+      hLine(y(STATS.mean + STATS.sd), css("--sig1"), [7, 5], 1.25);
+      hLine(y(STATS.mean - STATS.sd), css("--sig1"), [7, 5], 1.25);
+      hLine(y(STATS.mean + 2 * STATS.sd), css("--sig2"), [2, 4], 1.25);
+      hLine(y(STATS.mean - 2 * STATS.sd), css("--sig2"), [2, 4], 1.25);
+
+      const series = visibleSeries();
+      for (const sr of series) {
+        ctx.save(); ctx.strokeStyle = css(sr.colorVar); ctx.globalAlpha = .82; ctx.lineWidth = .72; ctx.setLineDash([]);
+        ctx.beginPath();
+        let prev = null;
+        sr.points.forEach(([s, v], i) => {
+          if (i === 0 || s - prev > cur.gap) ctx.moveTo(x(s), y(v)); else ctx.lineTo(x(s), y(v));
+          prev = s;
+        });
+        ctx.stroke(); ctx.restore();
+      }
+      if (series.every(sr => !sr.points.length)) {
+        ctx.fillStyle = muted; ctx.textAlign = "center"; ctx.font = `14px ${font}`;
+        const mx = (geometry.left + geometry.right) / 2, my = geometry.top + geometry.plotHeight * .3;
+        ctx.fillStyle = css("--panel"); ctx.fillRect(mx - 150, my - 14, 300, 28);
+        ctx.fillStyle = muted; ctx.fillText("No observations in this time window", mx, my);
+      }
+      if (dragState && dragState.mode === "box") {
+        const x1 = x(dragState.startSeconds), x2 = x(dragState.currentSeconds);
+        ctx.fillStyle = "rgba(37,99,235,.12)"; ctx.strokeStyle = "rgba(37,99,235,.72)"; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+        ctx.fillRect(Math.min(x1, x2), geometry.top, Math.abs(x2 - x1), geometry.plotHeight);
+        ctx.strokeRect(Math.min(x1, x2), geometry.top, Math.abs(x2 - x1), geometry.plotHeight);
+      }
+      ctx.restore();
+
+      ctx.fillStyle = ink; ctx.font = `600 14px ${font}`; ctx.textAlign = "center";
+      const c = cycles[cycle];
+      const axisLabel = isSeq() ? `Time (${shortDT(c.day)} to ${shortDT(c.next)})`
+        : period === "both" ? "Time (daytime / overnight)" : `Time (${period === "day" ? "7 AM–7 PM" : "7 PM–7 AM"})`;
+      ctx.fillText(axisLabel, (geometry.left + geometry.right) / 2, height - 14);
+      ctx.save(); ctx.translate(18, (geometry.top + geometry.bottom) / 2); ctx.rotate(-Math.PI / 2);
+      ctx.fillText(axisTitle(SER), 0, 0); ctx.restore();
+
+      if (hoverPoints.length) {
+        const px = x(hoverPoints[0].point[0]);
+        ctx.save(); ctx.strokeStyle = muted; ctx.globalAlpha = .6; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(px, geometry.top); ctx.lineTo(px, geometry.bottom); ctx.stroke(); ctx.restore();
+        hoverPoints.forEach(({ series, point }) => {
+          ctx.fillStyle = css(series.colorVar); ctx.strokeStyle = css("--panel"); ctx.lineWidth = 2; ctx.setLineDash([]);
+          ctx.beginPath(); ctx.arc(x(point[0]), y(point[1]), 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        });
+      }
+    }
+
+    function nearestPoint(target, series) {
+      const p = series.points;
+      if (!p.length) return null;
+      let lo = 0, hi = p.length - 1;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (p[mid][0] < target) lo = mid + 1; else hi = mid; }
+      const a = p[lo], b = p[Math.max(0, lo - 1)];
+      return Math.abs(a[0] - target) < Math.abs(b[0] - target) ? a : b;
+    }
+    // Fixed readout strip above the chart (same style as the Position and PDOP charts).
+    function setReadout(matches) {
+      if (!matches || !matches.length) { readout.innerHTML = `<span>Hover over the chart to read the values at that time.</span>`; return; }
+      const u = unitSuffix(SER), d = cur.data;
+      const val = (S, i) => S.values[i] === null ? "no value" : `<b>${fmtNum(S.values[i], S.dec)}${unitSuffix(S)}</b>`;
+      readout.innerHTML = matches.map(({ series, point }, k) => {
+        const i = point[2], res = point[1] - STATS.mean;
+        const sign = res > 0 ? "+" : res < 0 ? "−" : "";
+        const resTxt = SER.coord ? `${Math.abs(res * 1000) < 0.05 ? "" : sign}${Math.abs(res * 1000).toFixed(1)} mm` : `${sign}${Math.abs(res).toFixed(SER.dec + 1)}${u}`;
+        const when = new Date(cur.startMs + d.t[i] * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+        const parts = [`<span><b>${when}</b></span>`];
+        if (d.ids && d.ids[i]) parts.push(`<span>Point <b>${d.ids[i]}</b></span>`);
+        parts.push(`<span><span style="color:${css(series.colorVar)}">■</span> ${series.label} <b>${fmtNum(point[1], SER.dec)}${u}</b></span>`);
+        parts.push(`<span>Residual <b>${resTxt}</b></span>`);
+        const sq = S => `<span style="color:${css(S.color)}">■</span> `;
+        if (PDOP && SER.id !== PDOP.id) parts.push(`<span>${sq(PDOP)}PDOP ${val(PDOP, i)}</span>`);
+        if (HPREC && SER.id !== HPREC.id) parts.push(`<span>${sq(HPREC)}H. Precision ${val(HPREC, i)}</span>`);
+        return (k ? `<span style="flex-basis:100%;height:0"></span>` : "") + parts.join("");
+      }).join("");
+    }
+    const hideTip = () => { hoverPoints = []; setReadout(null); };
+    function resetZoom() { viewStart = 0; viewEnd = duration(); dragState = null; hideTip(); draw(); }
+    const secondsAt = mx => viewStart + ((mx - geometry.left) / geometry.plotWidth) * (viewEnd - viewStart);
+
+    canvas.addEventListener("pointerdown", ev => {
+      if (!geometry || ev.button !== 0) return;
+      const r = canvas.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      if (mx < geometry.left || mx > geometry.right || my < geometry.top || my > geometry.bottom) return;
+      ev.preventDefault();
+      const s = secondsAt(mx);
+      dragState = { pointerId: ev.pointerId, startX: mx, startSeconds: s, currentSeconds: s, mode: tsMode, v0: viewStart, v1: viewEnd };
+      hideTip(); canvas.setPointerCapture(ev.pointerId); draw();
+    });
+    canvas.addEventListener("pointermove", ev => {
+      if (!geometry || !DATA) return;
+      const r = canvas.getBoundingClientRect(), mx = ev.clientX - r.left;
+      if (dragState && dragState.mode === "pan") {
+        const span = dragState.v1 - dragState.v0;
+        const shift = -((mx - dragState.startX) / geometry.plotWidth) * span;
+        viewStart = clamp(dragState.v0 + shift, 0, duration() - span); viewEnd = viewStart + span;
+        hideTip(); draw(); return;
+      }
+      if (dragState) { dragState.currentSeconds = clamp(secondsAt(mx), viewStart, viewEnd); hideTip(); draw(); return; }
+      if (mx < geometry.left || mx > geometry.right) { hideTip(); draw(); return; }
+      const target = secondsAt(mx);
+      const matches = visibleSeries().map(series => ({ series, point: nearestPoint(target, series) }))
+        .filter(m => m.point && Math.abs(m.point[0] - target) <= cur.gap);
+      if (!matches.length) { hideTip(); draw(); return; }
+      hoverPoints = matches; draw(); setReadout(matches);
+    });
+    function finishDrag(ev) {
+      if (!dragState || ev.pointerId !== dragState.pointerId) return;
+      const a = Math.min(dragState.startSeconds, dragState.currentSeconds), b = Math.max(dragState.startSeconds, dragState.currentSeconds);
+      const dist = Math.abs((ev.clientX - canvas.getBoundingClientRect().left) - dragState.startX);
+      if (dragState.mode === "box" && dist >= 8 && b - a >= MIN_SPAN) { viewStart = a; viewEnd = b; }
+      if (canvas.hasPointerCapture(ev.pointerId)) canvas.releasePointerCapture(ev.pointerId);
+      dragState = null; draw();
+    }
+    canvas.addEventListener("pointerup", finishDrag);
+    canvas.addEventListener("pointercancel", () => { dragState = null; draw(); });
+    canvas.addEventListener("wheel", ev => {
+      if (!geometry) return;
+      const r = canvas.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      if (mx < geometry.left || mx > geometry.right || my < geometry.top || my > geometry.bottom) return;
+      ev.preventDefault();
+      const old = viewEnd - viewStart, span = clamp(old * (ev.deltaY < 0 ? .76 : 1.32), 60, duration());
+      const ratio = (mx - geometry.left) / geometry.plotWidth, anchor = viewStart + ratio * old;
+      viewStart = clamp(anchor - ratio * span, 0, duration() - span); viewEnd = viewStart + span;
+      hideTip(); draw();
+    }, { passive: false });
+    canvas.addEventListener("dblclick", ev => { ev.preventDefault(); resetZoom(); });
+    canvas.addEventListener("pointerleave", () => { if (!dragState) { hideTip(); draw(); } });
+    $("resetZoom").addEventListener("click", resetZoom);
+    function zoomCenter(f) {
+      if (!DATA) return;
+      const mid = (viewStart + viewEnd) / 2, span = clamp((viewEnd - viewStart) * f, MIN_SPAN, duration());
+      viewStart = clamp(mid - span / 2, 0, duration() - span); viewEnd = viewStart + span;
+      hideTip(); draw();
+    }
+    $("tsZoomIn").addEventListener("click", () => zoomCenter(1 / 1.5));
+    $("tsZoomOut").addEventListener("click", () => zoomCenter(1.5));
+    document.querySelectorAll("#tsModeSeg button").forEach(b => b.addEventListener("click", () => {
+      tsMode = b.dataset.mode;
+      document.querySelectorAll("#tsModeSeg button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+      draw();
+    }));
+
+    document.querySelectorAll("#periodSeg button").forEach(b => b.addEventListener("click", () => {
+      period = b.dataset.period;
+      document.querySelectorAll("#periodSeg button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+      $("dayLegend").hidden = period === "night";
+      $("nightLegend").hidden = period === "day";
+      resetZoom();
+    }));
+    $("compSel").addEventListener("change", e => { comp = e.target.value; if (cur) build(); });
+    $("cycleSel").addEventListener("change", e => { cycle = Number(e.target.value); build(); });
+    new ResizeObserver(() => resize()).observe(shell);
+    // Absolute time range currently shown in the chart, or null for the overlay view.
+    function currentWindow() {
+      if (!DATA || period === "both") return null;
+      const base = period === "night" ? DATA.night.startMs : DATA.day.startMs;
+      return { a: base + viewStart * 1000, b: base + viewEnd * 1000 };
+    }
+    return { load, redraw: draw, currentWindow };
+  })();
+
+  // ===================== Position and PDOP over time ==========================
+  // Three charts (Northing, Easting, Elevation), each with PDOP (or another
+  // extra column) on a second axis. They share one time view and hover.
+  const PAIR = (() => {
+    const PAIR_COLORS = { n: "--cN", e: "--cE", u: "--cU" };
+    const charts = ["n", "e", "u"].map(c => {
+      const canvas = $(`pair_${c}`);
+      return { c, col: PAIR_COLORS[c], canvas, ctx: canvas.getContext("2d"), shell: $(`pairShell_${c}`), tip: $(`pairTip_${c}`) };
+    });
+    const withSel = $("pairWith");
+    const MIN_SPAN = 60, AXIS_R = 72, READOUT_H = 48;
+    // Vertical share of each chart used by the coordinate (top) and by PDOP
+    // (bottom), as fractions of the plot height. The gap keeps them apart.
+    const BAND_A = [0, 0.6], BAND_B = [0.67, 1];
+    let PDOP = null, HPREC = null;
+    let want = "x:PDOP", hasExtra = false;
+    let T = null, total = 1, v0 = 0, v1 = 1, B = null, hover = -1, active = null, drag = null, pending = false;
+
+    function range(vals, minPad) {
+      let lo = Infinity, hi = -Infinity;
+      for (const v of vals) if (v !== null) { if (v < lo) lo = v; if (v > hi) hi = v; }
+      if (!isFinite(lo)) { lo = 0; hi = 1; }
+      const pad = Math.max((hi - lo) * .08, minPad);
+      return [lo - pad, hi + pad];
+    }
+    function niceStep(range, target) {
+      const raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+      return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * mag;
+    }
+    const TIME_STEPS = [60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400];
+    const lowerBound = t => { let lo = 0, hi = T.length; while (lo < hi) { const m = (lo + hi) >> 1; if (T[m] < t) lo = m + 1; else hi = m; } return lo; };
+
+    function load() {
+      const extras = seriesOptions().filter(o => o[0].startsWith("x:"));
+      hasExtra = extras.length > 0;
+      $("pairWithLabel").hidden = !hasExtra;
+      $("pairMissing").hidden = hasExtra;
+      if (hasExtra) fillSelect(withSel, extras, want, false);
+      T = cur.data.t; total = Math.max(MIN_SPAN, T[T.length - 1]);
+      v0 = 0; v1 = total; hover = -1; active = null;
+      PDOP = getSeries("x:PDOP"); HPREC = getSeries("x:H. Precision");
+      for (const ch of charts) {
+        ch.A = getSeries(ch.c); [ch.lo, ch.hi] = range(ch.A.values, 0.001);
+        let sum = 0; for (const v of ch.A.mm) sum += v;
+        const n = ch.A.mm.length;
+        ch.meanMm = sum / n;
+        let ss = 0; for (const v of ch.A.mm) ss += (v - ch.meanMm) ** 2;
+        ch.sd = n > 1 ? Math.sqrt(ss / (n - 1)) / 1000 : 0;          // sample σ, meters
+        ch.mean = ch.A.values.reduce((a, v) => a + v, 0) / n;      // meters
+        ch.lo = Math.min(ch.lo, ch.mean - 2.2 * ch.sd); ch.hi = Math.max(ch.hi, ch.mean + 2.2 * ch.sd);
+        $(`pairMean_${ch.c}`).textContent = `Mean (${fmtNum(ch.mean, 3)} m)`;
+        $(`pairS1_${ch.c}`).textContent = `±1σ (${ch.sd.toFixed(4)} m)`;
+        $(`pairS2_${ch.c}`).textContent = `±2σ (${(2 * ch.sd).toFixed(4)} m)`;
+      }
+      $("pairNote").textContent = `Each chart's left axis is scaled to that coordinate's own range in this upload. Lines break across gaps longer than ${cur.gap} seconds.`;
+      setRight();
+    }
+    function setRight() {
+      B = hasExtra ? getSeries(withSel.value) : null;
+      if (B) [B.lo, B.hi] = range(B.values, 1e-4);
+      document.querySelectorAll("#pairCard .pair-b").forEach(el => { el.hidden = !B; if (B) el.style.color = `var(${B.color})`; });
+      document.querySelectorAll("#pairCard .pair-b-name").forEach(el => { el.textContent = B ? axisTitle(B) : ""; });
+      resizeAll();
+    }
+
+    function resizeAll() {
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      for (const ch of charts) {
+        const rect = ch.shell.getBoundingClientRect();
+        if (!rect.width) continue;
+        ch.canvas.width = Math.round(rect.width * ratio); ch.canvas.height = Math.round(rect.height * ratio);
+        ch.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+      drawAll();
+    }
+    const drawAll = () => { if (T) { charts.forEach(draw); if (hover < 0) updateReadouts(); } };
+
+    // Draws one line. When there are many more points than pixels, each pixel
+    // column is drawn as its min-max range, which looks the same and is faster.
+    function drawLine(ctx, vals, X, Y, plotW) {
+      const i0 = Math.max(0, lowerBound(v0) - 1), i1 = Math.min(T.length - 1, lowerBound(v1) + 1);
+      ctx.beginPath();
+      let prev = -1;
+      if (i1 - i0 < plotW * 3) {
+        for (let i = i0; i <= i1; i++) {
+          const v = vals[i];
+          if (v === null) { prev = -1; continue; }
+          if (prev < 0 || T[i] - T[prev] > cur.gap) ctx.moveTo(X(T[i]), Y(v)); else ctx.lineTo(X(T[i]), Y(v));
+          prev = i;
+        }
+      } else {
+        let col = null, mn = 0, mx = 0, first = 0, last = 0, open = false;
+        const flush = () => {
+          if (col === null) return;
+          const x = col + .5;
+          if (open) ctx.lineTo(x, Y(first)); else { ctx.moveTo(x, Y(first)); open = true; }
+          ctx.lineTo(x, Y(mn)); ctx.lineTo(x, Y(mx)); ctx.lineTo(x, Y(last));
+          col = null;
+        };
+        for (let i = i0; i <= i1; i++) {
+          const v = vals[i];
+          if (v === null) { flush(); open = false; prev = -1; continue; }
+          if (prev >= 0 && T[i] - T[prev] > cur.gap) { flush(); open = false; }
+          const c = Math.floor(X(T[i]));
+          if (c !== col) { flush(); col = c; mn = mx = first = last = v; }
+          else { if (v < mn) mn = v; if (v > mx) mx = v; last = v; }
+          prev = i;
+        }
+        flush();
+      }
+      ctx.stroke();
+    }
+
+    function draw(ch) {
+      const { ctx, shell, A } = ch;
+      const w = shell.clientWidth, h = shell.clientHeight;
+      if (!w) return;
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
+      const cA = css(ch.col), cB = B ? css(B.color) : "";
+      ctx.clearRect(0, 0, w, h);
+      const L = 118, R = w - (B ? AXIS_R : 18), Tp = READOUT_H, Bt = h - 62;
+      const X = t => L + (t - v0) / (v1 - v0) * (R - L);
+      const band = f => [Tp + f[0] * (Bt - Tp), Tp + f[1] * (Bt - Tp)];
+      const [aTop, aBot] = B ? band(BAND_A) : [Tp, Bt], [bTop, bBot] = band(BAND_B);
+      const YA = v => aBot - (v - ch.lo) / (ch.hi - ch.lo) * (aBot - aTop);
+      const YB = B ? v => bBot - (v - B.lo) / (B.hi - B.lo) * (bBot - bTop) : null;
+      ch.geo = { L, R, T: Tp, B: Bt, X };
+      const full = v0 <= 0 && v1 >= total;
+      ch.canvas.style.cursor = drag ? "grabbing" : full ? "crosshair" : "grab";
+
+      // Time axis
+      ctx.font = `12px ${font}`;
+      const span = v1 - v0;
+      const step = TIME_STEPS.find(s => (R - L) * s / span >= 90) || 86400;
+      const startS = cur.startMs / 1000, longFmt = step >= 3600 && span > 18 * 3600;
+      for (let t = Math.ceil((startS + v0) / step) * step - startS; t <= v1 + 1e-9; t += step) {
+        const x = X(t);
+        ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, Tp); ctx.lineTo(x, Bt); ctx.stroke();
+        const d = new Date(cur.startMs + t * 1000);
+        const lab = longFmt ? d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", hour12: true })
+          : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+        ctx.save(); ctx.translate(x, Bt + 12); ctx.rotate(-Math.PI / 6);
+        ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(lab, 0, 0); ctx.restore();
+      }
+      // Left axis: the coordinate, in meters
+      const sa = niceStep(ch.hi - ch.lo, 5), da = Math.max(3, -Math.floor(Math.log10(sa) + 1e-9));
+      ctx.textBaseline = "middle";
+      for (let v = Math.ceil(ch.lo / sa) * sa; v <= ch.hi + 1e-12; v += sa) {
+        const y = YA(v);
+        ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke();
+        ctx.fillStyle = cA; ctx.textAlign = "right"; ctx.fillText(fmtNum(v, da), L - 8, y);
+      }
+      ctx.strokeStyle = cA; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, aTop); ctx.lineTo(L, aBot); ctx.stroke();
+      ctx.save(); ctx.fillStyle = cA; ctx.font = `600 13px ${font}`; ctx.textAlign = "center";
+      ctx.translate(16, (aTop + aBot) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(axisTitle(A), 0, 0); ctx.restore();
+      // Right axis: PDOP (or the chosen extra value)
+      if (B) {
+        const sb = niceStep(B.hi - B.lo, 5), db = Math.max(0, -Math.floor(Math.log10(sb) + 1e-9));
+        ctx.font = `12px ${font}`; ctx.lineWidth = 1;
+        for (let v = Math.ceil(B.lo / sb) * sb; v <= B.hi + 1e-12; v += sb) {
+          const y = YB(v);
+          ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke();
+          ctx.strokeStyle = cB; ctx.beginPath(); ctx.moveTo(R, y); ctx.lineTo(R + 5, y); ctx.stroke();
+          ctx.fillStyle = cB; ctx.textAlign = "left"; ctx.fillText(fmtNum(v, db), R + 8, y);
+        }
+        ctx.strokeStyle = cB; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(R, bTop); ctx.lineTo(R, bBot); ctx.stroke();
+        ctx.save(); ctx.fillStyle = cB; ctx.font = `600 13px ${font}`; ctx.textAlign = "center";
+        ctx.translate(w - 12, (bTop + bBot) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(axisTitle(B), 0, 0); ctx.restore();
+      }
+      ctx.strokeStyle = rule; ctx.lineWidth = 1; ctx.strokeRect(L, Tp, R - L, Bt - Tp);
+
+      ctx.save(); ctx.beginPath(); ctx.rect(L, Tp, R - L, Bt - Tp); ctx.clip();
+      ctx.lineWidth = .9;
+      if (B) { ctx.strokeStyle = cB; ctx.globalAlpha = .75; drawLine(ctx, B.values, X, YB, R - L); }
+      ctx.strokeStyle = cA; ctx.globalAlpha = .9; drawLine(ctx, A.values, X, YA, R - L);
+      ctx.globalAlpha = 1;
+      // Mean and ±1σ / ±2σ reference lines for the coordinate, drawn over the data.
+      const ref = (v, color, dash, wd) => { ctx.strokeStyle = color; ctx.lineWidth = wd; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(L, YA(v)); ctx.lineTo(R, YA(v)); ctx.stroke(); };
+      ref(ch.mean, ink, [13, 5, 3, 5, 3, 5], 1.6);
+      ref(ch.mean + ch.sd, css("--sig1"), [7, 5], 1.4); ref(ch.mean - ch.sd, css("--sig1"), [7, 5], 1.4);
+      ref(ch.mean + 2 * ch.sd, css("--sig2"), [2, 4], 1.6); ref(ch.mean - 2 * ch.sd, css("--sig2"), [2, 4], 1.6);
+      ctx.setLineDash([]);
+      if (hover >= 0) {
+        const x = X(T[hover]);
+        ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, Tp); ctx.lineTo(x, Bt); ctx.stroke(); ctx.setLineDash([]);
+        const dot = (y, col) => { ctx.fillStyle = col; ctx.strokeStyle = css("--panel"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); };
+        if (B && B.values[hover] !== null) dot(YB(B.values[hover]), cB);
+        dot(YA(A.values[hover]), cA);
+      }
+      ctx.restore();
+      ctx.fillStyle = ink; ctx.font = `600 13px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillText("Time", (L + R) / 2, h - 6);
+    }
+
+    function updateButtons() {
+      const full = v0 <= 0 && v1 >= total;
+      $("pairReset").disabled = full; $("pairZoomOut").disabled = full;
+      $("pairZoomIn").disabled = v1 - v0 <= MIN_SPAN + 1e-6;
+    }
+    function setView(a, b) {
+      const span = clamp(b - a, MIN_SPAN, total);
+      v0 = clamp(a, 0, total - span); v1 = v0 + span;
+      hideHover(); updateButtons(); drawAll();
+    }
+    function hideHover() { hover = -1; active = null; updateReadouts(); }
+
+    // Fixed readout strip above each chart, so it never covers the data.
+    function updateReadouts() {
+      const i = hover;
+      for (const ch of charts) {
+        const el = ch.tip, g = ch.geo;
+        if (g) { el.style.left = `${g.L}px`; el.style.right = `${ch.shell.clientWidth - g.R}px`; }
+        if (i < 0 || !T) { el.innerHTML = `<span>Hover over a chart to read the values at that time.</span>`; continue; }
+        const sq = col => `<span style="color:${css(col)}">■</span> `;
+        const val = (S, unit = true) => S.values[i] === null ? "no value" : `<b>${fmtNum(S.values[i], S.dec)}${unit ? unitSuffix(S) : ""}</b>`;
+        const res = ch.A.mm[i] - ch.meanMm;
+        const when = new Date(cur.startMs + T[i] * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+        const parts = [`<span><b>${when}</b></span>`];
+        if (cur.data.ids && cur.data.ids[i]) parts.push(`<span>Point <b>${cur.data.ids[i]}</b></span>`);
+        parts.push(`<span>${sq(ch.col)}${ch.A.name} ${val(ch.A)}</span>`);
+        parts.push(`<span>Residual <b>${res > 0.05 ? "+" : res < -0.05 ? "−" : ""}${Math.abs(res).toFixed(1)} mm</b></span>`);
+        const isB = S => B && S && B.id === S.id;
+        if (PDOP) parts.push(`<span>${sq(PDOP.color)}PDOP ${val(PDOP)}</span>`);
+        if (HPREC) parts.push(`<span>${sq(HPREC.color)}H. Precision ${val(HPREC)}</span>`);
+        if (B && !isB(PDOP) && !isB(HPREC)) parts.push(`<span>${sq(B.color)}${B.name} ${val(B)}</span>`);
+        el.innerHTML = parts.join("");
+      }
+    }
+    const zoom = f => { const mid = (v0 + v1) / 2, span = (v1 - v0) * f; setView(mid - span / 2, mid + span / 2); };
+
+    for (const ch of charts) {
+      const cv = ch.canvas;
+      const pos = ev => { const r = cv.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+      const inPlot = (mx, my) => ch.geo && mx >= ch.geo.L && mx <= ch.geo.R && my >= ch.geo.T && my <= ch.geo.B;
+      cv.addEventListener("pointerdown", ev => {
+        const [mx, my] = pos(ev);
+        if (ev.button !== 0 || !inPlot(mx, my) || (v0 <= 0 && v1 >= total)) return;
+        ev.preventDefault();
+        drag = { id: ev.pointerId, ch, x0: mx, x1: mx, a: v0, b: v1 };
+        cv.setPointerCapture(ev.pointerId); hideHover(); drawAll();
+      });
+      cv.addEventListener("pointermove", ev => {
+        if (!T || !ch.geo) return;
+        const [mx, my] = pos(ev);
+        if (drag) {
+          if (drag.ch !== ch) return;
+          drag.x1 = mx;
+          if (!pending) {
+            pending = true;
+            requestAnimationFrame(() => {
+              pending = false; if (!drag) return;
+              const shift = -(drag.x1 - drag.x0) / (ch.geo.R - ch.geo.L) * (drag.b - drag.a);
+              setView(drag.a + shift, drag.b + shift);
+            });
+          }
+          return;
+        }
+        if (!inPlot(mx, my)) { if (hover >= 0) { hideHover(); drawAll(); } return; }
+        const g = ch.geo, t = v0 + (mx - g.L) / (g.R - g.L) * (v1 - v0);
+        let i = Math.min(T.length - 1, lowerBound(t));
+        if (i > 0 && Math.abs(T[i - 1] - t) < Math.abs(T[i] - t)) i--;
+        if (Math.abs(T[i] - t) > Math.max(cur.gap, (v1 - v0) / (g.R - g.L) * 4)) { if (hover >= 0) { hideHover(); drawAll(); } return; }
+        hover = i; active = ch; drawAll(); updateReadouts();
+      });
+      const endDrag = ev => {
+        if (!drag || ev.pointerId !== drag.id) return;
+        if (cv.hasPointerCapture(ev.pointerId)) cv.releasePointerCapture(ev.pointerId);
+        drag = null; drawAll();
+      };
+      cv.addEventListener("pointerup", endDrag);
+      cv.addEventListener("pointercancel", endDrag);
+      cv.addEventListener("pointerleave", () => { if (!drag && active === ch) { hideHover(); drawAll(); } });
+      cv.addEventListener("wheel", ev => {
+        const [mx, my] = pos(ev);
+        if (!inPlot(mx, my)) return;
+        ev.preventDefault();
+        const g = ch.geo, ratio = (mx - g.L) / (g.R - g.L), anchor = v0 + ratio * (v1 - v0);
+        const span = clamp((v1 - v0) * (ev.deltaY < 0 ? .76 : 1.32), MIN_SPAN, total);
+        setView(anchor - ratio * span, anchor - ratio * span + span);
+      }, { passive: false });
+      cv.addEventListener("dblclick", ev => { ev.preventDefault(); setView(0, total); });
+      new ResizeObserver(() => resizeAll()).observe(ch.shell);
+    }
+    $("pairZoomIn").addEventListener("click", () => zoom(1 / 1.5));
+    $("pairZoomOut").addEventListener("click", () => zoom(1.5));
+    $("pairReset").addEventListener("click", () => setView(0, total));
+    withSel.addEventListener("change", () => { want = withSel.value; if (cur) setRight(); });
+    return { load, redraw: drawAll };
+  })();
+
+  // ========================= Time window statistics ===========================
+  const Win = (() => {
+    const from = $("winFrom"), to = $("winTo"), msg = $("winMsg"), foot = $("winFoot"), body = $("winBody");
+    const tsC = $("winTs"), tsWrap = $("winTsWrap"), tsTip = $("winTsTip");
+    const scC = $("winSc"), scWrap = $("winScWrap"), scTip = $("winScTip");
+    let lastText = "", whole = null, sel = null, wcomp = "n", tsGeo = null, scGeo = null;
+    const pad2 = n => String(n).padStart(2, "0");
+    const toInput = ms => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; };
+    const fromInput = v => v ? parseLocal(v.length === 16 ? v + ":00" : v).getTime() : NaN;
+    const timeStr = ms => new Date(ms).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+    const clock = ms => new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+    const baseMm = c => Math.round(cur.data.base_m[c] * 1000);
+    const absTxt = (c, mm, dec = 3) => ((baseMm(c) + mm) / 1000).toFixed(dec);
+    const sgn2 = v => (v > 0.005 ? "+" : "") + v.toFixed(2);
+
+    function stats(arr) {   // integer mm offsets
+      const n = arr.length;
+      let sum = 0, mn = Infinity, mx = -Infinity;
+      for (const v of arr) { sum += v; if (v < mn) mn = v; if (v > mx) mx = v; }
+      const mean = sum / n;
+      let ss = 0; for (const v of arr) ss += (v - mean) ** 2;
+      return { mean, sd: n > 1 ? Math.sqrt(ss / (n - 1)) : 0, min: mn, max: mx };
+    }
+
+    function load() {
+      const d = cur.data, endMs = cur.startMs + d.t[d.t.length - 1] * 1000;
+      from.min = to.min = toInput(cur.startMs); from.max = to.max = toInput(endMs);
+      from.value = toInput(cur.startMs); to.value = toInput(Math.min(endMs, cur.startMs + 5 * 60000));
+      whole = {};
+      for (const c of ["n", "e", "u"]) whole[c] = stats(d[COMP[c].key]);
+      whole.drms = Math.hypot(whole.n.sd, whole.e.sd);
+      sel = null;
+      msg.className = "win-msg"; msg.textContent = "Choose a time window and click Calculate. The whole-upload values are shown for comparison.";
+      $("winCopy").disabled = true; $("winView").hidden = true;
+      renderTable();
+    }
+
+    function renderTable() {
+      body.textContent = "";
+      const rows = [];
+      for (const c of ["n", "e", "u"]) {
+        const w = sel && sel.st[c], W = whole[c];
+        rows.push([COMP[c].name,
+          w ? absTxt(c, w.mean, 4) : "", w ? w.sd.toFixed(2) : "", w ? (2 * w.sd).toFixed(2) : "", w ? (w.max - w.min).toFixed(0) : "",
+          absTxt(c, W.mean, 4), W.sd.toFixed(2), (2 * W.sd).toFixed(2), w ? sgn2(w.mean - W.mean) : ""]);
+      }
+      rows.push(["Horizontal (DRMS)", "", sel ? sel.drms.toFixed(2) : "", sel ? (2 * sel.drms).toFixed(2) : "", "",
+        "", whole.drms.toFixed(2), (2 * whole.drms).toFixed(2),
+        sel ? `${Math.hypot(sel.st.n.mean - whole.n.mean, sel.st.e.mean - whole.e.mean).toFixed(2)} (distance)` : ""]);
+      for (const r of rows) {
+        const tr = document.createElement("tr");
+        r.forEach((v, j) => {
+          const td = document.createElement("td");
+          td.textContent = v || (j ? "–" : "");
+          if (j >= 1 && j <= 4) td.className = "gw";
+          if (j === 2 || j === 3 || j === 6 || j === 7) td.classList.add("em");
+          if (j === 8) td.classList.add("diff");
+          tr.append(td);
+        });
+        body.append(tr);
+      }
+      foot.textContent = "Standard deviations are sample standard deviations (n − 1). Horizontal DRMS is √(σN² + σE²), and 2DRMS is twice that. The last column is the window average minus the whole-upload average; for Horizontal it is the distance between the two average positions.";
+      return rows;
+    }
+
+    function calculate() {
+      if (!cur) return;
+      const a = fromInput(from.value), b = fromInput(to.value);
+      const fail = t => { msg.className = "win-msg warn"; msg.textContent = t; sel = null; renderTable(); $("winView").hidden = true; $("winCopy").disabled = true; };
+      if (isNaN(a) || isNaN(b)) return fail("Enter both a start and an end time.");
+      if (b <= a) return fail("The end time must be after the start time.");
+      const d = cur.data, idx = [];
+      for (let i = 0; i < d.t.length; i++) {
+        const ms = cur.startMs + d.t[i] * 1000;
+        if (ms >= a && ms <= b) idx.push(i);
+      }
+      if (idx.length < 2) return fail(`Only ${idx.length} epoch${idx.length === 1 ? "" : "s"} in that window. Choose a longer window.`);
+      const st = {};
+      for (const c of ["n", "e", "u"]) st[c] = stats(idx.map(i => d[COMP[c].key][i]));
+      sel = { a, b, idx, st, drms: Math.hypot(st.n.sd, st.e.sd) };
+      msg.className = "win-msg";
+      const rows = renderTable();
+
+      const t0 = cur.startMs + d.t[idx[0]] * 1000, t1 = cur.startMs + d.t[idx[idx.length - 1]] * 1000;
+      let gaps = 0; for (let k = 1; k < idx.length; k++) if (d.t[idx[k]] - d.t[idx[k - 1]] > cur.gap) gaps++;
+      const pid = i => d.ids && d.ids[i] ? ` (point ${d.ids[i]})` : "";
+      msg.textContent = `${idx.length.toLocaleString()} epochs, from ${timeStr(t0)}${pid(idx[0])} to ${timeStr(t1)}${pid(idx[idx.length - 1])}.${gaps ? ` The window contains ${gaps} gap${gaps > 1 ? "s" : ""} in the record.` : ""}`;
+
+      const head = ["Component", "Window average (m)", "Window std. dev. (mm)", "Window 2 x std. dev. (mm)", "Window range (mm)", "Whole average (m)", "Whole std. dev. (mm)", "Whole 2 x std. dev. (mm)", "Window - whole average (mm)"];
+      lastText = [`Window: ${timeStr(a)} to ${timeStr(b)}`, `Epochs: ${idx.length}`, head.join("\t"), ...rows.map(r => r.join("\t"))].join("\n");
+      $("winCopy").disabled = false;
+      $("winView").hidden = false;
+      fillRows();
+      drawAll();
+    }
+
+    // ---------- selected data: table + CSV ----------
+    const MAX_ROWS = 2000;
+    function fillRows() {
+      const d = cur.data, tb = $("winRows");
+      tb.textContent = "";
+      const frag = document.createDocumentFragment();
+      sel.idx.slice(0, MAX_ROWS).forEach(i => {
+        const tr = document.createElement("tr");
+        [d.ids && d.ids[i] ? d.ids[i] : i + 1, timeStr(cur.startMs + d.t[i] * 1000), absTxt("n", d.n_mm[i]), absTxt("e", d.e_mm[i]), absTxt("u", d.u_mm[i])]
+          .forEach(v => { const td = document.createElement("td"); td.textContent = v; tr.append(td); });
+        frag.append(tr);
+      });
+      tb.append(frag);
+      $("winDataSummary").textContent = `Show the data (${sel.idx.length.toLocaleString()} epochs)`;
+      $("winRowsNote").textContent = sel.idx.length > MAX_ROWS ? `Showing the first ${MAX_ROWS.toLocaleString()} epochs. The CSV download contains all of them.` : "";
+    }
+    $("winCsv").addEventListener("click", () => {
+      if (!sel) return;
+      const d = cur.data;
+      const lines = ["Point ID,Time,Northing,Easting,Elevation"];
+      for (const i of sel.idx) lines.push([d.ids && d.ids[i] ? d.ids[i] : i + 1, `"${timeStr(cur.startMs + d.t[i] * 1000)}"`, absTxt("n", d.n_mm[i]), absTxt("e", d.e_mm[i]), absTxt("u", d.u_mm[i])].join(","));
+      const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
+      const link = document.createElement("a");
+      const stamp = toInput(sel.a).replace(/[-:]/g, "").replace("T", "_");
+      link.href = URL.createObjectURL(blob); link.download = `${cur.summary.id}_window_${stamp}.csv`;
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+    });
+
+    // ---------- selected data: charts ----------
+    function prep(canvas, wrap) {
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      const w = wrap.clientWidth, h = wrap.clientHeight;
+      canvas.width = Math.round(w * ratio); canvas.height = Math.round(h * ratio);
+      const ctx = canvas.getContext("2d"); ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      return { ctx, w, h };
+    }
+    function nice(range) {
+      const raw = range / 6, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+      return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * mag;
+    }
+    const TIME_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600];
+
+    function drawTs(hover = -1) {
+      if (!sel || $("winView").hidden) return;
+      const { ctx, w, h } = prep(tsC, tsWrap);
+      const d = cur.data, c = wcomp, key = COMP[c].key, st = sel.st[c], W = whole[c];
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
+      const m = { l: 108, r: 16, t: 12, b: 58 };
+      const L = m.l, R = w - m.r, T = m.t, B = h - m.b;
+      const t0 = d.t[sel.idx[0]], t1 = d.t[sel.idx[sel.idx.length - 1]];
+      const span = Math.max(1, t1 - t0);
+      let lo = Math.min(st.min, st.mean - 2 * st.sd, W.mean), hi = Math.max(st.max, st.mean + 2 * st.sd, W.mean);
+      const padY = Math.max(1, (hi - lo) * .08); lo -= padY; hi += padY;
+      const X = t => L + (t - t0) / span * (R - L), Y = v => B - (v - lo) / (hi - lo) * (B - T);
+      tsGeo = { X, Y, L, R, T, B, t0, span };
+      ctx.clearRect(0, 0, w, h);
+      ctx.font = `12px ${font}`; ctx.textBaseline = "middle";
+      const ys = nice(hi - lo), dec = ys >= 1 ? 3 : 4;
+      for (let v = Math.ceil(lo / ys) * ys; v <= hi + 1e-9; v += ys) {
+        ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(R, Y(v)); ctx.stroke();
+        ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.fillText(((baseMm(c) + v) / 1000).toFixed(dec), L - 8, Y(v));
+      }
+      let step = TIME_STEPS.find(s => span / s <= 7) || 43200;
+      const startMs = cur.startMs;
+      const first = Math.ceil((startMs / 1000 + t0) / step) * step - startMs / 1000;
+      for (let t = first; t <= t1 + 1e-9; t += step) {
+        ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(X(t), T); ctx.lineTo(X(t), B); ctx.stroke();
+        const lab = new Date(startMs + t * 1000).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: step < 60 ? "2-digit" : undefined, hour12: true });
+        ctx.fillStyle = muted; ctx.textAlign = "center"; ctx.fillText(lab, X(t), B + 14);
+      }
+      ctx.strokeStyle = rule; ctx.strokeRect(L, T, R - L, B - T);
+      const hl = (v, col, dash, wd = 1.3) => { ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = wd; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(R, Y(v)); ctx.stroke(); ctx.restore(); };
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, R - L, B - T); ctx.clip();
+      hl(W.mean, css("--brass"), [], 2);
+      hl(st.mean, ink, [13, 5, 3, 5, 3, 5], 1.5);
+      hl(st.mean + st.sd, css("--sig1"), [7, 5]); hl(st.mean - st.sd, css("--sig1"), [7, 5]);
+      hl(st.mean + 2 * st.sd, css("--sig2"), [2, 4]); hl(st.mean - 2 * st.sd, css("--sig2"), [2, 4]);
+      const wcol = css(colorFor(c)[0]);
+      $("winObsLegend").style.color = `var(${colorFor(c)[0]})`;
+      ctx.strokeStyle = wcol; ctx.lineWidth = 1.1; ctx.beginPath();
+      sel.idx.forEach((i, k) => {
+        const x = X(d.t[i]), y = Y(d[key][i]);
+        if (k === 0 || d.t[i] - d.t[sel.idx[k - 1]] > cur.gap) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      if (sel.idx.length <= 400) {
+        ctx.fillStyle = wcol;
+        for (const i of sel.idx) { ctx.beginPath(); ctx.arc(X(d.t[i]), Y(d[key][i]), 2.4, 0, Math.PI * 2); ctx.fill(); }
+      }
+      if (hover >= 0) {
+        const x = X(d.t[hover]), y = Y(d[key][hover]);
+        ctx.strokeStyle = muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, B); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = wcol; ctx.strokeStyle = css("--panel"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+      ctx.fillStyle = ink; ctx.font = `600 13px ${font}`; ctx.textAlign = "center";
+      ctx.fillText("Time", (L + R) / 2, h - 14);
+      ctx.save(); ctx.translate(16, (T + B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(`${COMP[c].name} (m)`, 0, 0); ctx.restore();
+    }
+
+    function drawSc(hover = -1) {
+      if (!sel || $("winView").hidden) return;
+      const { ctx, w, h } = prep(scC, scWrap);
+      const d = cur.data, P = 66, TOP = 18, S = Math.min(w, h), plot = S - P - 18;
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
+      // offsets from whole-upload mean, in mm
+      const ex = i => d.e_mm[i] - whole.e.mean, ny = i => d.n_mm[i] - whole.n.mean;
+      const wx = sel.st.e.mean - whole.e.mean, wy = sel.st.n.mean - whole.n.mean;
+      let ext = 2 * sel.drms + Math.hypot(wx, wy);
+      for (const i of sel.idx) ext = Math.max(ext, Math.abs(ex(i)), Math.abs(ny(i)));
+      ext = Math.max(ext * 1.12, 2);
+      const k = plot / (2 * ext), cx = P + plot / 2, cy = 18 + plot / 2;
+      const X = v => cx + v * k, Y = v => cy - v * k;
+      scGeo = { X, Y, ex, ny, P, plot };
+      ctx.clearRect(0, 0, w, h);
+      const stp = nice(2 * ext * 6 / 4) / 1000, dec = stp >= 0.001 ? 3 : 4;
+      ctx.font = `11px ${font}`; ctx.fillStyle = muted;
+      for (let v = Math.ceil(-ext / 1000 / stp) * stp; v <= ext / 1000 + 1e-12; v += stp) {
+        const px = X(v * 1000), py = Y(v * 1000), lab = Math.abs(v) < 1e-12 ? (0).toFixed(dec) : v.toFixed(dec);
+        ctx.strokeStyle = grid; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(px, TOP); ctx.lineTo(px, TOP + plot); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(P, py); ctx.lineTo(P + plot, py); ctx.stroke();
+        ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText(lab, px, TOP + plot + 5);
+        ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(lab, P - 5, py);
+      }
+      ctx.strokeStyle = rule; ctx.lineWidth = 1.5; ctx.strokeRect(P, TOP, plot, plot);
+      ctx.save(); ctx.beginPath(); ctx.rect(P, TOP, plot, plot); ctx.clip();
+      ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(P, cy); ctx.lineTo(P + plot, cy); ctx.moveTo(cx, TOP); ctx.lineTo(cx, TOP + plot); ctx.stroke();
+      const n = sel.idx.length;
+      sel.idx.forEach((i, j) => {
+        ctx.fillStyle = viridisColor(n > 1 ? j / (n - 1) : 0); ctx.globalAlpha = .75;
+        ctx.beginPath(); ctx.arc(X(ex(i)), Y(ny(i)), 3, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      [[sel.drms, css("--drms1")], [2 * sel.drms, css("--drms2")]].forEach(([r, col]) => {
+        ctx.beginPath(); ctx.arc(X(wx), Y(wy), r * k, 0, Math.PI * 2);
+        ctx.strokeStyle = col; ctx.lineWidth = 1.8; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]);
+      });
+      ctx.fillStyle = css("--brass"); ctx.beginPath(); ctx.arc(cx, cy, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = ink; ctx.lineWidth = 2.2; const q = 6;
+      ctx.beginPath(); ctx.moveTo(X(wx) - q, Y(wy) - q); ctx.lineTo(X(wx) + q, Y(wy) + q); ctx.moveTo(X(wx) + q, Y(wy) - q); ctx.lineTo(X(wx) - q, Y(wy) + q); ctx.stroke();
+      if (hover >= 0) {
+        ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(ex(hover)), Y(ny(hover)), 6, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+      ctx.fillStyle = ink; ctx.font = `12px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillText("Easting from whole-upload average (m)", P + plot / 2, TOP + plot + 40);
+      ctx.save(); ctx.translate(14, TOP + plot / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("Northing from whole-upload average (m)", 0, 0); ctx.restore();
+    }
+
+    const drawAll = () => { drawTs(); drawSc(); };
+    const tipHtml = i => {
+      const d = cur.data;
+      const pid = d.ids && d.ids[i] ? `Point ${d.ids[i]}` : `Epoch ${i + 1}`;
+      return `<strong>${pid}</strong>${clock(cur.startMs + d.t[i] * 1000)}<br>Northing: <b>${absTxt("n", d.n_mm[i])} m</b><br>Easting: <b>${absTxt("e", d.e_mm[i])} m</b><br>Elevation: <b>${absTxt("u", d.u_mm[i])} m</b>`;
+    };
+    const placeTip = (tip, wrap, x, y) => {
+      tip.style.left = `${Math.min(x + 12, wrap.clientWidth - 200)}px`;
+      tip.style.top = `${clamp(y - 20, 0, wrap.clientHeight - 110)}px`;
+      tip.style.opacity = 1;
+    };
+
+    tsC.addEventListener("mousemove", ev => {
+      if (!sel || !tsGeo) return;
+      const r = tsC.getBoundingClientRect(), mx = ev.clientX - r.left;
+      if (mx < tsGeo.L || mx > tsGeo.R) { tsTip.style.opacity = 0; drawTs(); return; }
+      const t = tsGeo.t0 + (mx - tsGeo.L) / (tsGeo.R - tsGeo.L) * tsGeo.span;
+      let best = sel.idx[0];
+      for (const i of sel.idx) if (Math.abs(cur.data.t[i] - t) < Math.abs(cur.data.t[best] - t)) best = i;
+      drawTs(best);
+      tsTip.innerHTML = tipHtml(best);
+      placeTip(tsTip, tsWrap, tsGeo.X(cur.data.t[best]), tsGeo.Y(cur.data[COMP[wcomp].key][best]));
+    });
+    tsC.addEventListener("mouseleave", () => { tsTip.style.opacity = 0; drawTs(); });
+    scC.addEventListener("mousemove", ev => {
+      if (!sel || !scGeo) return;
+      const r = scC.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      let best = -1, bd = 144;
+      for (const i of sel.idx) {
+        const d2 = (scGeo.X(scGeo.ex(i)) - mx) ** 2 + (scGeo.Y(scGeo.ny(i)) - my) ** 2;
+        if (d2 < bd) { bd = d2; best = i; }
+      }
+      drawSc(best);
+      if (best < 0) { scTip.style.opacity = 0; return; }
+      scTip.innerHTML = tipHtml(best);
+      placeTip(scTip, scWrap, mx, my);
+    });
+    scC.addEventListener("mouseleave", () => { scTip.style.opacity = 0; drawSc(); });
+    new ResizeObserver(() => drawTs()).observe(tsWrap);
+    new ResizeObserver(() => drawSc()).observe(scWrap);
+    document.querySelectorAll("#winCompSeg button").forEach(b => b.addEventListener("click", () => {
+      wcomp = b.dataset.comp;
+      document.querySelectorAll("#winCompSeg button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+      drawTs();
+    }));
+
+    $("winCalc").addEventListener("click", calculate);
+    [from, to].forEach(el => el.addEventListener("keydown", e => { if (e.key === "Enter") calculate(); }));
+    $("winFromChart").addEventListener("click", () => {
+      const w = TS.currentWindow();
+      if (!w) { msg.className = "win-msg warn"; msg.textContent = "The overlay view shows two time windows at once. Switch the chart to 7 AM–7 PM, 7 PM–7 AM, or Sequential first."; return; }
+      from.value = toInput(Math.round(w.a / 1000) * 1000); to.value = toInput(Math.round(w.b / 1000) * 1000);
+      calculate();
+      $("windowCard").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    $("winCopy").addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(lastText); $("winCopy").textContent = "Copied"; }
+      catch { $("winCopy").textContent = "Copy failed"; }
+      setTimeout(() => { $("winCopy").textContent = "Copy results"; }, 1500);
+    });
+    return { load, redraw: drawAll };
+  })();
+
+  // ======================= Horizontal drift animation =========================
+  const Drift = (() => {
+    const SIZE = 640, PAD = 55;
+    const bg = $("driftBg"), fg = $("driftFg"), tip = $("driftTip");
+    const st = $("driftStatic"), sfg = $("staticFg"), stip = $("staticTip");
+    const bctx = bg.getContext("2d"), fctx = fg.getContext("2d"), sctx = st.getContext("2d"), sfctx = sfg.getContext("2d");
+    const PLOT = SIZE - 2 * PAD;
+    // A view is a square window in meters: centre (cxm, cym) and half-width.
+    const viewT = v => { const k = PLOT / (2 * v.half); return (mx, my) => [SIZE / 2 + (mx - v.cxm) * k, SIZE / 2 - (my - v.cym) * k]; };
+    const viewInv = v => { const k = PLOT / (2 * v.half); return (X, Y) => [v.cxm + (X - SIZE / 2) / k, v.cym - (Y - SIZE / 2) / k]; };
+    let sMode = "pan", sPending = false;
+    let sView = null, sPx = null, sPy = null, sHover = -1, sDrag = null, baseN = 0, baseE = 0, nMM = null, eMM = null;
+    const VIRIDIS = [[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[109,205,89],[180,222,44],[253,231,37]];
+    const viridis = f => {
+      const x = clamp(f, 0, 1) * (VIRIDIS.length - 1), i = Math.min(VIRIDIS.length - 2, Math.floor(x)), t = x - i;
+      const a = VIRIDIS[i], b = VIRIDIS[i + 1];
+      return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
+    };
+    // The all-positions scatter colors points from a fixed set of shades, so large
+    // uploads (1-second logging) redraw quickly when panning and zooming.
+    const SHADES = 128;
+    const SHADE_COLORS = Array.from({ length: SHADES }, (_, k) => viridis(k / (SHADES - 1)));
+    let shade = null;
+    const scrub = $("scrub"), playBtn = $("playBtn"), speedSel = $("speedSel"), readout = $("driftReadout");
+    const PAL_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#e87ba4", "#3b8f3b", "#6250d6"];
+    const PAL_DARK = ["#3987e5", "#d95926", "#199e70", "#d55181", "#3fb03f", "#9085e9"];
+    const FPS_STEP_BASE = 4;
+    // Playback speed is measured in data time, as if epochs were 5 seconds apart,
+    // so a given speed setting plays at the same pace whatever the logging rate.
+    const SPEED_EPOCH_SECONDS = 5;
+    let N = 0, dx, dy, ep, brk, ids, px, py, hourly = [], hpx = [], drms = 0, drms2 = 0;
+    // PDOP / H. Precision gauges beside the animation
+    const gBox = $("gaugeBox"), gCanvas = $("gaugeCanvas"), gctx = gCanvas.getContext("2d");
+    let gauges = [];
+    let samp = [], cb = null, playT = 0, extremes = [];
+    const sampFrom = i => { let lo = 0, hi = samp.length; while (lo < hi) { const m = (lo + hi) >> 1; if (samp[m] < i) lo = m + 1; else hi = m; } return lo; };
+    let scale = 1, idx = 0, playing = false, lastTs = null;
+    const cx = SIZE / 2, cy = SIZE / 2;
+    const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light"
+      || document.documentElement.dataset.theme === "dark";
+    const palette = () => isDark() ? PAL_DARK : PAL_LIGHT;
+    const bucketColor = e => { const p = palette(); const b = Math.floor(e / BUCKET_SECONDS); return p[((b % p.length) + p.length) % p.length]; };
+    const toPx = (mx, my) => [cx + mx * scale, cy - my * scale];
+    const timeText = i => new Date(cur.startMs + ep[i] * 1000).toLocaleString("en-US", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true }).replace(",", "");
+
+    function setupCanvas(c) {
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      c.width = SIZE * ratio; c.height = SIZE * ratio;
+      const k = c.getContext("2d"); k.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+
+    function load() {
+      stop();
+      const d = cur.data, s = cur.summary;
+      N = d.t.length;
+      const mn = (s.mean_m.n - d.base_m.n) * 1000, me = (s.mean_m.e - d.base_m.e) * 1000;
+      dx = new Float64Array(N); dy = new Float64Array(N); ep = new Float64Array(N); brk = new Uint8Array(N);
+      for (let i = 0; i < N; i++) {
+        dx[i] = (d.e_mm[i] - me) / 1000; dy[i] = (d.n_mm[i] - mn) / 1000; ep[i] = d.t[i];
+        brk[i] = i > 0 && d.t[i] - d.t[i - 1] > cur.gap ? 1 : 0;
+      }
+      // Epochs the gauges use while playing: one every PLAY_STEP_SECONDS, plus the last one.
+      samp = [];
+      for (let i = 0, next = -Infinity; i < N; i++) if (ep[i] >= next) { samp.push(i); next = ep[i] + PLAY_STEP_SECONDS; }
+      if (samp[samp.length - 1] !== N - 1) samp.push(N - 1);
+      cb = new Uint32Array(N);
+      for (let i = 1; i < N; i++) cb[i] = cb[i - 1] + brk[i];
+      const total = ep[N - 1] || 1;
+      shade = new Uint8Array(N);
+      for (let i = 0; i < N; i++) shade[i] = Math.round(clamp(ep[i] / total, 0, 1) * (SHADES - 1));
+      ids = d.ids || null;
+      gauges = [getSeries("x:PDOP"), getSeries("x:H. Precision")].filter(Boolean);
+      for (const G of gauges) {
+        let lo = Infinity, hi = -Infinity, sum = 0, n = 0;
+        for (const v of G.values) if (v !== null) { lo = Math.min(lo, v); hi = Math.max(hi, v); sum += v; n++; }
+        if (!n) { lo = 0; hi = 1; }
+        const pad = Math.max((hi - lo) * .05, 1e-6);
+        G.lo = lo - pad; G.hi = hi + pad; G.mean = n ? sum / n : null;
+        G.min = n ? lo : null; G.max = n ? hi : null;
+      }
+      // Epochs with the highest and lowest PDOP / H. Precision (first one if tied).
+      extremes = [];
+      for (const G of gauges) {
+        let iMax = -1, iMin = -1;
+        G.values.forEach((v, i) => {
+          if (v === null) return;
+          if (iMax < 0 || v > G.values[iMax]) iMax = i;
+          if (iMin < 0 || v < G.values[iMin]) iMin = i;
+        });
+        if (iMax >= 0) extremes.push({ G, i: iMax, high: true }, { G, i: iMin, high: false });
+      }
+      const xl = $("extremeLegend"); xl.textContent = ""; xl.hidden = !extremes.length;
+      for (const x of extremes) {
+        const sp = document.createElement("span");
+        const mk = document.createElement("span"); mk.style.color = `var(${x.G.color})`; mk.textContent = x.high ? "▲" : "▼";
+        const tx = document.createElement("span");
+        tx.textContent = `${x.high ? "Highest" : "Lowest"} ${x.G.name} ${fmtNum(x.G.values[x.i], x.G.dec)}${unitSuffix(x.G)} (${timeText(x.i)})`;
+        sp.append(mk, tx); xl.append(sp);
+      }
+      gBox.hidden = !gauges.length; $("gaugeNote").hidden = !gauges.length;
+      gBox.parentElement.classList.toggle("with-gauges", gauges.length > 0);
+      drms = s.drms_mm / 1000; drms2 = 2 * drms;
+      $("drmsLegend").textContent = `1 STD (DRMS ${s.drms_mm.toFixed(1)} mm)`;
+      $("drms2Legend").textContent = `2 STD (2DRMS ${(2 * s.drms_mm).toFixed(1)} mm)`;
+      $("drmsLegendS").textContent = `DRMS ${s.drms_mm.toFixed(1)} mm`;
+      $("drms2LegendS").textContent = `2DRMS ${(2 * s.drms_mm).toFixed(1)} mm`;
+      $("cbarEnd").textContent = `${(d.t[N - 1] / 3600).toFixed(1)} h`;
+
+      // Epoch closest to each full clock hour.
+      hourly = [];
+      const startMs = cur.startMs, endMs = startMs + ep[N - 1] * 1000;
+      const first = new Date(startMs); first.setMinutes(0, 0, 0);
+      let h = first.getTime(); if (h < startMs) h += 3600000;
+      let j = 0;
+      for (; h <= endMs; h += 3600000) {
+        const target = (h - startMs) / 1000;
+        while (j < N - 1 && ep[j + 1] <= target) j++;
+        const k = (j < N - 1 && Math.abs(ep[j + 1] - target) < Math.abs(ep[j] - target)) ? j + 1 : j;
+        if (Math.abs(ep[k] - target) <= cur.gap)
+          hourly.push({ i: k, label: new Date(h).toLocaleTimeString("en-US", { hour: "numeric", hour12: true }) });
+      }
+
+      let maxAbs = drms2;
+      for (let i = 0; i < N; i++) maxAbs = Math.max(maxAbs, Math.abs(dx[i]), Math.abs(dy[i]));
+      const halfExtent = maxAbs * 1.15;
+      scale = (SIZE - 2 * PAD) / (2 * halfExtent);
+      px = new Float32Array(N); py = new Float32Array(N);
+      for (let i = 0; i < N; i++) { const p = toPx(dx[i], dy[i]); px[i] = p[0]; py[i] = p[1]; }
+      hpx = hourly.map(hh => [px[hh.i], py[hh.i]]);
+      scrub.max = N - 1; scrub.value = 0; idx = 0;
+      setupCanvas(bg); setupCanvas(fg); setupCanvas(st); setupCanvas(sfg);
+      baseN = d.base_m.n; baseE = d.base_m.e; nMM = d.n_mm; eMM = d.e_mm;
+      lastExtent = halfExtent;
+      sView = { cxm: 0, cym: 0, half: halfExtent }; sHover = -1; sDrag = null;
+      showStaticPoint(-1);
+      showHourly = true;
+      drawBackground(halfExtent);
+      drawStatic();
+      drawMarker(0);
+    }
+
+    function niceStep(range) {
+      const raw = range / 6, mag = Math.pow(10, Math.floor(Math.log10(raw))), norm = raw / mag;
+      return (norm < 1.5 ? 1 : norm < 3.5 ? 2 : norm < 7.5 ? 5 : 10) * mag;
+    }
+
+    let lastExtent = 1;
+    function drawFrame(bctx, halfExtent, view) {
+      view = view || { cxm: 0, cym: 0, half: halfExtent };
+      const T = viewT(view), k = PLOT / (2 * view.half);
+      const text = css("--ink"), muted = css("--muted"), grid = css("--grid"), strong = css("--rule"), font = css("--body");
+      bctx.clearRect(0, 0, SIZE, SIZE);
+      const step = niceStep(view.half * 2);
+      const dec = step >= 0.001 ? 3 : step >= 0.0001 ? 4 : 5;
+      const fmt = v => { const t = v.toFixed(dec); return /^-0\.0+$/.test(t) ? t.slice(1) : t; };
+      bctx.strokeStyle = grid; bctx.lineWidth = 1; bctx.fillStyle = muted;
+      bctx.font = `11px ${font}`; bctx.textAlign = "center"; bctx.textBaseline = "top";
+      for (let v = Math.ceil((view.cxm - view.half) / step) * step; v <= view.cxm + view.half + 1e-12; v += step) {
+        const [gx] = T(v, 0);
+        if (gx < PAD - 1 || gx > SIZE - PAD + 1) continue;
+        bctx.beginPath(); bctx.moveTo(gx, PAD); bctx.lineTo(gx, SIZE - PAD); bctx.stroke();
+        bctx.fillText(fmt(v), gx, SIZE - PAD + 6);
+      }
+      for (let v = Math.ceil((view.cym - view.half) / step) * step; v <= view.cym + view.half + 1e-12; v += step) {
+        const [, gy] = T(0, v);
+        if (gy < PAD - 1 || gy > SIZE - PAD + 1) continue;
+        bctx.beginPath(); bctx.moveTo(PAD, gy); bctx.lineTo(SIZE - PAD, gy); bctx.stroke();
+        bctx.save(); bctx.textAlign = "right"; bctx.textBaseline = "middle"; bctx.fillText(fmt(v), PAD - 6, gy); bctx.restore();
+      }
+      bctx.strokeStyle = strong; bctx.lineWidth = 1.5; bctx.strokeRect(PAD, PAD, PLOT, PLOT);
+      const [ox, oy] = T(0, 0);
+      bctx.save(); bctx.beginPath(); bctx.rect(PAD, PAD, PLOT, PLOT); bctx.clip();
+      bctx.strokeStyle = muted; bctx.lineWidth = 1.2;
+      bctx.beginPath(); bctx.moveTo(PAD, oy); bctx.lineTo(SIZE - PAD, oy); bctx.stroke();
+      bctx.beginPath(); bctx.moveTo(ox, PAD); bctx.lineTo(ox, SIZE - PAD); bctx.stroke();
+      bctx.restore();
+      bctx.save(); bctx.fillStyle = text; bctx.font = `12px ${font}`; bctx.textAlign = "center";
+      bctx.fillText("Easting deviation from mean (m)", SIZE / 2, SIZE - 16);
+      bctx.translate(16, SIZE / 2); bctx.rotate(-Math.PI / 2);
+      bctx.fillText("Northing deviation from mean (m)", 0, 0); bctx.restore();
+      bctx.save(); bctx.beginPath(); bctx.rect(PAD, PAD, PLOT, PLOT); bctx.clip();
+      [[drms, css("--drms1")], [drms2, css("--drms2")]].forEach(([r, col]) => {
+        bctx.beginPath(); bctx.arc(ox, oy, r * k, 0, 2 * Math.PI);
+        bctx.strokeStyle = col; bctx.lineWidth = 1.6; bctx.setLineDash([5, 4]); bctx.stroke(); bctx.setLineDash([]);
+      });
+      bctx.restore();
+    }
+
+    // Hourly positions are drawn only at the start, before Play is pressed.
+    let showHourly = true;
+    function setHourly(show) { if (show !== showHourly) { showHourly = show; drawBackground(); } }
+    function drawBackground(halfExtent) {
+      if (halfExtent) lastExtent = halfExtent; else halfExtent = lastExtent;
+      const text = css("--ink"), muted = css("--muted"), font = css("--body");
+      drawFrame(bctx, halfExtent);
+      if (!showHourly) { bctx.fillStyle = text; bctx.beginPath(); bctx.arc(cx, cy, 3, 0, 2 * Math.PI); bctx.fill(); return; }
+      bctx.strokeStyle = muted; bctx.lineWidth = 1.2; bctx.beginPath();
+      hpx.forEach((p, i) => i === 0 ? bctx.moveTo(p[0], p[1]) : bctx.lineTo(p[0], p[1]));
+      bctx.stroke();
+      hpx.forEach((p, i) => {
+        bctx.beginPath(); bctx.arc(p[0], p[1], 4, 0, 2 * Math.PI);
+        bctx.fillStyle = muted; bctx.fill(); bctx.strokeStyle = css("--panel"); bctx.lineWidth = 1.2; bctx.stroke();
+        bctx.save(); bctx.fillStyle = muted; bctx.font = `10px ${font}`; bctx.textAlign = "left"; bctx.textBaseline = "bottom";
+        bctx.fillText(hourly[i].label, p[0] + 6, p[1] - 4); bctx.restore();
+      });
+      bctx.fillStyle = text; bctx.beginPath(); bctx.arc(cx, cy, 3, 0, 2 * Math.PI); bctx.fill();
+    }
+
+    const absN = i => ((Math.round(baseN * 1000) + nMM[i]) / 1000).toFixed(3);
+    const absE = i => ((Math.round(baseE * 1000) + eMM[i]) / 1000).toFixed(3);
+    const sgn = v => { const t = f3(v); return v > 0 && t !== "0.000" ? "+" + t : t; };
+
+    function drawStatic() {
+      if (!N || !sView) return;
+      drawFrame(sctx, lastExtent, sView);
+      const T = viewT(sView), k = PLOT / (2 * sView.half);
+      sPx = new Float32Array(N); sPy = new Float32Array(N);
+      const r = clamp(1.4 * Math.sqrt(lastExtent / sView.half), 1.4, 4);
+      sctx.save();
+      sctx.beginPath(); sctx.rect(PAD, PAD, PLOT, PLOT); sctx.clip();
+      sctx.globalAlpha = .6;
+      let lastShade = -1;
+      for (let i = 0; i < N; i++) {
+        const p = T(dx[i], dy[i]); sPx[i] = p[0]; sPy[i] = p[1];
+        if (p[0] < PAD - 5 || p[0] > SIZE - PAD + 5 || p[1] < PAD - 5 || p[1] > SIZE - PAD + 5) continue;
+        if (shade[i] !== lastShade) { lastShade = shade[i]; sctx.fillStyle = SHADE_COLORS[lastShade]; }
+        sctx.fillRect(p[0] - r, p[1] - r, 2 * r, 2 * r);
+      }
+      sctx.globalAlpha = 1;
+      // Redraw the circles on top of the points so they stay visible.
+      const [ox, oy] = T(0, 0);
+      [[drms, css("--drms1")], [drms2, css("--drms2")]].forEach(([rr, col]) => {
+        sctx.beginPath(); sctx.arc(ox, oy, rr * k, 0, 2 * Math.PI);
+        sctx.strokeStyle = col; sctx.lineWidth = 2; sctx.setLineDash([5, 4]); sctx.stroke(); sctx.setLineDash([]);
+      });
+      sctx.fillStyle = css("--ink"); sctx.beginPath(); sctx.arc(ox, oy, 3, 0, 2 * Math.PI); sctx.fill();
+      // Highlight the epochs with the highest / lowest PDOP and H. Precision.
+      const panel = css("--panel"), font = css("--body");
+      const placed = [];
+      extremes.forEach(x => {
+        const [X, Y] = T(dx[x.i], dy[x.i]), col = css(x.G.color), s = 8;
+        sctx.beginPath(); sctx.arc(X, Y, 13, 0, 2 * Math.PI); sctx.strokeStyle = col; sctx.lineWidth = 2; sctx.stroke();
+        sctx.beginPath();
+        if (x.high) { sctx.moveTo(X, Y - s); sctx.lineTo(X + s, Y + s * .7); sctx.lineTo(X - s, Y + s * .7); }
+        else { sctx.moveTo(X, Y + s); sctx.lineTo(X + s, Y - s * .7); sctx.lineTo(X - s, Y - s * .7); }
+        sctx.closePath(); sctx.fillStyle = col; sctx.fill(); sctx.strokeStyle = panel; sctx.lineWidth = 1.5; sctx.stroke();
+        const label = `${x.high ? "High" : "Low"} ${x.G.name}`;
+        sctx.font = `600 11px ${font}`; sctx.textBaseline = "middle";
+        const right = X < SIZE - PAD - 110;
+        sctx.textAlign = right ? "left" : "right";
+        const lx = right ? X + 17 : X - 17, w = sctx.measureText(label).width;
+        const x0 = right ? lx : lx - w;
+        // Move the label down (then up) until it does not overlap one already placed.
+        let ly = Y;
+        for (let k = 1; k < 12 && placed.some(r => x0 < r.x1 && x0 + w > r.x0 && Math.abs(ly - r.y) < 13); k++)
+          ly = Y + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 13;
+        placed.push({ x0, x1: x0 + w, y: ly });
+        sctx.lineWidth = 3; sctx.strokeStyle = panel; sctx.strokeText(label, lx, ly);
+        sctx.fillStyle = col; sctx.fillText(label, lx, ly);
+      });
+      sctx.restore();
+      const full = sView.half >= lastExtent && !sView.cxm && !sView.cym;
+      $("staticReset").disabled = full;
+      $("zoomOut").disabled = sView.half >= lastExtent;
+      $("zoomIn").disabled = sView.half <= lastExtent / 400 + 1e-12;
+      sfg.style.cursor = sMode === "pan" ? (sView.half < lastExtent ? "grab" : "default") : "crosshair";
+      drawStaticOverlay();
+    }
+
+    function drawStaticOverlay() {
+      sfctx.clearRect(0, 0, SIZE, SIZE);
+      if (sHover >= 0 && sPx) {
+        const x = sPx[sHover], y = sPy[sHover];
+        sfctx.save(); sfctx.beginPath(); sfctx.rect(PAD, PAD, PLOT, PLOT); sfctx.clip();
+        sfctx.strokeStyle = css("--muted"); sfctx.globalAlpha = .7; sfctx.lineWidth = 1; sfctx.setLineDash([4, 4]);
+        sfctx.beginPath(); sfctx.moveTo(PAD, y); sfctx.lineTo(SIZE - PAD, y); sfctx.moveTo(x, PAD); sfctx.lineTo(x, SIZE - PAD); sfctx.stroke();
+        sfctx.globalAlpha = 1; sfctx.setLineDash([]);
+        sfctx.fillStyle = viridis(ep[sHover] / (ep[N - 1] || 1));
+        sfctx.beginPath(); sfctx.arc(x, y, 6, 0, 2 * Math.PI); sfctx.fill();
+        sfctx.strokeStyle = css("--ink"); sfctx.lineWidth = 2; sfctx.stroke();
+        sfctx.restore();
+      }
+      if (sDrag && sDrag.moved && sDrag.mode === "box") {
+        const x = Math.min(sDrag.x0, sDrag.x1), y = Math.min(sDrag.y0, sDrag.y1);
+        sfctx.fillStyle = "rgba(167,128,47,.12)"; sfctx.strokeStyle = css("--brass"); sfctx.lineWidth = 1; sfctx.setLineDash([5, 4]);
+        sfctx.fillRect(x, y, Math.abs(sDrag.x1 - sDrag.x0), Math.abs(sDrag.y1 - sDrag.y0));
+        sfctx.strokeRect(x, y, Math.abs(sDrag.x1 - sDrag.x0), Math.abs(sDrag.y1 - sDrag.y0));
+        sfctx.setLineDash([]);
+      }
+    }
+
+    const canvasXY = ev => { const r = sfg.getBoundingClientRect(); return [(ev.clientX - r.left) * (SIZE / r.width), (ev.clientY - r.top) * (SIZE / r.height), r]; };
+    const inPlot = (X, Y) => X >= PAD && X <= SIZE - PAD && Y >= PAD && Y <= SIZE - PAD;
+
+    function nearestStatic(X, Y, radius) {
+      let best = -1, bestD = radius * radius;
+      for (let i = 0; i < N; i++) {
+        const d2 = (sPx[i] - X) ** 2 + (sPy[i] - Y) ** 2;
+        if (d2 < bestD) { bestD = d2; best = i; }
+      }
+      return best;
+    }
+
+    // Values for the hovered point go in the fixed strip above the plot. Hover is
+    // ignored while the animation plays, so nothing on the page moves.
+    function showStaticPoint(i) {
+      if (playing) i = -1;
+      sHover = i; drawStaticOverlay(); stip.style.opacity = 0;
+      const ro = $("staticReadout");
+      if (i < 0) { ro.innerHTML = playing ? `<span>Point values are paused while the animation plays.</span>` : `<span>Hover over a point to see its time, residuals, PDOP, and H. Precision.</span>`; return; }
+      const mm = v => { const t = (v * 1000).toFixed(1); return (v > 0 && t !== "0.0" ? "+" : "") + (t === "-0.0" ? "0.0" : t.replace("-", "−")); };
+      const parts = [`<span><b>${timeText(i)}</b></span>`, `<span>${pointLabel(i)}</span>`,
+        `<span><span style="color:var(--cN)">■</span> Residual N <b>${mm(dy[i])} mm</b></span>`,
+        `<span><span style="color:var(--cE)">■</span> Residual E <b>${mm(dx[i])} mm</b></span>`];
+      for (const G of gauges) parts.push(`<span><span style="color:var(${G.color})">■</span> ${G.name} <b>${G.values[i] === null ? "no value" : fmtNum(G.values[i], G.dec) + unitSuffix(G)}</b></span>`);
+      ro.innerHTML = parts.join("");
+    }
+
+    function setView(cxm, cym, half) {
+      half = clamp(half, lastExtent / 400, lastExtent);
+      const lim = lastExtent - half;
+      sView = { cxm: clamp(cxm, -lim, lim), cym: clamp(cym, -lim, lim), half };
+      sHover = -1; stip.style.opacity = 0;
+      drawStatic();
+    }
+    const resetStatic = () => setView(0, 0, lastExtent);
+
+    sfg.addEventListener("pointerdown", ev => {
+      if (!N || ev.button !== 0) return;
+      const [X, Y] = canvasXY(ev);
+      if (!inPlot(X, Y)) return;
+      ev.preventDefault();
+      sDrag = { id: ev.pointerId, x0: X, y0: Y, x1: X, y1: Y, moved: false, mode: sMode, view: { ...sView } };
+      if (sMode === "pan") sfg.style.cursor = "grabbing";
+      sfg.setPointerCapture(ev.pointerId);
+    });
+    sfg.addEventListener("pointermove", ev => {
+      if (!N || !sPx) return;
+      const [X, Y] = canvasXY(ev);
+      if (sDrag) {
+        if (sDrag.mode === "pan") {
+          sDrag.x1 = X; sDrag.y1 = Y;
+          if (Math.hypot(X - sDrag.x0, Y - sDrag.y0) > 4) sDrag.moved = true;
+          if (sDrag.moved && !sPending) {
+            sPending = true;
+            requestAnimationFrame(() => {
+              sPending = false;
+              if (!sDrag) return;
+              const v = sDrag.view, k = PLOT / (2 * v.half);
+              setView(v.cxm - (sDrag.x1 - sDrag.x0) / k, v.cym + (sDrag.y1 - sDrag.y0) / k, v.half);
+            });
+          }
+          return;
+        }
+        sDrag.x1 = clamp(X, PAD, SIZE - PAD); sDrag.y1 = clamp(Y, PAD, SIZE - PAD);
+        if (Math.hypot(sDrag.x1 - sDrag.x0, sDrag.y1 - sDrag.y0) > 8) { sDrag.moved = true; stip.style.opacity = 0; sHover = -1; }
+        drawStaticOverlay();
+        return;
+      }
+      if (playing) return;   // no point lookups while the animation plays
+      showStaticPoint(inPlot(X, Y) ? nearestStatic(X, Y, 10) : -1);
+    });
+    function endDrag(ev) {
+      if (!sDrag || ev.pointerId !== sDrag.id) return;
+      const d = sDrag; sDrag = null;
+      if (sfg.hasPointerCapture(ev.pointerId)) sfg.releasePointerCapture(ev.pointerId);
+      if (d.moved && d.mode === "pan") {
+        drawStatic();   // restores the cursor
+      } else if (d.moved) {
+        const inv = viewInv(sView);
+        const [ax, ay] = inv(Math.min(d.x0, d.x1), Math.min(d.y0, d.y1));
+        const [bx, by] = inv(Math.max(d.x0, d.x1), Math.max(d.y0, d.y1));
+        setView((ax + bx) / 2, (ay + by) / 2, Math.max(bx - ax, ay - by) / 2);
+      } else {
+        if (!playing) showStaticPoint(nearestStatic(d.x0, d.y0, 18));   // a tap selects the nearest point
+      }
+    }
+    sfg.addEventListener("pointerup", endDrag);
+    sfg.addEventListener("pointercancel", () => { sDrag = null; drawStaticOverlay(); });
+    sfg.addEventListener("pointerleave", () => { if (!sDrag) { sHover = -1; stip.style.opacity = 0; drawStaticOverlay(); } });
+    sfg.addEventListener("wheel", ev => {
+      if (!N) return;
+      const [X, Y] = canvasXY(ev);
+      if (!inPlot(X, Y)) return;
+      ev.preventDefault();
+      const [mx, my] = viewInv(sView)(X, Y);
+      const half = clamp(sView.half * (ev.deltaY < 0 ? .8 : 1.25), lastExtent / 400, lastExtent);
+      const f = half / sView.half;
+      setView(mx - (mx - sView.cxm) * f, my - (my - sView.cym) * f, half);
+    }, { passive: false });
+    sfg.addEventListener("dblclick", ev => { ev.preventDefault(); resetStatic(); });
+    $("staticReset").addEventListener("click", resetStatic);
+    const zoomBy = f => { if (N) setView(sView.cxm, sView.cym, sView.half * f); };
+    $("zoomIn").addEventListener("click", () => zoomBy(1 / 1.5));
+    $("zoomOut").addEventListener("click", () => zoomBy(1.5));
+    document.querySelectorAll("#dragModeSeg button").forEach(b => b.addEventListener("click", () => {
+      sMode = b.dataset.mode;
+      document.querySelectorAll("#dragModeSeg button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+      if (N) drawStatic();
+    }));
+
+    function windowStart(i) {
+      const target = ep[i] - TAIL_SECONDS;
+      let lo = 0, hi = i;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (ep[mid] < target) lo = mid + 1; else hi = mid; }
+      return lo;
+    }
+    const pointLabel = i => ids && ids[i] ? `Point ${ids[i]}` : `Epoch ${i + 1}`;
+
+    // The trail always uses every epoch. playing = true: the gauges (and their values
+    // in the readout) use the latest 20-second step instead of the exact epoch.
+    function drawMarker(i, playing = false) {
+      fctx.clearRect(0, 0, SIZE, SIZE);
+      if (!N) return;
+      const s0 = windowStart(i);
+      const gi = playing ? samp[Math.max(0, sampFrom(i + 1) - 1)] : i;
+      setHourly(!playing && i === 0);
+      let prev = s0;
+      fctx.lineWidth = 1.6; fctx.beginPath(); fctx.moveTo(px[prev], py[prev]);
+      let col = bucketColor(ep[prev]); fctx.strokeStyle = col;
+      const step = k => {
+        if (cb[k] - cb[prev] > 0) { fctx.stroke(); fctx.beginPath(); fctx.moveTo(px[k], py[k]); prev = k; return; }   // gap in the record
+        const c = bucketColor(ep[k]);
+        if (c !== col) { fctx.stroke(); col = c; fctx.strokeStyle = col; fctx.beginPath(); fctx.moveTo(px[prev], py[prev]); }
+        fctx.lineTo(px[k], py[k]); prev = k;
+      };
+      for (let k = s0 + 1; k <= i; k++) step(k);
+      fctx.stroke();
+      fctx.fillStyle = bucketColor(ep[i]); fctx.beginPath(); fctx.arc(px[i], py[i], 5.5, 0, 2 * Math.PI); fctx.fill();
+      fctx.strokeStyle = css("--panel"); fctx.lineWidth = 1.5; fctx.stroke();
+      const r = Math.hypot(dx[i], dy[i]);
+      const extra = gauges.map(G => `   ${G.name} = ${G.values[gi] === null ? "no value" : fmtNum(G.values[gi], G.dec) + unitSuffix(G)}`).join("");
+      readout.textContent = `${pointLabel(i)}   ${timeText(i)}   dE = ${f3(dx[i])} m   dN = ${f3(dy[i])} m   r = ${f3(r)} m${extra}`;
+      drawGauges(gi);
+    }
+
+    // One vertical gauge per value: the colored marker and fill move up and down
+    // with the value at the current epoch of the animation.
+    function drawGauges(i) {
+      if (!gauges.length) return;
+      const W = gBox.clientWidth, H = gBox.clientHeight;
+      if (!W || !H) return;
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      if (gCanvas.width !== Math.round(W * ratio) || gCanvas.height !== Math.round(H * ratio)) {
+        gCanvas.width = Math.round(W * ratio); gCanvas.height = Math.round(H * ratio);
+      }
+      gctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      gctx.clearRect(0, 0, W, H);
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
+      // Match the plot area of the drift chart (PAD at the top and bottom of a SIZE square).
+      const k = H / SIZE, top = PAD * k + 30, bot = H - PAD * k;
+      const colW = W / gauges.length, tw = 14;
+      gauges.forEach((G, g) => {
+        const col = css(G.color), x0 = g * colW, tx = x0 + colW - tw - 11;
+        const Y = v => bot - (v - G.lo) / (G.hi - G.lo) * (bot - top);
+        const v = G.values[i];
+        gctx.textAlign = "center"; gctx.textBaseline = "alphabetic";
+        gctx.fillStyle = col; gctx.font = `600 11px ${font}`; gctx.fillText(G.name, x0 + colW / 2, top - 20);
+        gctx.fillStyle = ink; gctx.font = `600 12px ${font}`;
+        gctx.fillText(v === null ? "–" : fmtNum(v, G.dec) + unitSuffix(G), x0 + colW / 2, top - 5);
+        gctx.fillStyle = grid; gctx.fillRect(tx, top, tw, bot - top);
+        gctx.strokeStyle = rule; gctx.lineWidth = 1; gctx.strokeRect(tx, top, tw, bot - top);
+        const raw = (G.hi - G.lo) / 5, mag = Math.pow(10, Math.floor(Math.log10(raw))), nn = raw / mag;
+        const step = (nn < 1.5 ? 1 : nn < 3.5 ? 2 : nn < 7.5 ? 5 : 10) * mag;
+        const dec = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+        gctx.font = `10px ${font}`; gctx.textAlign = "right"; gctx.textBaseline = "middle"; gctx.fillStyle = muted;
+        for (let t = Math.ceil(G.lo / step) * step; t <= G.hi + 1e-12; t += step) {
+          gctx.fillText(t.toFixed(dec), tx - 6, Y(t));
+          gctx.beginPath(); gctx.moveTo(tx - 3, Y(t)); gctx.lineTo(tx, Y(t)); gctx.strokeStyle = muted; gctx.stroke();
+        }
+        if (v !== null) {
+          gctx.globalAlpha = .35; gctx.fillStyle = col; gctx.fillRect(tx, Y(v), tw, bot - Y(v)); gctx.globalAlpha = 1;
+          gctx.strokeStyle = col; gctx.lineWidth = 3;
+          gctx.beginPath(); gctx.moveTo(tx - 4, Y(v)); gctx.lineTo(tx + tw + 4, Y(v)); gctx.stroke();
+          gctx.fillStyle = col; gctx.beginPath();
+          gctx.moveTo(tx + tw + 4, Y(v)); gctx.lineTo(tx + tw + 10, Y(v) - 5); gctx.lineTo(tx + tw + 10, Y(v) + 5); gctx.closePath(); gctx.fill();
+        }
+        if (G.min !== null) {
+          // High and low lines across the track, labelled H and L, with the values listed below the gauge.
+          gctx.strokeStyle = ink; gctx.lineWidth = 1.5;
+          for (const [vv, lab, dy] of [[G.max, "H", -4], [G.min, "L", 10]]) {
+            gctx.beginPath(); gctx.moveTo(tx - 3, Y(vv)); gctx.lineTo(tx + tw + 3, Y(vv)); gctx.stroke();
+            gctx.fillStyle = ink; gctx.font = `600 9px ${font}`; gctx.textAlign = "center"; gctx.textBaseline = "alphabetic";
+            gctx.fillText(lab, tx + tw / 2, Y(vv) + dy);
+          }
+          gctx.fillStyle = muted; gctx.font = `10px ${font}`; gctx.textAlign = "center";
+          gctx.fillText(`High ${fmtNum(G.max, G.dec)}`, x0 + colW / 2, bot + 15);
+          gctx.fillText(`Low ${fmtNum(G.min, G.dec)}`, x0 + colW / 2, bot + 28);
+        }
+        if (G.mean !== null) {
+          gctx.strokeStyle = ink; gctx.lineWidth = 1.2; gctx.setLineDash([3, 2]);
+          gctx.beginPath(); gctx.moveTo(tx - 2, Y(G.mean)); gctx.lineTo(tx + tw + 2, Y(G.mean)); gctx.stroke(); gctx.setLineDash([]);
+        }
+      });
+    }
+    new ResizeObserver(() => { if (N) drawGauges(idx); }).observe(gBox);
+
+    function frame(ts) {
+      if (!playing) return;
+      if (lastTs === null) lastTs = ts;
+      const dt = ts - lastTs;
+      if (dt > 16) {
+        // Advance by data time, then show the last epoch at or before it.
+        playT += (dt / 1000) * FPS_STEP_BASE * SPEED_EPOCH_SECONDS * parseInt(speedSel.value, 10);
+        lastTs = ts;
+        if (playT >= ep[N - 1]) { idx = N - 1; scrub.value = idx; stop(); return; }
+        let lo = idx, hi = N - 1;
+        while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (ep[mid] <= playT) lo = mid; else hi = mid - 1; }
+        if (lo > idx) { idx = lo; scrub.value = idx; drawMarker(idx, true); }
+      }
+      requestAnimationFrame(frame);
+    }
+    // Stopping (pause, end, or scrub) redraws at full resolution with the exact epoch's values.
+    function stop() { const was = playing; playing = false; playBtn.textContent = "Play"; if (was && N) { drawMarker(idx); showStaticPoint(-1); } }
+    playBtn.addEventListener("click", () => {
+      if (!N) return;
+      if (idx >= N - 1) idx = 0;
+      if (playing) { stop(); return; }
+      playing = true; playBtn.textContent = "Pause"; lastTs = null; playT = ep[idx];
+      showStaticPoint(-1);
+      requestAnimationFrame(frame);
+    });
+    scrub.addEventListener("input", () => { stop(); idx = parseInt(scrub.value, 10); drawMarker(idx); });
+
+    fg.addEventListener("mousemove", ev => {
+      if (!N) return;
+      const r = fg.getBoundingClientRect();
+      const mx = (ev.clientX - r.left) * (SIZE / r.width), my = (ev.clientY - r.top) * (SIZE / r.height);
+      let best = -1, bestD = Infinity;
+      for (let i = windowStart(idx); i <= idx; i++) {
+        const d2 = (px[i] - mx) ** 2 + (py[i] - my) ** 2;
+        if (d2 < bestD) { bestD = d2; best = i; }
+      }
+      if (bestD < 400 && best >= 0) {
+        tip.style.opacity = 1;
+        tip.style.left = `${Math.min(ev.clientX - r.left + 12, r.width - 200)}px`;
+        tip.style.top = `${ev.clientY - r.top - 10}px`;
+        tip.innerHTML = `${pointLabel(best)}<br>${timeText(best)}<br>dE = ${f3(dx[best])} m, dN = ${f3(dy[best])} m`;
+      } else tip.style.opacity = 0;
+    });
+    fg.addEventListener("mouseleave", () => { tip.style.opacity = 0; });
+    return { load, redraw: () => { if (N) { drawBackground(); drawStatic(); drawMarker(idx); } } };
+  })();
+
+  // ============================== Wiring ======================================
+  $("dateFilter").addEventListener("change", renderList);
+  $("clearFilter").addEventListener("click", () => { $("dateFilter").value = ""; cell = null; renderGrid(); renderList(); });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); PAIR.redraw(); Win.redraw(); Drift.redraw(); } });
+
+  (async function init() {
+    try {
+      const index = await getJSON("data/index.json");
+      sessions = index.sessions || [];
+      study = index.study || null;
+      if (index.updated) $("updated").textContent = `Last updated ${new Date(index.updated).toLocaleString()}`;
+    } catch (err) {
+      showError(`The list of uploads could not be loaded (${err.message}). If you opened this file directly from your computer, serve it with "python -m http.server" instead.`);
+      return;
+    }
+    renderGrid();
     renderList();
-    await Promise.all(FILES.map(async f=>{ f.date = await peekDate(f); }));
-    renderList();
-    const want = decodeURIComponent(location.hash.replace(/^#/,""));
-    const start = FILES.find(f=>f.name===want) ||
-                  [...FILES].sort((a,b)=>(b.date?.ms||0)-(a.date?.ms||0))[0];
-    if(start) openFile(start.name);
-  }catch(e){ $("list").innerHTML = `<p class="msg err">${e.message}</p>`; }
+    if (!sessions.length) { $("emptyState").hidden = false; return; }
+    const wanted = decodeURIComponent(location.hash.slice(1));
+    selectSession(sessions.some(s => s.id === wanted) ? wanted : sessions[0].id);
+  })();
 })();
 </script>
 </body>
