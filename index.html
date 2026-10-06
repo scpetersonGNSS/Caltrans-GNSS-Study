@@ -202,12 +202,12 @@
   .sm-pin:hover:not(:disabled) { background: #2b5a3f; border-color: #39ff4f; }
   .sitemap .note { font-size: .85rem; margin: .5rem 0 0; line-height: 1.4; }
   .sitemap .note a { color: var(--brass); }
-  .sm-dialog { width: min(92vw, 720px); padding: .8rem 1rem 1rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); color: var(--ink); }
+  .sm-dialog { width: min(94vw, 900px); padding: .8rem 1rem 1rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); color: var(--ink); }
   .sm-dialog::backdrop { background: rgba(0, 0, 0, .6); }
   .sm-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
   .sm-head h3 { margin: 0; font-family: var(--cond); font-weight: 600; font-size: 1.25rem; }
   .sm-close { font-size: 1.5rem; line-height: 1; border: 0; background: transparent; padding: 0 .3rem; }
-  .sm-dialog img { display: block; width: 100%; height: auto; margin-top: .5rem; }
+  .sm-dialog img { display: block; width: 100%; height: auto; max-height: calc(100vh - 9rem); object-fit: contain; margin-top: .5rem; }
   .sm-dialog p { margin: .5rem 0 0; font-size: .85rem; color: var(--muted); }
   [hidden] { display: none !important; }
 </style>
@@ -229,19 +229,20 @@
     <section class="sitemap" id="siteMap">
       <h2>Test site map</h2>
       <div class="sm-map">
-        <img src="images/site-map.png" alt="Map of the three test sites (Elk, Fresno, SJER) and the reference stations around them">
-        <button type="button" class="sm-pin" style="right:59.7%; top:72.0%;" data-img="images/site1-elk-baselines.png" data-title="Test Site #1: Elk">Elk (Test Site #1)</button>
-        <button type="button" class="sm-pin" style="left:45.1%; top:44.6%;" data-img="images/site2-fresno-baselines.png" data-title="Test Site #2: Fresno">Fresno (Test Site #2)</button>
-        <button type="button" class="sm-pin" style="left:45.1%; top:22.4%;" data-img="images/site3-sjer-baselines.png" data-title="Test Site #3: SJER">SJER (Test Site #3)</button>
+        <img src="images/site-map.svg" alt="Map of the three test sites (Elk, Fresno, SJER) and the reference stations around them">
+        <button type="button" class="sm-pin" style="left:40.8%; top:71.6%;" data-img="images/site1-elk-baselines.svg" data-title="Test Site #1: Elk">Elk (Test Site #1)</button>
+        <button type="button" class="sm-pin" style="left:43.5%; top:44.2%;" data-img="images/site2-fresno-baselines.svg" data-title="Test Site #2: Fresno">Fresno (Test Site #2)</button>
+        <button type="button" class="sm-pin" style="left:43.1%; top:20.6%;" data-img="images/site3-sjer-baselines.svg" data-title="Test Site #3: SJER">SJER (Test Site #3)</button>
       </div>
       <p class="note">Click a test site to see its baseline lengths to the reference stations, or open
-        <a href="images/site1-elk-baselines.png" data-title="Test Site #1: Elk">Elk</a>,
-        <a href="images/site2-fresno-baselines.png" data-title="Test Site #2: Fresno">Fresno</a>, or
-        <a href="images/site3-sjer-baselines.png" data-title="Test Site #3: SJER">SJER</a>.</p>
+        <a href="images/site1-elk-baselines.svg" data-title="Test Site #1: Elk">Elk</a>,
+        <a href="images/site2-fresno-baselines.svg" data-title="Test Site #2: Fresno">Fresno</a>,
+        <a href="images/site3-sjer-baselines.svg" data-title="Test Site #3: SJER">SJER</a>, or
+        <a href="images/network-baselines.svg" data-title="Reference station network">the full station network</a>.</p>
       <dialog class="sm-dialog" id="smDialog" aria-labelledby="smTitle">
         <div class="sm-head"><h3 id="smTitle"></h3><button type="button" class="sm-close" id="smClose" aria-label="Close">&times;</button></div>
         <img id="smImg" src="" alt="">
-        <p>Distances are baseline lengths in kilometers from the test site to each reference station.</p>
+        <p>Distances are baseline lengths in kilometers. Dashed lines run from the test site to each reference station.</p>
       </dialog>
     </section>
 
