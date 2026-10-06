@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1034 1054" width="1034" height="1054" font-family="'Segoe UI', Arial, Helvetica, sans-serif">
+<style>.halo{paint-order:stroke;stroke:#fff;stroke-width:5px;stroke-linejoin:round}</style>
+<rect width="1034" height="1054" fill="#fff"/>
+<polygon points="90.0,232.5 457.7,70.0 944.0,570.6 562.6,909.1 400.9,933.9 178.0,692.3" fill="rgba(192,57,43,.06)" stroke="#c0392b" stroke-width="3" stroke-linejoin="round" opacity="1"/>
+<polygon points="178.0,692.3 364.9,518.9 636.1,599.0 562.6,909.1 400.9,933.9" fill="rgba(14,143,154,.14)" stroke="#0e8f9a" stroke-width="3" stroke-linejoin="round" opacity="1"/>
+<circle cx="90.0" cy="232.5" r="14" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="90.0" y="203.7" text-anchor="middle" font-size="32" font-weight="700" fill="#1d2b33" class="halo">CHOW</text>
+<circle cx="457.7" cy="70.0" r="14" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="482.9" y="80.8" text-anchor="start" font-size="32" font-weight="700" fill="#1d2b33" class="halo">DOND</text>
+<circle cx="944.0" cy="570.6" r="14" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="929.6" y="617.4" text-anchor="middle" font-size="32" font-weight="700" fill="#1d2b33" class="halo">DONO</text>
+<circle cx="562.6" cy="909.1" r="14" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="587.8" y="923.5" text-anchor="start" font-size="32" font-weight="700" fill="#1d2b33" class="halo">KDL1</text>
+<circle cx="400.9" cy="933.9" r="14" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="426.1" y="973.5" text-anchor="start" font-size="32" font-weight="700" fill="#1d2b33" class="halo">LEMA</text>
+<circle cx="178.0" cy="692.3" r="14" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="152.8" y="703.1" text-anchor="end" font-size="32" font-weight="700" fill="#1d2b33" class="halo">MULN</text>
+<circle cx="364.9" cy="518.9" r="14" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="343.3" y="497.3" text-anchor="end" font-size="32" font-weight="700" fill="#1d2b33" class="halo">RBRU</text>
+<circle cx="636.1" cy="599.0" r="14" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="661.3" y="609.8" text-anchor="start" font-size="32" font-weight="700" fill="#1d2b33" class="halo">RAPT</text>
+<g><circle cx="395.7" cy="754.9" r="11" fill="#2e7d32" stroke="#fff" stroke-width="2.5"/><path d="M387.7 754.9H403.7M395.7 746.9V762.9" stroke="#fff" stroke-width="2"/></g>
+<g><circle cx="423.7" cy="465.5" r="11" fill="#2e7d32" stroke="#fff" stroke-width="2.5"/><path d="M415.7 465.5H431.7M423.7 457.5V473.5" stroke="#fff" stroke-width="2"/></g>
+<g><circle cx="419.3" cy="217.4" r="11" fill="#2e7d32" stroke="#fff" stroke-width="2.5"/><path d="M411.3 217.4H427.3M419.3 209.4V225.4" stroke="#fff" stroke-width="2"/></g>
+<g font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="27" fill="#1d2b33"><rect x="90.0" y="992.0" width="80.0" height="8" fill="#1d2b33" stroke="#1d2b33" stroke-width="1.2"/><rect x="170.0" y="992.0" width="80.0" height="8" fill="#fff" stroke="#1d2b33" stroke-width="1.2"/><rect x="250.0" y="992.0" width="80.0" height="8" fill="#1d2b33" stroke="#1d2b33" stroke-width="1.2"/><rect x="330.0" y="992.0" width="80.0" height="8" fill="#fff" stroke="#1d2b33" stroke-width="1.2"/><text x="90.0" y="1033" text-anchor="middle">0</text><text x="170.0" y="1033" text-anchor="middle">10</text><text x="250.0" y="1033" text-anchor="middle">20</text><text x="330.0" y="1033" text-anchor="middle">30</text><text x="410.0" y="1033" text-anchor="middle">40</text><text x="438.8" y="1033">km</text></g>
+<g font-family="'Segoe UI', Arial, Helvetica, sans-serif" transform="translate(974 940.0) scale(1.8) translate(-974 -940.0)"><path d="M974 906.0 L987 948.0 L974 940.0 L961 948.0 Z" fill="#1d2b33"/><text x="974" y="972.0" text-anchor="middle" font-size="18" font-weight="700" fill="#1d2b33">N</text></g>
+</svg>

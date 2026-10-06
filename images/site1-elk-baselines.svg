@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1034 1054" width="1034" height="1054" font-family="'Segoe UI', Arial, Helvetica, sans-serif">
+<style>.halo{paint-order:stroke;stroke:#fff;stroke-width:5px;stroke-linejoin:round}</style>
+<rect width="1034" height="1054" fill="#fff"/>
+<text x="188.1" y="342.7" text-anchor="middle" font-size="15" font-style="italic" fill="#6b7a80">Madera</text>
+<text x="480.1" y="883.0" text-anchor="middle" font-size="15" font-style="italic" fill="#6b7a80">Hanford</text>
+<text x="307.3" y="956.5" text-anchor="middle" font-size="15" font-style="italic" fill="#6b7a80">Lemoore</text>
+<polygon points="90.0,232.5 457.7,70.0 944.0,570.6 562.6,909.1 400.9,933.9 178.0,692.3" fill="none" stroke="#c0392b" stroke-width="2" stroke-linejoin="round" opacity="0.45"/>
+<polygon points="178.0,692.3 364.9,518.9 636.1,599.0 562.6,909.1 400.9,933.9" fill="rgba(14,143,154,.12)" stroke="#0e8f9a" stroke-width="3.5" stroke-linejoin="round" opacity="1"/>
+<text x="479.6" y="907.6" transform="rotate(-8.7 479.6 907.6)" text-anchor="middle" dominant-baseline="middle" font-size="16" font-weight="600" fill="#0a6b73" class="halo">11.38 km</text>
+<text x="279.1" y="822.6" transform="rotate(47.3 279.1 822.6)" text-anchor="middle" dominant-baseline="middle" font-size="16" font-weight="600" fill="#0a6b73" class="halo">41.08 km</text>
+<text x="261.9" y="595.4" transform="rotate(-42.9 261.9 595.4)" text-anchor="middle" dominant-baseline="middle" font-size="16" font-weight="600" fill="#0a6b73" class="halo">31.88 km</text>
+<text x="504.5" y="545.5" transform="rotate(16.4 504.5 545.5)" text-anchor="middle" dominant-baseline="middle" font-size="16" font-weight="600" fill="#0a6b73" class="halo">35.52 km</text>
+<text x="585.7" y="750.8" transform="rotate(-76.7 585.7 750.8)" text-anchor="middle" dominant-baseline="middle" font-size="16" font-weight="600" fill="#0a6b73" class="halo">31.54 km</text>
+<line x1="395.7" y1="754.9" x2="178.0" y2="692.3" stroke="#1d2b33" stroke-width="2.2" stroke-dasharray="10 6"/>
+<line x1="395.7" y1="754.9" x2="364.9" y2="518.9" stroke="#1d2b33" stroke-width="2.2" stroke-dasharray="10 6"/>
+<line x1="395.7" y1="754.9" x2="636.1" y2="599.0" stroke="#1d2b33" stroke-width="2.2" stroke-dasharray="10 6"/>
+<line x1="395.7" y1="754.9" x2="562.6" y2="909.1" stroke="#1d2b33" stroke-width="2.2" stroke-dasharray="10 6"/>
+<line x1="395.7" y1="754.9" x2="400.9" y2="933.9" stroke="#1d2b33" stroke-width="2.2" stroke-dasharray="10 6"/>
+<text x="290.4" y="711.1" transform="rotate(16.0 290.4 711.1)" text-anchor="middle" dominant-baseline="middle" font-size="18" font-weight="700" fill="#1d2b33" class="halo">28.36 km</text>
+<text x="393.2" y="635.2" transform="rotate(82.6 393.2 635.2)" text-anchor="middle" dominant-baseline="middle" font-size="18" font-weight="700" fill="#1d2b33" class="halo">29.85 km</text>
+<text x="508.8" y="666.0" transform="rotate(-33.0 508.8 666.0)" text-anchor="middle" dominant-baseline="middle" font-size="18" font-weight="700" fill="#1d2b33" class="halo">35.93 km</text>
+<text x="488.0" y="822.4" transform="rotate(42.7 488.0 822.4)" text-anchor="middle" dominant-baseline="middle" font-size="18" font-weight="700" fill="#1d2b33" class="halo">28.26 km</text>
+<text x="411.3" y="844.0" transform="rotate(88.3 411.3 844.0)" text-anchor="middle" dominant-baseline="middle" font-size="18" font-weight="700" fill="#1d2b33" class="halo">22.23 km</text>
+<circle cx="90.0" cy="232.5" r="8" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="76.0" y="238.5" text-anchor="end" font-size="18" font-weight="700" fill="#1d2b33" class="halo">CHOW</text>
+<circle cx="457.7" cy="70.0" r="8" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="471.7" y="76.0" text-anchor="start" font-size="18" font-weight="700" fill="#1d2b33" class="halo">DOND</text>
+<circle cx="944.0" cy="570.6" r="8" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="956.0" y="598.6" text-anchor="start" font-size="18" font-weight="700" fill="#1d2b33" class="halo">DONO</text>
+<circle cx="562.6" cy="909.1" r="8" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="576.6" y="917.1" text-anchor="start" font-size="18" font-weight="700" fill="#1d2b33" class="halo">KDL1</text>
+<circle cx="400.9" cy="933.9" r="8" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="414.9" y="955.9" text-anchor="start" font-size="18" font-weight="700" fill="#1d2b33" class="halo">LEMA</text>
+<circle cx="178.0" cy="692.3" r="8" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="164.0" y="698.3" text-anchor="end" font-size="18" font-weight="700" fill="#1d2b33" class="halo">MULN</text>
+<circle cx="364.9" cy="518.9" r="8" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="352.9" y="506.9" text-anchor="end" font-size="18" font-weight="700" fill="#1d2b33" class="halo">RBRU</text>
+<circle cx="636.1" cy="599.0" r="8" fill="#c0392b" stroke="#fff" stroke-width="2.5"/>
+<text x="650.1" y="605.0" text-anchor="start" font-size="18" font-weight="700" fill="#1d2b33" class="halo">RAPT</text>
+<g><circle cx="395.7" cy="754.9" r="11" fill="#2e7d32" stroke="#fff" stroke-width="2.5"/><path d="M387.7 754.9H403.7M395.7 746.9V762.9" stroke="#fff" stroke-width="2"/></g>
+<text x="413.7" y="740.9" font-size="19" font-weight="700" fill="#2e7d32" class="halo">Elk (Test Site #1)</text>
+<g><circle cx="423.7" cy="465.5" r="8" fill="#2e7d32" stroke="#fff" stroke-width="2.5"/><path d="M418.7 465.5H428.7M423.7 460.5V470.5" stroke="#fff" stroke-width="2"/></g>
+<text x="407.7" y="470.5" text-anchor="end" font-size="15" font-weight="600" fill="#6b7a80" class="halo">Fresno (Test Site #2)</text>
+<g><circle cx="419.3" cy="217.4" r="8" fill="#2e7d32" stroke="#fff" stroke-width="2.5"/><path d="M414.3 217.4H424.3M419.3 212.4V222.4" stroke="#fff" stroke-width="2"/></g>
+<text x="403.3" y="222.4" text-anchor="end" font-size="15" font-weight="600" fill="#6b7a80" class="halo">SJER (Test Site #3)</text>
+<g font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="15" fill="#1d2b33"><rect x="90.0" y="1008.0" width="80.0" height="8" fill="#1d2b33" stroke="#1d2b33" stroke-width="1.2"/><rect x="170.0" y="1008.0" width="80.0" height="8" fill="#fff" stroke="#1d2b33" stroke-width="1.2"/><rect x="250.0" y="1008.0" width="80.0" height="8" fill="#1d2b33" stroke="#1d2b33" stroke-width="1.2"/><rect x="330.0" y="1008.0" width="80.0" height="8" fill="#fff" stroke="#1d2b33" stroke-width="1.2"/><text x="90.0" y="1036" text-anchor="middle">0</text><text x="170.0" y="1036" text-anchor="middle">10</text><text x="250.0" y="1036" text-anchor="middle">20</text><text x="330.0" y="1036" text-anchor="middle">30</text><text x="410.0" y="1036" text-anchor="middle">40</text><text x="426.0" y="1036">km</text></g>
+<g font-family="'Segoe UI', Arial, Helvetica, sans-serif" transform="translate(974 964.0) scale(1.0) translate(-974 -964.0)"><path d="M974 930.0 L987 972.0 L974 964.0 L961 972.0 Z" fill="#1d2b33"/><text x="974" y="996.0" text-anchor="middle" font-size="18" font-weight="700" fill="#1d2b33">N</text></g>
+</svg>
