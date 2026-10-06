@@ -23,6 +23,7 @@ const CONFIG = {
 // Site codes recognised at the start of a file name (e.g. SJER_GREC.asc)
 const SITES = {
   SJER:    "Site 1: San Joaquin Experimental Range",
+  RANGE:   "Site 1: San Joaquin Experimental Range",
   FRESNO:  "Site 2: Fresno State",
   FS:      "Site 2: Fresno State",
   FSU:     "Site 2: Fresno State",
@@ -163,6 +164,7 @@ function describeName(name){
   const tokens = base.toUpperCase().split(/[_\-\s.]+/);
   let site = null, test = null;
   for(const t of tokens){ if(!site && SITES[t]) site=SITES[t]; if(!test && TESTS[t]) test=TESTS[t]; }
+  if(!test && /GPS[_\-\s]*ONLY/i.test(base)) test=TESTS.G;
   return { site, test };
 }
 
@@ -276,7 +278,7 @@ function plotTimeSeries(rows, s){
 function plotHorizontal(rows, s){
   const dE = rows.map(r=>+((r.e-s.mE)*1000).toFixed(1)), dN = rows.map(r=>+((r.n-s.mN)*1000).toFixed(1));
   const hrs = rows.map(r=>(r.ms-rows[0].ms)/3.6e6);
-  const r1 = s.drms*1000, r2 = 2*r1, lim = Math.max(r2*1.25, ...dE.map(Math.abs), ...dN.map(Math.abs))*1.05;
+  const r1 = s.drms*1000, r2 = 2*r1, lim = dE.reduce((m,v,i)=>Math.max(m,Math.abs(v),Math.abs(dN[i])), r2*1.25)*1.05;
   const circ = (r,dash,label)=>({ type:"circle", x0:-r, x1:r, y0:-r, y1:r, line:{color:"#18262F",width:1.2,dash},
     label:{text:label,textposition:"top center",font:{size:11}} });
   Plotly.newPlot("hz", [{ x:dE, y:dN, type:"scattergl", mode:"markers",
