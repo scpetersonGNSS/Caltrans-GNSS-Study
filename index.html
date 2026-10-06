@@ -194,6 +194,21 @@
   .empty { max-width: 60ch; padding: 2rem 0; }
   .empty h2 { font-family: var(--cond); font-weight: 600; }
   footer { color: var(--muted); font-size: .85rem; padding: 0 clamp(1rem, 3vw, 2rem) 2rem; max-width: 1500px; margin: 0 auto; }
+  /* Test site map and baseline pop-ups */
+  .sitemap { margin-bottom: 1.6rem; }
+  .sm-map { position: relative; container-type: inline-size; }
+  .sm-map img { display: block; width: 100%; height: auto; }
+  .sm-pin { position: absolute; transform: translateY(-50%); font: 600 clamp(9px, 2.1cqw, 13px)/1.2 var(--body); color: #fff; background: #1d3b2a; border: 1px solid #39ff4f; border-radius: 3px; padding: .2em .45em; white-space: nowrap; }
+  .sm-pin:hover:not(:disabled) { background: #2b5a3f; border-color: #39ff4f; }
+  .sitemap .note { font-size: .85rem; margin: .5rem 0 0; line-height: 1.4; }
+  .sitemap .note a { color: var(--brass); }
+  .sm-dialog { width: min(92vw, 720px); padding: .8rem 1rem 1rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); color: var(--ink); }
+  .sm-dialog::backdrop { background: rgba(0, 0, 0, .6); }
+  .sm-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .sm-head h3 { margin: 0; font-family: var(--cond); font-weight: 600; font-size: 1.25rem; }
+  .sm-close { font-size: 1.5rem; line-height: 1; border: 0; background: transparent; padding: 0 .3rem; }
+  .sm-dialog img { display: block; width: 100%; height: auto; margin-top: .5rem; }
+  .sm-dialog p { margin: .5rem 0 0; font-size: .85rem; color: var(--muted); }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -209,6 +224,25 @@
       <h2 id="studyTitle">Study progress</h2>
       <table id="studyGrid"></table>
       <p class="note" id="studyKey"></p>
+    </section>
+
+    <section class="sitemap" id="siteMap">
+      <h2>Test site map</h2>
+      <div class="sm-map">
+        <img src="images/site-map.png" alt="Map of the three test sites (Elk, Fresno, SJER) and the reference stations around them">
+        <button type="button" class="sm-pin" style="right:59.7%; top:72.0%;" data-img="images/site1-elk-baselines.png" data-title="Test Site #1: Elk">Elk (Test Site #1)</button>
+        <button type="button" class="sm-pin" style="left:45.1%; top:44.6%;" data-img="images/site2-fresno-baselines.png" data-title="Test Site #2: Fresno">Fresno (Test Site #2)</button>
+        <button type="button" class="sm-pin" style="left:45.1%; top:22.4%;" data-img="images/site3-sjer-baselines.png" data-title="Test Site #3: SJER">SJER (Test Site #3)</button>
+      </div>
+      <p class="note">Click a test site to see its baseline lengths to the reference stations, or open
+        <a href="images/site1-elk-baselines.png" data-title="Test Site #1: Elk">Elk</a>,
+        <a href="images/site2-fresno-baselines.png" data-title="Test Site #2: Fresno">Fresno</a>, or
+        <a href="images/site3-sjer-baselines.png" data-title="Test Site #3: SJER">SJER</a>.</p>
+      <dialog class="sm-dialog" id="smDialog" aria-labelledby="smTitle">
+        <div class="sm-head"><h3 id="smTitle"></h3><button type="button" class="sm-close" id="smClose" aria-label="Close">&times;</button></div>
+        <img id="smImg" src="" alt="">
+        <p>Distances are baseline lengths in kilometers from the test site to each reference station.</p>
+      </dialog>
     </section>
 
     <h2>Uploads</h2>
@@ -2148,6 +2182,16 @@
       const index = await getJSON("data/index.json");
       sessions = index.sessions || [];
       study = index.study || null;
+      // Site numbering: Test Site #1 = Elk, #2 = Fresno, #3 = SJER.
+      if (study && study.sites) {
+        const ORDER = [["ELK", 1], ["FRES", 2], ["SJER", 3], ["SAN JOAQUIN", 3]];
+        for (const s of study.sites) {
+          const key = `${s.code} ${s.name}`.toUpperCase();
+          const hit = ORDER.find(([k]) => key.includes(k));
+          if (hit) s.number = hit[1];
+        }
+        study.sites.sort((a, b) => a.number - b.number);
+      }
       if (index.updated) $("updated").textContent = `Last updated ${new Date(index.updated).toLocaleString()}`;
     } catch (err) {
       showError(`The list of uploads could not be loaded (${err.message}). If you opened this file directly from your computer, serve it with "python -m http.server" instead.`);
@@ -2159,6 +2203,17 @@
     const wanted = decodeURIComponent(location.hash.slice(1));
     selectSession(sessions.some(s => s.id === wanted) ? wanted : sessions[0].id);
   })();
+})();
+</script>
+<script>
+// Test site map: open the baseline diagram for the clicked site.
+(() => {
+  const dlg = document.getElementById("smDialog"), img = document.getElementById("smImg"), title = document.getElementById("smTitle");
+  const open = (src, label) => { img.src = src; img.alt = `${label} baseline diagram`; title.textContent = `${label} baselines`; dlg.showModal(); };
+  document.querySelectorAll("#siteMap .sm-pin").forEach(b => b.addEventListener("click", () => open(b.dataset.img, b.dataset.title)));
+  document.querySelectorAll("#siteMap .note a").forEach(a => a.addEventListener("click", e => { e.preventDefault(); open(a.getAttribute("href"), a.dataset.title); }));
+  document.getElementById("smClose").addEventListener("click", () => dlg.close());
+  dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
 })();
 </script>
 </body>
