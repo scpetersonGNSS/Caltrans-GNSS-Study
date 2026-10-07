@@ -209,6 +209,22 @@
   .sm-close { font-size: 1.5rem; line-height: 1; border: 0; background: transparent; padding: 0 .3rem; }
   .sm-dialog img { display: block; width: 100%; height: auto; max-height: calc(100vh - 9rem); object-fit: contain; margin-top: .5rem; }
   .sm-dialog p { margin: .5rem 0 0; font-size: .85rem; color: var(--muted); }
+  /* Summary of all study uploads */
+  .link-btn { background: none; border: 0; padding: 0; color: var(--brass); text-decoration: underline; font-size: .9rem; margin-top: .5rem; }
+  .link-btn:hover:not(:disabled) { color: var(--ink); }
+  .sum-dialog { width: min(96vw, 1150px); max-height: 92vh; padding: .8rem 1rem 1rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); color: var(--ink); }
+  .sum-dialog::backdrop { background: rgba(0, 0, 0, .6); }
+  .sum-dialog .sm-head h3 { margin: 0; font-family: var(--cond); font-weight: 600; font-size: 1.25rem; }
+  .sum-scroll { overflow: auto; max-height: calc(92vh - 8rem); margin-top: .6rem; border: 1px solid var(--rule); border-radius: 6px; }
+  table.sumtab { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  table.sumtab th, table.sumtab td { padding: .5rem .7rem; border-bottom: 1px solid var(--rule); white-space: nowrap; text-align: right; }
+  table.sumtab th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500; font-size: .85rem; }
+  table.sumtab th:nth-child(-n+3), table.sumtab td:nth-child(-n+3) { text-align: left; }
+  table.sumtab td.num { font-weight: 600; }
+  table.sumtab tbody tr:hover { background: var(--brass-soft); }
+  table.sumtab tbody tr[aria-current="true"] { background: var(--brass-soft); }
+  table.sumtab td button { padding: .2rem .6rem; font-size: .85rem; }
+  .sum-dialog .note { font-size: .85rem; margin: .6rem 0 0; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -224,6 +240,17 @@
       <h2 id="studyTitle">Study progress</h2>
       <table id="studyGrid"></table>
       <p class="note" id="studyKey"></p>
+      <button type="button" class="link-btn" id="summaryBtn">Summary of all study uploads</button>
+      <dialog class="sum-dialog" id="sumDialog" aria-labelledby="sumTitle">
+        <div class="sm-head"><h3 id="sumTitle">Summary of all study uploads</h3><button type="button" class="sm-close" id="sumClose" aria-label="Close">&times;</button></div>
+        <div class="sum-scroll">
+          <table class="sumtab">
+            <thead><tr><th>Site</th><th>Test</th><th>Start</th><th>Duration</th><th>Epochs</th><th>Interval</th><th>σ Northing</th><th>σ Easting</th><th>σ Elevation</th><th>DRMS</th><th></th></tr></thead>
+            <tbody id="sumBody"></tbody>
+          </table>
+        </div>
+        <p class="note" id="sumNote"></p>
+      </dialog>
     </section>
 
     <section class="sitemap" id="siteMap">
@@ -2172,6 +2199,46 @@
     fg.addEventListener("mouseleave", () => { tip.style.opacity = 0; });
     return { load, redraw: () => { if (N) { drawBackground(); drawStatic(); drawMarker(idx); } } };
   })();
+
+  // ========================= Summary of all uploads ===========================
+  function renderSummaryTable() {
+    const body = $("sumBody");
+    body.textContent = "";
+    const siteNum = s => { const x = siteOf(s.site); return x ? x.number : 99; };
+    const rows = sessions.filter(s => s.site)
+      .sort((a, b) => siteNum(a) - siteNum(b) || (a.test_number || 0) - (b.test_number || 0) || a.start.localeCompare(b.start));
+    for (const s of rows) {
+      const site = siteOf(s.site), test = testOf(s.test);
+      const cells = [
+        site ? `${site.number} · ${s.site}` : s.site,
+        `${s.test_number} · ${s.test}`,
+        parseLocal(s.start).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "2-digit", hour: "numeric", minute: "2-digit" }),
+        `${s.duration_h} h`, s.epochs.toLocaleString(), `${s.interval_s} s`,
+        `${s.std_mm.n} mm`, `${s.std_mm.e} mm`, `${s.std_mm.u} mm`, `${s.drms_mm} mm`];
+      const tr = document.createElement("tr");
+      tr.setAttribute("aria-current", cur && cur.summary.id === s.id ? "true" : "false");
+      cells.forEach((v, j) => {
+        const td = document.createElement("td");
+        td.textContent = v;
+        if (j >= 3) td.className = "num";
+        if (j === 0 && site) td.title = site.name;
+        if (j === 1 && test) td.title = test.constellations.join(" + ");
+        tr.append(td);
+      });
+      const td = document.createElement("td"), b = document.createElement("button");
+      b.type = "button"; b.textContent = "View";
+      b.setAttribute("aria-label", `View site ${cells[0]}, test ${cells[1]}`);
+      b.addEventListener("click", () => { $("sumDialog").close(); selectSession(s.id); });
+      td.append(b); tr.append(td);
+      body.append(tr);
+    }
+    const total = study ? study.sites.length * study.tests.length : 0;
+    const filled = study ? new Set(rows.map(s => `${s.site}|${s.test}`)).size : 0;
+    $("sumNote").textContent = `${rows.length} upload${rows.length === 1 ? "" : "s"} covering ${filled} of ${total} site and test combinations. σ values are sample standard deviations; DRMS = √(σN² + σE²). Click View to open an upload.`;
+  }
+  $("summaryBtn").addEventListener("click", () => { renderSummaryTable(); $("sumDialog").showModal(); });
+  $("sumClose").addEventListener("click", () => $("sumDialog").close());
+  $("sumDialog").addEventListener("click", e => { if (e.target === $("sumDialog")) $("sumDialog").close(); });
 
   // ============================== Wiring ======================================
   $("dateFilter").addEventListener("change", renderList);
