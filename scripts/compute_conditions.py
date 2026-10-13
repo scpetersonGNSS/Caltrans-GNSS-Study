@@ -41,6 +41,7 @@ import re
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -119,12 +120,20 @@ ION_CENTERS = ["COD", "IGS", "JPL", "ESA", "UPC", "EMR", "WHU", "CAS"]
 # Downloading
 # ---------------------------------------------------------------------------
 
-def fetch(url, tries=3):
-    """Return the bytes at url, or None if it does not exist."""
+_dead_hosts = set()     # hosts that timed out or refused this run; not tried again
+_listings = {}          # directory URL -> listing bytes (or None)
+
+
+def fetch(url, tries=2):
+    """Return the bytes at url, or None if it does not exist or can't be reached."""
+    host = urllib.parse.urlsplit(url).netloc
+    if host in _dead_hosts:
+        return None
+    last = None
     for attempt in range(tries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-            with urllib.request.urlopen(req, timeout=90) as r:
+            with urllib.request.urlopen(req, timeout=45) as r:
                 return r.read()
         except urllib.error.HTTPError as err:
             if err.code in (403, 404, 410):
@@ -132,9 +141,16 @@ def fetch(url, tries=3):
             last = err
         except (urllib.error.URLError, TimeoutError, OSError) as err:
             last = err
-        time.sleep(3 * (attempt + 1))
-    print(f"  could not reach {url}: {last}", file=sys.stderr)
+        time.sleep(2)
+    print(f"  could not reach {host} ({last}); skipping it for the rest of this run", flush=True)
+    _dead_hosts.add(host)
     return None
+
+
+def listing(url):
+    if url not in _listings:
+        _listings[url] = fetch(url)
+    return _listings[url]
 
 
 def fmt(template, day):
@@ -147,10 +163,10 @@ def candidates(day, dirs, pattern, guesses, centers):
     found = {}
     rx = re.compile(fmt(pattern, day))
     for d in dirs:
-        listing = fetch(fmt(d, day))
-        if not listing:
+        text = listing(fmt(d, day))
+        if not text:
             continue
-        for m in rx.finditer(listing.decode("utf-8", "replace")):
+        for m in rx.finditer(text.decode("utf-8", "replace")):
             found.setdefault(m.group(0), (fmt(d, day) + m.group(0), m))
     def rank(item):
         name, (url, m) = item
@@ -517,7 +533,7 @@ def main():
                    and cond.get("version") == CONDITIONS_VERSION)
         if current and not args.force and not args.report:
             continue
-        print(f"{s['id']} ({s['site']} / {s['test']}):")
+        print(f"{s['id']} ({s['site']} / {s['test']}):", flush=True)
         result, why = compute(s, data, print)
         if not result:
             print(f"  pending: {why}")

@@ -15,12 +15,19 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install numpy
+      - name: Which data servers answer
+        run: |
+          for u in https://igs.bkg.bund.de/root_ftp/IGS/products/mgex/2437/ https://igs.bkg.bund.de/root_ftp/IGS/products/ionex/2026/269/ http://ftp.aiub.unibe.ch/CODE/2026/ http://ftp.aiub.unibe.ch/CODE_MGEX/CODE/2026/ http://ftp.aiub.unibe.ch/CODE/ ; do
+            echo "$u -> $(curl -s -o /tmp/l.html -w '%{http_code} %{time_total}s' -m 30 "$u") $(grep -o '[A-Z0-9]\{3\}0[A-Z]\{3\}[A-Z]\{3\}_2026269[^\"<>]*' /tmp/l.html 2>/dev/null | sort -u | tr '\n' ' ')" | tee -a servers.txt
+          done
       - name: Compute and check
+        timeout-minutes: 25
         run: |
           python scripts/compute_conditions.py --report test-report.md --only 20260926-082350,20260926-080720,20260926-082140,20260926-080719 2>&1 | tee test-log.txt || true
       - name: Save results to the branch
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f test-report.md test-log.txt
-          git commit -m "Conditions test results" && git push
+          git add -f test-report.md test-log.txt servers.txt || git add -f servers.txt test-log.txt
+          git commit -m "Conditions test results" && (git pull --rebase -q origin conditions-test || true) && git push

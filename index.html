@@ -20,6 +20,8 @@
     --cU: #c2185b; --cU2: #f48fb1;   /* Elevation */
     --cP: #d97706; --cP2: #f6c26b;   /* PDOP */
     --cH: #0891b2; --cH2: #67d3e6;   /* H. Precision */
+    --cS: #6d28d9; --cS2: #c4b5fd;   /* Satellites in view (computed) */
+    --cI: #6b7a1e; --cI2: #c5d17a;   /* Ionosphere VTEC (computed) */
     --cX: #7c6f64; --cX2: #bcaaa4;   /* any other column */
     --body: "Barlow", "Segoe UI", system-ui, sans-serif;
     --cond: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
@@ -35,7 +37,7 @@
       --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
       --pos: #5bd08a; --neg: #ff8a80;
       --cN: #6f9bff; --cN2: #3557a8; --cE: #4cd38a; --cE2: #237a50; --cU: #f06292; --cU2: #9c3a63;
-      --cP: #f5b041; --cP2: #9a6a1f; --cH: #22d3ee; --cH2: #1b7f92; --cX: #bcaaa4; --cX2: #6d5f58;
+      --cP: #f5b041; --cP2: #9a6a1f; --cH: #22d3ee; --cH2: #1b7f92; --cS: #b794f6; --cS2: #5b3a9e; --cI: #b5c94a; --cI2: #5d6a1f; --cX: #bcaaa4; --cX2: #6d5f58;
     }
   }
   :root[data-theme="dark"] {
@@ -45,7 +47,7 @@
     --drms1: #eda100; --drms2: #e66767; --tip-bg: rgba(27,36,41,.97);
     --pos: #5bd08a; --neg: #ff8a80;
     --cN: #6f9bff; --cN2: #3557a8; --cE: #4cd38a; --cE2: #237a50; --cU: #f06292; --cU2: #9c3a63;
-      --cP: #f5b041; --cP2: #9a6a1f; --cH: #22d3ee; --cH2: #1b7f92; --cX: #bcaaa4; --cX2: #6d5f58;
+      --cP: #f5b041; --cP2: #9a6a1f; --cH: #22d3ee; --cH2: #1b7f92; --cS: #b794f6; --cS2: #5b3a9e; --cI: #b5c94a; --cI2: #5d6a1f; --cX: #bcaaa4; --cX2: #6d5f58;
   }
   *, *::before, *::after { box-sizing: inherit; }
   html { scroll-padding-top: env(safe-area-inset-top, 0px); }
@@ -344,8 +346,8 @@
         </section>
 
         <section class="plot" id="pairCard">
-          <h3>Position and PDOP over time</h3>
-          <p>Each coordinate on its own chart (left axis, meters), with its mean and ±1σ and ±2σ lines, and PDOP on the right axis, so you can see whether changes in position line up with changes in satellite geometry. The three charts share one time axis: zooming or panning one moves all three, and hovering shows the same moment on each. The values at the hovered time are shown above each chart. Use the buttons or scroll to zoom, drag to pan, and double-click to reset.</p>
+          <h3>Position and PDOP, satellites or ionosphere over time</h3>
+          <p>Each coordinate on its own chart (left axis, meters), with its mean and ±1σ and ±2σ lines, and PDOP, the number of satellites in view, or the ionosphere on the right axis (pick with Compare with), so you can see whether changes in position line up with changes in conditions. The three charts share one time axis: zooming or panning one moves all three, and hovering shows the same moment on each. The values at the hovered time are shown above each chart. Use the buttons or scroll to zoom, drag to pan, and double-click to reset.</p>
           <div class="controls">
             <label class="pick" id="pairWithLabel">Compare with <select id="pairWith"></select></label>
             <div class="seg" role="group" aria-label="Zoom">
@@ -368,6 +370,29 @@
             <div class="pair-shell" id="pairShell_u"><canvas id="pair_u" aria-label="Elevation and PDOP over time"></canvas><div class="pair-readout" id="pairTip_u" aria-live="polite"></div></div>
           </div>
           <p class="chart-note" id="pairNote"></p>
+          <p class="chart-note" id="pairSource" hidden></p>
+        </section>
+
+        <section class="plot" id="vsCard">
+          <h3 id="vsTitle">Position vs PDOP</h3>
+          <p>Every epoch as one dot: how far the position was from its mean (up the chart) against PDOP, the number of satellites in view, the ionosphere, or H. Precision at that moment (across the chart). The line is the average offset in each band of values, and the shaded band is ±1σ around it. If position depended on the value, the line would slope or the band would widen. Hover to read a band's statistics.</p>
+          <div class="controls">
+            <label class="pick">Position <select id="vsComp">
+              <option value="n">Northing</option><option value="e">Easting</option><option value="u">Elevation</option><option value="h">Horizontal distance</option>
+            </select></label>
+            <label class="pick">Against <select id="vsWith"></select></label>
+          </div>
+          <p class="win-msg" id="vsMissing" hidden></p>
+          <div class="legend" id="vsLegend">
+            <span id="vsDotKey"><i class="dot" style="background:currentColor;border-color:currentColor;width:8px;height:8px"></i><span id="vsDotName">Epochs</span></span>
+            <span><i class="sw" style="border-top:3px solid var(--ink)"></i>Average in each band</span>
+            <span><i class="sw" style="border-top:10px solid var(--brass-soft);height:0"></i>±1σ in each band</span>
+          </div>
+          <div class="readout fixed-strip" id="vsReadout" aria-live="polite"></div>
+          <div class="chart-shell" id="vsShell" style="height:min(56vh,540px);min-height:380px">
+            <canvas id="vsCanvas" aria-label="Position offset against the chosen value"></canvas>
+          </div>
+          <p class="chart-note" id="vsNote"></p>
         </section>
 
         <section class="plot" id="windowCard">
@@ -555,11 +580,22 @@
   function seriesOptions() {
     const d = cur.data;
     return [["n", "Northing"], ["e", "Easting"], ["u", "Elevation"],
-      ...Object.keys(d.extra || {}).map(k => [`x:${k}`, k])];
+      ...Object.keys(d.extra || {}).map(k => [`x:${k}`, d.extra[k].computed ? `${k} (computed)` : k])];
+  }
+  // Computed values (satellites, ionosphere) are stored every step_s seconds;
+  // spread them onto the upload's own epochs so every chart can use them.
+  function expandGridded(d) {
+    for (const x of Object.values(d.extra || {})) {
+      if (!x.step_s || x.expanded) continue;
+      const src = x.v, n = src.length, step = x.step_s;
+      x.v = d.t.map(t => { const k = Math.round(t / step); return k >= 0 && k < n ? src[k] : null; });
+      x.expanded = true;
+    }
+    return d;
   }
   // Each value keeps one color everywhere on the page: [main color, overnight shade].
   function colorFor(id) {
-    const map = { n: "N", e: "E", u: "U", "x:PDOP": "P", "x:H. Precision": "H" };
+    const map = { n: "N", e: "E", u: "U", "x:PDOP": "P", "x:H. Precision": "H", "x:Satellites in view": "S", "x:Ionosphere VTEC": "I" };
     const k = map[id] || "X";
     return [`--c${k}`, `--c${k}2`];
   }
@@ -576,7 +612,7 @@
     }
     const x = id && id.startsWith("x:") && d.extra && d.extra[id.slice(2)];
     if (!x) return null;
-    return { id, name: id.slice(2), unit: x.unit || "", dec: x.dec, coord: false, values: x.v.map(v => v === null ? null : v / x.scale) };
+    return { id, name: id.slice(2), unit: x.unit || "", dec: x.dec, coord: false, computed: !!x.computed, note: x.note || "", values: x.v.map(v => v === null ? null : v / x.scale) };
   }
   function fillSelect(sel, opts, wanted, withNone) {
     sel.textContent = "";
@@ -694,12 +730,13 @@
     if (!summary) return;
     try {
       let data = cache.get(id);
-      if (!data) { data = await getJSON(`data/sessions/${id}.json`); cache.set(id, data); }
+      if (!data) { data = expandGridded(await getJSON(`data/sessions/${id}.json`)); cache.set(id, data); }
       cur = { summary, data, startMs: parseLocal(data.start).getTime(), gap: Math.max(MIN_GAP_SECONDS, (data.interval_s || 5) * (data.gap_factor || 3)) };
       history.replaceState(null, "", `#${id}`);
       renderSummary();
       TS.load();
       PAIR.load();
+      VS.load();
       Win.load();
       Drift.load();
       renderList();
@@ -1118,6 +1155,8 @@
       if (B) [B.lo, B.hi] = range(B.values, 1e-4);
       document.querySelectorAll("#pairCard .pair-b").forEach(el => { el.hidden = !B; if (B) el.style.color = `var(${B.color})`; });
       document.querySelectorAll("#pairCard .pair-b-name").forEach(el => { el.textContent = B ? axisTitle(B) : ""; });
+      $("pairSource").hidden = !(B && B.computed);
+      $("pairSource").textContent = B && B.computed ? B.note : "";
       resizeAll();
     }
 
@@ -1344,6 +1383,211 @@
     $("pairReset").addEventListener("click", () => setView(0, total));
     withSel.addEventListener("change", () => { want = withSel.value; if (cur) setRight(); });
     return { load, redraw: drawAll };
+  })();
+
+  // Why satellites / ionosphere are missing for an upload, or "" if they are there.
+  function pendingNote() {
+    const d = cur.data, s = cur.summary;
+    if (d.extra && d.extra["Satellites in view"]) return "";
+    if (!s.site) return "Satellites in view and the ionosphere are computed only for uploads tagged with a test site.";
+    const c = s.conditions;
+    if (c && c.status === "pending") return "Satellites in view and the ionosphere for this upload are not available yet: they are computed from IGS orbit and ionosphere files, which are published one day to two weeks after the observation date. The site checks daily and adds them automatically.";
+    return "Satellites in view and the ionosphere have not been computed for this upload yet.";
+  }
+
+  // ================= Position vs PDOP / satellites / ionosphere ===============
+  // Scatter of position offset from the mean (mm) against another value at the
+  // same epoch, with the average and ±1σ in bands of that value.
+  const VS = (() => {
+    const canvas = $("vsCanvas"), shell = $("vsShell"), ctx = canvas.getContext("2d");
+    const compSel = $("vsComp"), withSel = $("vsWith"), readout = $("vsReadout");
+    const COMP_NAMES = { n: "Northing", e: "Easting", u: "Elevation", h: "Horizontal distance" };
+    let comp = "n", want = "x:PDOP", P = null, geo = null, hoverBin = -1;
+
+    function niceStep(range, target) {
+      const raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+      return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * mag;
+    }
+    const quantile = (sorted, q) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.round(q * (sorted.length - 1))))];
+    const sgn = v => (v > 0.05 ? "+" : v < -0.05 ? "−" : "") + Math.abs(v).toFixed(1);
+
+    function load() {
+      const extras = seriesOptions().filter(o => o[0].startsWith("x:"));
+      const missing = pendingNote();
+      $("vsMissing").hidden = !missing && extras.length > 0;
+      $("vsMissing").textContent = extras.length ? missing : "This upload has no PDOP or other values to compare position against.";
+      $("vsCard").querySelector(".controls").hidden = !extras.length;
+      $("vsLegend").hidden = shell.hidden = readout.hidden = !extras.length;
+      if (!extras.length) { P = null; $("vsNote").textContent = ""; return; }
+      want = fillSelect(withSel, extras, want, false);
+      compSel.value = comp;
+      build();
+    }
+
+    function build() {
+      const d = cur.data, X = getSeries(withSel.value);
+      const mm = { n: d.n_mm, e: d.e_mm, u: d.u_mm };
+      const mean = {};
+      for (const c of ["n", "e", "u"]) { let s = 0; for (const v of mm[c]) s += v; mean[c] = s / mm[c].length; }
+      const yOf = comp === "h" ? i => Math.hypot(mm.n[i] - mean.n, mm.e[i] - mean.e) : i => mm[comp][i] - mean[comp];
+      const xs = [], ys = [];
+      for (let i = 0; i < d.t.length; i++) { const x = X.values[i]; if (x === null) continue; xs.push(x); ys.push(yOf(i)); }
+      const n = xs.length;
+      const isInt = xs.every(v => Number.isInteger(v));
+      const xsS = Float64Array.from(xs).sort(), ysS = Float64Array.from(ys).sort();
+      // Bands: one per whole number for counts, otherwise 20 equal-width bands
+      // between the 0.5th and 99.5th percentiles (the outer two are open-ended).
+      const bins = [];
+      let binOf;
+      if (isInt && xsS[n - 1] - xsS[0] <= 60) {
+        for (let v = xsS[0]; v <= xsS[n - 1]; v++) bins.push({ lo: v - .5, hi: v + .5, label: `${v}` });
+        binOf = x => x - xsS[0];
+      } else {
+        const lo = quantile(xsS, .005), hi = quantile(xsS, .995), k = 20, w = (hi - lo) / k || 1;
+        for (let b = 0; b < k; b++) {
+          const a = lo + b * w, z = a + w;
+          bins.push({ lo: a, hi: z, label: `${fmtNum(b === 0 ? xsS[0] : a, X.dec)}–${fmtNum(b === k - 1 ? xsS[n - 1] : z, X.dec)}` });
+        }
+        binOf = x => Math.min(k - 1, Math.max(0, Math.floor((x - lo) / w)));
+      }
+      for (const b of bins) { b.n = 0; b.sum = 0; b.ss = 0; b.xs = 0; }
+      let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+      for (let j = 0; j < n; j++) {
+        const b = bins[binOf(xs[j])]; b.n++; b.sum += ys[j]; b.xs += xs[j];
+        sx += xs[j]; sy += ys[j]; sxx += xs[j] * xs[j]; syy += ys[j] * ys[j]; sxy += xs[j] * ys[j];
+      }
+      for (const b of bins) b.mean = b.n ? b.sum / b.n : NaN;
+      for (let j = 0; j < n; j++) { const b = bins[binOf(xs[j])]; b.ss += (ys[j] - b.mean) ** 2; }
+      for (const b of bins) { b.sd = b.n > 1 ? Math.sqrt(b.ss / (b.n - 1)) : NaN; b.xc = b.n ? b.xs / b.n : (b.lo + b.hi) / 2; }
+      const cov = sxy / n - (sx / n) * (sy / n), vx = sxx / n - (sx / n) ** 2, vy = syy / n - (sy / n) ** 2;
+      const r = vx > 0 && vy > 0 ? cov / Math.sqrt(vx * vy) : NaN;
+      // y range: 0.1–99.9 percentiles, so a few wild epochs don't flatten everything.
+      let yLo = quantile(ysS, .001), yHi = quantile(ysS, .999);
+      if (comp === "h") yLo = 0;
+      const padY = Math.max((yHi - yLo) * .08, 1);
+      yLo = comp === "h" ? 0 : yLo - padY; yHi += padY;
+      let xLo = xsS[0], xHi = xsS[n - 1];
+      const padX = isInt ? .7 : Math.max((xHi - xLo) * .04, Math.pow(10, -X.dec));
+      xLo -= padX; xHi += padX;
+      const outside = ys.reduce((c, y) => c + (y < yLo || y > yHi), 0);
+      P = { X, xs, ys, n, bins, isInt, r, xLo, xHi, yLo, yHi, outside, color: comp === "h" ? "--brass" : `--c${comp.toUpperCase()}` };
+      hoverBin = -1;
+      const yName = comp === "h" ? "Horizontal distance from the mean" : `${COMP_NAMES[comp]} offset from the mean`;
+      $("vsTitle").textContent = `${COMP_NAMES[comp]} vs ${X.name}`;
+      $("vsDotKey").style.color = `var(${P.color})`;
+      $("vsDotName").textContent = `${yName} at each epoch`;
+      const strength = !isFinite(r) ? "" : Math.abs(r) < .1 ? "essentially no linear relationship" : Math.abs(r) < .3 ? "a weak relationship" : Math.abs(r) < .5 ? "a moderate relationship" : "a strong relationship";
+      const notes = [];
+      if (isFinite(r)) notes.push(`Correlation r = ${r.toFixed(2)} over ${n.toLocaleString()} epochs (${strength}; r near 0 means position did not track ${X.name} linearly, ±1 means it tracked it exactly).`);
+      if (isInt) notes.push(`Dots are spread slightly sideways within each whole number so they don't all sit on one line.`);
+      if (outside) notes.push(`${outside.toLocaleString()} epoch${outside === 1 ? " is" : "s are"} beyond the plotted range and not shown, but they are included in the averages.`);
+      notes.push("Bands with fewer than 30 epochs are left out of the average line.");
+      if (X.computed) notes.push(X.note);
+      $("vsNote").textContent = notes.join(" ");
+      resize();
+    }
+
+    function resize() {
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2)), rect = shell.getBoundingClientRect();
+      if (!rect.width) return;
+      canvas.width = Math.round(rect.width * ratio); canvas.height = Math.round(rect.height * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      draw();
+    }
+
+    function draw() {
+      if (!P) return;
+      const w = shell.clientWidth, h = shell.clientHeight;
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body");
+      const col = css(P.color);
+      ctx.clearRect(0, 0, w, h);
+      const L = 78, R = w - 20, T = 12, B = h - 56;
+      const X = x => L + (x - P.xLo) / (P.xHi - P.xLo) * (R - L);
+      const Y = y => B - (y - P.yLo) / (P.yHi - P.yLo) * (B - T);
+      geo = { L, R, T, B, X };
+      ctx.font = `12px ${font}`; ctx.lineWidth = 1;
+      // grid and axes
+      const sy = niceStep(P.yHi - P.yLo, 6);
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (let v = Math.ceil(P.yLo / sy) * sy; v <= P.yHi + 1e-9; v += sy) {
+        ctx.strokeStyle = Math.abs(v) < 1e-9 ? rule : grid; ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(R, Y(v)); ctx.stroke();
+        ctx.fillStyle = muted; ctx.fillText(fmtNum(v, sy < 1 ? 1 : 0), L - 8, Y(v));
+      }
+      const sx = P.isInt ? Math.max(1, niceStep(P.xHi - P.xLo, 10)) : niceStep(P.xHi - P.xLo, 8);
+      const dx = P.isInt ? 0 : Math.max(0, -Math.floor(Math.log10(sx) + 1e-9));
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (let v = Math.ceil(P.xLo / sx) * sx; v <= P.xHi + 1e-9; v += sx) {
+        ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(X(v), T); ctx.lineTo(X(v), B); ctx.stroke();
+        ctx.fillStyle = muted; ctx.fillText(fmtNum(v, dx), X(v), B + 6);
+      }
+      ctx.strokeStyle = rule; ctx.strokeRect(L, T, R - L, B - T);
+      ctx.fillStyle = ink; ctx.font = `600 13px ${font}`;
+      ctx.fillText(axisTitle(P.X), (L + R) / 2, h - 22);
+      ctx.save(); ctx.translate(16, (T + B) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = "middle";
+      ctx.fillText(comp === "h" ? "Horizontal distance from mean (mm)" : `${COMP_NAMES[comp]} offset from mean (mm)`, 0, 0); ctx.restore();
+
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, R - L, B - T); ctx.clip();
+      // hovered band
+      if (hoverBin >= 0) { const b = P.bins[hoverBin]; ctx.fillStyle = css("--brass-soft"); ctx.fillRect(X(b.lo), T, X(b.hi) - X(b.lo), B - T); }
+      // dots: transparency scaled to the number of epochs
+      ctx.fillStyle = col; ctx.globalAlpha = clamp(900 / P.n, .025, .5);
+      const jit = P.isInt ? .32 : 0;
+      for (let j = 0; j < P.n; j++) {
+        const y = P.ys[j]; if (y < P.yLo || y > P.yHi) continue;
+        const jx = jit ? (((j * 2654435761) >>> 0) % 1000 / 1000 - .5) * 2 * jit : 0;
+        ctx.fillRect(X(P.xs[j] + jx) - 1, Y(y) - 1, 2, 2);
+      }
+      ctx.globalAlpha = 1;
+      // ±1σ band and average line through bands with enough epochs
+      const good = P.bins.filter(b => b.n >= 30);
+      if (good.length) {
+        ctx.fillStyle = css("--brass-soft"); ctx.globalAlpha = 1;
+        ctx.beginPath();
+        good.forEach((b, k) => { const x = X(b.xc), y = Y(b.mean + b.sd); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        for (let k = good.length - 1; k >= 0; k--) ctx.lineTo(X(good[k].xc), Y(good[k].mean - good[k].sd));
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = css("--brass"); ctx.lineWidth = 1.2; ctx.setLineDash([5, 4]);
+        for (const sign of [1, -1]) { ctx.beginPath(); good.forEach((b, k) => { const x = X(b.xc), y = Y(b.mean + sign * b.sd); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); }
+        ctx.setLineDash([]);
+        ctx.strokeStyle = ink; ctx.lineWidth = 2.4; ctx.beginPath();
+        good.forEach((b, k) => { const x = X(b.xc), y = Y(b.mean); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+        ctx.fillStyle = ink;
+        for (const b of good) { ctx.beginPath(); ctx.arc(X(b.xc), Y(b.mean), 3.2, 0, Math.PI * 2); ctx.fill(); }
+      }
+      ctx.restore();
+      updateReadout();
+    }
+
+    function updateReadout() {
+      if (!P) return;
+      if (hoverBin < 0) {
+        readout.innerHTML = `<span>Hover over the chart to read the average and spread of ${comp === "h" ? "horizontal distance" : COMP_NAMES[comp]} in each band of ${P.X.name}.</span>`;
+        return;
+      }
+      const b = P.bins[hoverBin], unit = P.X.unit ? ` ${P.X.unit}` : "";
+      const name = P.X.name === "Satellites in view" ? `<b>${b.label}</b> satellites in view` : `${P.X.name} <b>${b.label}${unit}</b>`;
+      if (!b.n) { readout.innerHTML = `<span>${name}</span><span>No epochs</span>`; return; }
+      const y = comp === "h" ? "Horizontal distance" : `${COMP_NAMES[comp]} offset`;
+      readout.innerHTML = [`<span>${name}</span>`, `<span><b>${b.n.toLocaleString()}</b> epochs (${(100 * b.n / P.n).toFixed(1)}%)</span>`,
+        `<span>${y}: average <b>${comp === "h" ? b.mean.toFixed(1) : sgn(b.mean)} mm</b></span>`,
+        `<span>σ <b>${isFinite(b.sd) ? b.sd.toFixed(1) : "–"} mm</b></span>`, `<span>2σ <b>${isFinite(b.sd) ? (2 * b.sd).toFixed(1) : "–"} mm</b></span>`].join("");
+    }
+
+    canvas.addEventListener("pointermove", ev => {
+      if (!P || !geo) return;
+      const r = canvas.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      let k = -1;
+      if (mx >= geo.L && mx <= geo.R && my >= geo.T && my <= geo.B) {
+        const x = P.xLo + (mx - geo.L) / (geo.R - geo.L) * (P.xHi - P.xLo);
+        k = P.bins.findIndex((b, i) => (i === 0 || x >= b.lo) && (i === P.bins.length - 1 || x < b.hi));
+      }
+      if (k !== hoverBin) { hoverBin = k; draw(); }
+    });
+    canvas.addEventListener("pointerleave", () => { if (hoverBin >= 0) { hoverBin = -1; draw(); } });
+    compSel.addEventListener("change", () => { comp = compSel.value; if (cur) build(); });
+    withSel.addEventListener("change", () => { want = withSel.value; if (cur) build(); });
+    new ResizeObserver(() => resize()).observe(shell);
+    return { load, redraw: draw };
   })();
 
   // ========================= Time window statistics ===========================
@@ -2243,7 +2487,7 @@
   // ============================== Wiring ======================================
   $("dateFilter").addEventListener("change", renderList);
   $("clearFilter").addEventListener("click", () => { $("dateFilter").value = ""; cell = null; renderGrid(); renderList(); });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); PAIR.redraw(); Win.redraw(); Drift.redraw(); } });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); PAIR.redraw(); VS.redraw(); Win.redraw(); Drift.redraw(); } });
 
   (async function init() {
     try {
