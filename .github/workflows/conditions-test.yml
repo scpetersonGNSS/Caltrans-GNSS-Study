@@ -17,11 +17,20 @@ jobs:
       - run: pip install numpy
       - name: Which data servers answer
         run: |
-          for u in https://igs.bkg.bund.de/root_ftp/IGS/products/mgex/2437/ https://igs.bkg.bund.de/root_ftp/IGS/products/ionex/2026/269/ http://ftp.aiub.unibe.ch/CODE/2026/ http://ftp.aiub.unibe.ch/CODE_MGEX/CODE/2026/ http://ftp.aiub.unibe.ch/CODE/ ; do
-            echo "$u -> $(curl -s -o /tmp/l.html -w '%{http_code} %{time_total}s' -m 30 "$u") $(grep -o '[A-Z0-9]\{3\}0[A-Z]\{3\}[A-Z]\{3\}_2026269[^\"<>]*' /tmp/l.html 2>/dev/null | sort -u | tr '\n' ' ')" | tee -a servers.txt
-          done
+          probe() { echo "== $1 -> $(curl -sL -o /tmp/l.html -w '%{http_code} %{time_total}s' -m 30 "$1")" | tee -a servers.txt; grep -oE 'href="[^"?]+' /tmp/l.html 2>/dev/null | sed 's/href="//' | grep -vE '^(\.\.|/|https?:)' | head -40 | tr '\n' ' ' | tee -a servers.txt; echo | tee -a servers.txt; }
+          probe https://igs.bkg.bund.de/root_ftp/
+          probe https://igs.bkg.bund.de/root_ftp/IGS/products/
+          probe https://igs.bkg.bund.de/root_ftp/MGEX/products/2437/
+          probe https://igs.bkg.bund.de/root_ftp/IGS/products/2437/
+          probe https://gssc.esa.int/gnss/products/
+          probe https://gssc.esa.int/gnss/products/2437/
+          probe https://gssc.esa.int/gnss/products/2437/mgex/
+          probe https://gssc.esa.int/gnss/products/ionex/2026/269/
+          probe https://igs.ign.fr/pub/igs/products/
+          probe https://igs.ign.fr/pub/igs/products/mgex/2437/
+          probe https://igs.ign.fr/pub/igs/products/ionosphere/2026/269/
       - name: Compute and check
-        timeout-minutes: 25
+        timeout-minutes: 15
         run: |
           python scripts/compute_conditions.py --report test-report.md --only 20260926-082350,20260926-080720,20260926-082140,20260926-080719 2>&1 | tee test-log.txt || true
       - name: Save results to the branch
