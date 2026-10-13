@@ -1,0 +1,5 @@
+https://igs.bkg.bund.de/root_ftp/IGS/products/mgex/2437/ -> 404 1.301867s 
+https://igs.bkg.bund.de/root_ftp/IGS/products/ionex/2026/269/ -> 404 1.177980s 
+http://ftp.aiub.unibe.ch/CODE/2026/ -> 000 30.001650s 
+http://ftp.aiub.unibe.ch/CODE_MGEX/CODE/2026/ -> 000 30.000999s 
+http://ftp.aiub.unibe.ch/CODE/ -> 000 30.000739s 
