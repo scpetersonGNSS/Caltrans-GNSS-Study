@@ -1,31 +1,25 @@
-name: Probe nav sources (temporary)
+name: Test satellite geometry (temporary)
 on:
   push:
     branches: [claude/sat-geometry-probe]
+permissions:
+  contents: write
 jobs:
-  probe:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Try sources
-        run: |
-          mkdir out
-          for d in 2026/243 2026/244 2026/269 2026/270; do
-            y=${d%/*}; j=${d#*/}
-            for u in \
-              "https://igs.bkg.bund.de/root_ftp/IGS/BRDC/$y/$j/" \
-              "https://igs.bkg.bund.de/root_ftp/MGEX/BRDC/$y/$j/" \
-              "https://gssc.esa.int/igs/data/daily/$y/$j/" ; do
-              echo "== $u"; curl -sL -m 60 "$u" | grep -oE '(BRD[CM][^"<> ]*rnx\.gz|brdc[^"<> ]*)' | sort -u | head -20
-            done
-            for f in "https://igs.bkg.bund.de/root_ftp/IGS/BRDC/$y/$j/BRDC00WRD_S_${y}${j}0000_01D_MN.rnx.gz" \
-                     "https://igs.bkg.bund.de/root_ftp/IGS/BRDC/$y/$j/BRDC00IGS_R_${y}${j}0000_01D_MN.rnx.gz" \
-                     "https://igs.bkg.bund.de/root_ftp/MGEX/BRDC/$y/$j/BRDM00DLR_S_${y}${j}0000_01D_MN.rnx.gz"; do
-              code=$(curl -sL -m 120 -o "out/$(basename $f)" -w '%{http_code}' "$f"); echo "$code $f $(stat -c %s out/$(basename $f))"
-              [ "$code" = 200 ] || rm -f "out/$(basename $f)"
-            done
-          done
-          ls -la out
-      - uses: actions/upload-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          name: nav
-          path: out
+          python-version: "3.12"
+      - name: Compute geometry
+        run: |
+          { time python scripts/satellite_geometry.py ; } > run.log 2>&1 || true
+          python scripts/dev/validate_geometry.py >> run.log 2>&1 || true
+          cat run.log
+      - name: Commit results to this branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data run.log validation.txt || true
+          git commit -m "Test results" && git push || true
