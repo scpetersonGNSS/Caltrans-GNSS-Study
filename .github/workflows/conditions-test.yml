@@ -23,10 +23,14 @@ jobs:
             echo "== $1 -> $code" >> servers.txt
             echo "$names" >> servers.txt
           }
-          probe http://navigation-office.esa.int/products/gnss-products/2437/ 2690000
-          probe http://chapman.upc.es/tomion/rapid/2026/269_260926.15min/ .
-          probe http://chapman.upc.es/tomion/rapid/2026/281_261008.15min/ .
-          probe https://igs.bkg.bund.de/root_ftp/IGS/products/2437/ 2690000
+          for u in http://navigation-office.esa.int/products/gnss-products/2437/ESA0OPSRAP_20262690000_01D_05M_ORB.SP3.gz http://navigation-office.esa.int/products/gnss-products/2437/ESA0OPSFIN_20262690000_01D_05M_ORB.SP3.gz; do
+            curl -s -m 60 "$u" | gunzip | awk '/^\*/{exit} {print}' | grep -E '^(#|\+ )' | head -12 >> servers.txt; echo "-- $u" >> servers.txt
+          done
+          probe http://navigation-office.esa.int/products/gnss-products/2437/mgex/ .
+          probe http://navigation-office.esa.int/products/gnss-products/ mgex
+          curl -s -m 60 https://igs.bkg.bund.de/root_ftp/IGS/BRDC/2026/269/BRDC00IGS_R_20262690000_01D_MN.rnx.gz | gunzip | head -3 >> servers.txt
+          curl -s -m 60 https://igs.bkg.bund.de/root_ftp/IGS/BRDC/2026/269/BRDC00IGS_R_20262690000_01D_MN.rnx.gz | gunzip | grep -c '^> EPH\|^[GREC][0-9][0-9] ' >> servers.txt
+          probe http://chapman.upc.es/tomion/rapid/2026/ 28
           cat servers.txt
       - name: Save results to the branch
         if: always()
