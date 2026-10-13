@@ -1,0 +1,31 @@
+name: Probe nav sources (temporary)
+on:
+  push:
+    branches: [claude/sat-geometry-probe]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Try sources
+        run: |
+          mkdir out
+          for d in 2026/243 2026/244 2026/269 2026/270; do
+            y=${d%/*}; j=${d#*/}
+            for u in \
+              "https://igs.bkg.bund.de/root_ftp/IGS/BRDC/$y/$j/" \
+              "https://igs.bkg.bund.de/root_ftp/MGEX/BRDC/$y/$j/" \
+              "https://gssc.esa.int/igs/data/daily/$y/$j/" ; do
+              echo "== $u"; curl -sL -m 60 "$u" | grep -oE '(BRD[CM][^"<> ]*rnx\.gz|brdc[^"<> ]*)' | sort -u | head -20
+            done
+            for f in "https://igs.bkg.bund.de/root_ftp/IGS/BRDC/$y/$j/BRDC00WRD_S_${y}${j}0000_01D_MN.rnx.gz" \
+                     "https://igs.bkg.bund.de/root_ftp/IGS/BRDC/$y/$j/BRDC00IGS_R_${y}${j}0000_01D_MN.rnx.gz" \
+                     "https://igs.bkg.bund.de/root_ftp/MGEX/BRDC/$y/$j/BRDM00DLR_S_${y}${j}0000_01D_MN.rnx.gz"; do
+              code=$(curl -sL -m 120 -o "out/$(basename $f)" -w '%{http_code}' "$f"); echo "$code $f $(stat -c %s out/$(basename $f))"
+              [ "$code" = 200 ] || rm -f "out/$(basename $f)"
+            done
+          done
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nav
+          path: out
