@@ -1,0 +1,27 @@
+Downloaded BRDC00WRD_S_20262690000_01D_MN.rnx.gz (1252 kB)
+Downloaded BRDC00WRD_S_20262700000_01D_MN.rnx.gz (1227 kB)
+Satellite geometry for 20260926-082350 (SJER / G): 1463 epochs, at 37.0981, -119.7479; mean visible G 9.1, R 6.4, E 7.8, C 8.1; PDOP 1.28-3.12
+Satellite geometry for 20260926-082140 (SJER / GREC): 1465 epochs, at 37.0981, -119.7479; mean visible G 9.1, R 6.4, E 7.8, C 8.1; PDOP 0.78-1.20
+Satellite geometry for 20260926-082130 (SJER / GRE): 1468 epochs, at 37.0980, -119.7480; mean visible G 9.1, R 6.4, E 7.8, C 8.1; PDOP 0.91-1.50
+Satellite geometry for 20260926-082128 (SJER / GRC): 1466 epochs, at 37.0982, -119.7479; mean visible G 9.1, R 6.4, E 7.8, C 8.1; PDOP 0.89-1.48
+Satellite geometry for 20260926-082125 (SJER / GEC): 1465 epochs, at 37.0980, -119.7478; mean visible G 9.1, R 6.4, E 7.8, C 8.1; PDOP 0.84-1.31
+Satellite geometry for 20260926-080901 (ELK / GEC): 1478 epochs, at 37.6586, -121.3001; mean visible G 9.0, R 6.4, E 7.9, C 8.1; PDOP 0.85-1.34
+Satellite geometry for 20260926-080855 (ELK / GREC): 1478 epochs, at 37.6585, -121.3001; mean visible G 9.0, R 6.4, E 7.9, C 8.1; PDOP 0.80-1.23
+Satellite geometry for 20260926-080732 (ELK / GRC): 1482 epochs, at 37.6587, -121.3001; mean visible G 9.0, R 6.4, E 7.9, C 8.1; PDOP 0.86-1.44
+Satellite geometry for 20260926-080720 (ELK / G): 1481 epochs, at 37.6587, -121.3001; mean visible G 9.0, R 6.4, E 7.9, C 8.1; PDOP 1.26-3.15
+Satellite geometry for 20260926-080719 (ELK / GRE): 1481 epochs, at 37.6587, -121.3001; mean visible G 9.0, R 6.4, E 7.9, C 8.1; PDOP 0.91-1.40
+Skipping 20260831-072247: no site tag, so its location is not known
+
+real	1m30.284s
+user	1m21.516s
+sys	0m0.170s
+20260926-080719 | GRE | offset0: r=0.520 mean pred 1.08 logged 1.19 | best offset 1 min r=0.522 mad=0.12 | counts G:7-12 R:4-9 E:5-11 C:5-12
+20260926-080720 | G | offset0: r=0.753 mean pred 1.84 logged 2.10 | best offset -3 min r=0.787 mad=0.27 | counts G:7-12 R:4-9 E:5-11 C:5-12
+20260926-080732 | GRC | offset0: r=0.210 mean pred 1.09 logged 1.73 | best offset 540 min r=0.419 mad=0.59 | counts G:7-12 R:4-9 E:5-11 C:5-12
+20260926-080855 | GREC | offset0: r=0.549 mean pred 0.92 logged 1.01 | best offset -5 min r=0.553 mad=0.10 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-080901 | GEC | offset0: r=0.643 mean pred 1.02 logged 1.10 | best offset 0 min r=0.643 mad=0.08 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-082125 | GEC | offset0: r=0.427 mean pred 1.03 logged 1.16 | best offset 0 min r=0.427 mad=0.13 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-082128 | GRC | offset0: r=0.439 mean pred 1.09 logged 1.30 | best offset 0 min r=0.439 mad=0.21 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-082130 | GRE | offset0: r=0.499 mean pred 1.08 logged 1.25 | best offset 0 min r=0.499 mad=0.17 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-082140 | GREC | offset0: r=0.420 mean pred 0.92 logged 1.07 | best offset 0 min r=0.420 mad=0.15 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-082350 | G | offset0: r=0.761 mean pred 1.85 logged 2.16 | best offset 0 min r=0.761 mad=0.31 | counts G:7-12 R:4-9 E:6-10 C:5-12

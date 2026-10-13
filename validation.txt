@@ -1,0 +1,10 @@
+20260926-080719 | GRE | offset0: r=0.520 mean pred 1.08 logged 1.19 | best offset 1 min r=0.522 mad=0.12 | counts G:7-12 R:4-9 E:5-11 C:5-12
+20260926-080720 | G | offset0: r=0.753 mean pred 1.84 logged 2.10 | best offset -3 min r=0.787 mad=0.27 | counts G:7-12 R:4-9 E:5-11 C:5-12
+20260926-080732 | GRC | offset0: r=0.210 mean pred 1.09 logged 1.73 | best offset 540 min r=0.419 mad=0.59 | counts G:7-12 R:4-9 E:5-11 C:5-12
+20260926-080855 | GREC | offset0: r=0.549 mean pred 0.92 logged 1.01 | best offset -5 min r=0.553 mad=0.10 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-080901 | GEC | offset0: r=0.643 mean pred 1.02 logged 1.10 | best offset 0 min r=0.643 mad=0.08 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-082125 | GEC | offset0: r=0.427 mean pred 1.03 logged 1.16 | best offset 0 min r=0.427 mad=0.13 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-082128 | GRC | offset0: r=0.439 mean pred 1.09 logged 1.30 | best offset 0 min r=0.439 mad=0.21 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-082130 | GRE | offset0: r=0.499 mean pred 1.08 logged 1.25 | best offset 0 min r=0.499 mad=0.17 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-082140 | GREC | offset0: r=0.420 mean pred 0.92 logged 1.07 | best offset 0 min r=0.420 mad=0.15 | counts G:7-12 R:4-9 E:6-10 C:5-12
+20260926-082350 | G | offset0: r=0.761 mean pred 1.85 logged 2.16 | best offset 0 min r=0.761 mad=0.31 | counts G:7-12 R:4-9 E:6-10 C:5-12
