@@ -36,5 +36,5 @@ cts/ionosphere/2026/269/
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f test-report.md test-log.txt servers.txt || git add -f servers.txt test-log.txt
+          git add -f $(ls test-report.md test-log.txt servers.txt 2>/dev/null)
           git commit -m "Conditions test results" && (git pull --rebase -q origin conditions-test || true) && git push
