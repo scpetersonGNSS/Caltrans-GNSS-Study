@@ -1,0 +1,11 @@
+20260926-082350 (SJER / G):
+  could not reach ftp.aiub.unibe.ch (<urlopen error timed out>); skipping it for the rest of this run
+  pending: no ionosphere map yet for 2026-09-26
+20260926-082140 (SJER / GREC):
+  IGS0OPSRAP_20262690000_01D_15M_ORB.SP3.gz lacks CER; trying next
+  pending: no orbit file with GREC yet for 2026-09-26
+20260926-080720 (ELK / G):
+  pending: no ionosphere map yet for 2026-09-26
+20260926-080719 (ELK / GRE):
+  IGS0OPSRAP_20262690000_01D_15M_ORB.SP3.gz lacks ER; trying next
+  pending: no orbit file with GRE yet for 2026-09-26

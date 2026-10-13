@@ -17,7 +17,13 @@ jobs:
       - run: pip install numpy
       - name: Which data servers answer
         run: |
-          probe() { echo "== $1 -> $(curl -sL -o /tmp/l.html -w '%{http_code} %{time_total}s' -m 30 "$1")" | tee -a servers.txt; grep -oE 'href="[^"?]+' /tmp/l.html 2>/dev/null | sed 's/href="//' | grep -vE '^(\.\.|/|https?:)' | grep -vE '^[0-9]{4}/$' | head -60 | tr '\n' ' ' | tee -a servers.txt; echo          probe https://igs.bkg.bund.de/root_ftp/IGS/
+          probe() {
+            code=$(curl -sL -o /tmp/l.html -w '%{http_code} %{time_total}s' -m 30 "$1")
+            names=$(grep -oE 'href="[^"?]+' /tmp/l.html 2>/dev/null | sed 's/href="//' | grep -vE '^(\.\.|/|https?:|#)' | grep -vE '^[0-9]{4}/$' | head -60 | tr '\n' ' ')
+            echo "== $1 -> $code" >> servers.txt
+            echo "$names" >> servers.txt
+          }
+          probe https://igs.bkg.bund.de/root_ftp/IGS/
           probe https://igs.bkg.bund.de/root_ftp/IGS/products/
           probe https://igs.bkg.bund.de/root_ftp/MGEX/
           probe https://igs.bkg.bund.de/root_ftp/MGEX/products/
@@ -25,12 +31,7 @@ jobs:
           probe https://igs.bkg.bund.de/root_ftp/IGS/BRDC/2026/269/
           probe https://igs.bkg.bund.de/root_ftp/IGS/products/ionosphere/
           probe https://igs.bkg.bund.de/root_ftp/IGS/products/ionex/
-          probe https://igs.bkg.bund.de/root_ftp/IGS/products/iono/
-cts/ionosphere/2026/269/
-      - name: Compute and check
-        timeout-minutes: 15
-        run: |
-          true || python scripts/compute_conditions.py --report test-report.md --only 20260926-082350,20260926-080720,20260926-082140,20260926-080719 2>&1 | tee test-log.txt || true
+          cat servers.txt
       - name: Save results to the branch
         if: always()
         run: |
