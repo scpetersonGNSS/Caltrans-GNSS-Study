@@ -1,0 +1,16 @@
+== https://igs.bkg.bund.de/root_ftp/IGS/ -> 200 1.156476s
+BRDC/ BRDC_v3/ highrate/ highrate_permanent/ nrt/ obs/ obs_v3/ obs_v4/ products/ reports/ station/ 
+== https://igs.bkg.bund.de/root_ftp/IGS/products/ -> 200 2.325192s
+EOP_ERP/ dcb/ glo_orbits/ mgex/ orbits/ 
+== https://igs.bkg.bund.de/root_ftp/MGEX/ -> 200 1.586332s
+BRDC/ BRDC_v3/ highrate/ nrt/ nrt_v3/ obs/ obs_v3/ obs_v4/ products/ reports/ station/ 
+== https://igs.bkg.bund.de/root_ftp/MGEX/products/ -> 200 1.030233s
+
+== https://igs.bkg.bund.de/root_ftp/IGS/products/mgex/ -> 200 1.964776s
+
+== https://igs.bkg.bund.de/root_ftp/IGS/BRDC/2026/269/ -> 200 1.710513s
+BRD400DLR_S_20262690000_01D_MN.rnx.gz BRDC00IGS_R_20262690000_01D_MN.rnx.gz BRDC00WRD_R_20262690000_01D_MN.rnx.gz BRDC00WRD_S_20262690000_01D_MN.rnx.gz BRDM00DLR_S_20262690000_01D_MN.rnx.gz 
+== https://igs.bkg.bund.de/root_ftp/IGS/products/ionosphere/ -> 404 1.229418s
+
+== https://igs.bkg.bund.de/root_ftp/IGS/products/ionex/ -> 404 0.571077s
+
