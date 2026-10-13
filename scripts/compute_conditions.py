@@ -5,30 +5,30 @@ Add satellite and ionosphere conditions to each processed session.
 For every tagged session in data/index.json this computes, every STEP_S
 seconds through the session:
 
-  Satellites in view   number of satellites above ELEVATION_MASK_DEG at the
-                       site, counting only the constellations in that test
-                       (GPS only for test G, all four for GREC, ...)
+  Satellites in view   number of healthy satellites above ELEVATION_MASK_DEG
+                       at the site, counting only the constellations in that
+                       test (GPS only for test G, all four for GREC, ...)
   Ionosphere VTEC      vertical total electron content above the site, in
                        TEC units (1 TECU delays the GPS L1 signal by ~16 cm)
 
-These are the same quantities Trimble GNSS Planning charts, but computed from
-the precise orbits and ionosphere maps published by the International GNSS
-Service (IGS) for the actual dates of the session, so nothing has to be
+These are the quantities Trimble GNSS Planning charts, computed for the
+actual dates of each session from published data, so nothing has to be
 copied by hand. The values are stored in the session file next to PDOP, so
-the website can plot them the same way.
+the website plots them the same way.
 
-Data sources (public, no account needed), tried in order:
-  orbits      multi-GNSS SP3 files (CODE, GFZ, Wuhan, ...) from the BKG IGS
-              mirror and the CODE archive at the University of Bern
-  ionosphere  IONEX global ionosphere maps (CODE, IGS) from the same places
+Data sources (public, no account needed):
+  satellites  the IGS daily broadcast navigation file (all constellations,
+              with health flags), from the BKG data center; posted the
+              day after the observations
+  ionosphere  global ionosphere maps (IONEX) from UPC Barcelona (15-minute
+              rapid maps, about a day after) or ESA (rapid and final)
 
-Final products appear about one to two weeks after the date and rapid ones
-about a day after. Until a session's products exist it is marked "pending"
-and the website shows the session without these values; the daily run of
-the workflow fills them in once the files are published.
+Until a session's files are published it is marked "pending" and the
+website shows the session without these values; the daily run of the
+workflow fills them in automatically once the files appear.
 
 Collector times are local clock times (see COLLECTOR_TIME_ZONE); they are
-converted to UTC to match the orbit and ionosphere files.
+converted to UTC to match the data files.
 
 Needs numpy. Run locally:  python scripts/compute_conditions.py
 """
@@ -37,7 +37,7 @@ import argparse
 import gzip
 import json
 import math
-import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -83,45 +83,35 @@ CONDITIONS_VERSION = 1
 SAT_NAME = "Satellites in view"
 ION_NAME = "Ionosphere VTEC"
 
+# Where to download from, best first. {y} year, {d} day of year (3 digits),
+# {ymd} yymmdd, {w} GPS week.
+NAV_URLS = [
+    "https://igs.bkg.bund.de/root_ftp/IGS/BRDC/{y}/{d}/BRDC00IGS_R_{y}{d}0000_01D_MN.rnx.gz",
+    "https://igs.bkg.bund.de/root_ftp/IGS/BRDC/{y}/{d}/BRDC00WRD_R_{y}{d}0000_01D_MN.rnx.gz",
+]
+ION_URLS = [
+    "http://chapman.upc.es/tomion/rapid/{y}/{d}_{ymd}.15min/UPC0OPSRAP_{y}{d}0000_01D_15M_GIM.INX.Z",
+    "http://navigation-office.esa.int/products/gnss-products/{w}/ESA0OPSFIN_{y}{d}0000_01D_02H_GIM.INX.gz",
+    "http://navigation-office.esa.int/products/gnss-products/{w}/ESA0OPSRAP_{y}{d}0000_01D_01H_GIM.INX.gz",
+    "http://chapman.upc.es/tomion/rapid/{y}/{d}_{ymd}.15min/UPC0OPSFIN_{y}{d}0000_01D_02H_GIM.INX.Z",
+]
+# Precise orbits, used only by --report to check the broadcast positions.
+CHECK_SP3_URL = "http://navigation-office.esa.int/products/gnss-products/{w}/ESA0OPSFIN_{y}{d}0000_01D_05M_ORB.SP3.gz"
+
 # ---------------------------------------------------------------------------
 
-GPS_EPOCH = date(1980, 1, 6)
-GPS_MINUS_UTC = 18                         # seconds, since 2017
+GPS_EPOCH = datetime(1980, 1, 6, tzinfo=timezone.utc)
+GPS_MINUS_UTC = 18                          # seconds, since 2017
+BDT_MINUS_GPS = -14                         # BeiDou time = GPS time - 14 s
 WGS84_A, WGS84_F = 6378137.0, 1 / 298.257223563
 USER_AGENT = "Caltrans-GNSS-Study site builder (github.com/scpetersonGNSS/Caltrans-GNSS-Study)"
-
-# Where to look, in order. Each entry is a directory URL and a file-name
-# pattern; {y} = year, {d} = day of year (3 digits), {w} = GPS week.
-ORBIT_DIRS = [
-    "https://igs.bkg.bund.de/root_ftp/IGS/products/mgex/{w}/",
-    "http://ftp.aiub.unibe.ch/CODE_MGEX/CODE/{y}/",
-    "https://igs.bkg.bund.de/root_ftp/IGS/products/{w}/",
-]
-ORBIT_RE = r"(?P<ac>[A-Z0-9]{{3}})0(?P<camp>MGX|OPS)(?P<kind>FIN|RAP)_{y}{d}0000_01D_\d\dM_ORB\.SP3\.gz"
-ORBIT_GUESSES = [
-    "http://ftp.aiub.unibe.ch/CODE_MGEX/CODE/{y}/COD0MGXFIN_{y}{d}0000_01D_05M_ORB.SP3.gz",
-]
-ION_DIRS = [
-    "https://igs.bkg.bund.de/root_ftp/IGS/products/ionex/{y}/{d}/",
-    "http://ftp.aiub.unibe.ch/CODE/{y}/",
-    "http://ftp.aiub.unibe.ch/CODE/",
-]
-ION_RE = r"(?P<ac>[A-Z0-9]{{3}})0(?P<camp>OPS|MGX)(?P<kind>FIN|RAP)_{y}{d}0000_01D_\d\d[HM]_GIM\.INX\.gz"
-ION_GUESSES = [
-    "http://ftp.aiub.unibe.ch/CODE/{y}/COD0OPSFIN_{y}{d}0000_01D_01H_GIM.INX.gz",
-    "http://ftp.aiub.unibe.ch/CODE/COD0OPSRAP_{y}{d}0000_01D_01H_GIM.INX.gz",
-]
-# Preferred analysis centers, best first. Final products beat rapid ones.
-ORBIT_CENTERS = ["COD", "GFZ", "WUM", "GRG", "IGS", "ESA", "JAX", "IAC", "SHA"]
-ION_CENTERS = ["COD", "IGS", "JPL", "ESA", "UPC", "EMR", "WHU", "CAS"]
 
 
 # ---------------------------------------------------------------------------
 # Downloading
 # ---------------------------------------------------------------------------
 
-_dead_hosts = set()     # hosts that timed out or refused this run; not tried again
-_listings = {}          # directory URL -> listing bytes (or None)
+_dead_hosts = set()     # hosts that timed out this run; not tried again
 
 
 def fetch(url, tries=2):
@@ -130,7 +120,7 @@ def fetch(url, tries=2):
     if host in _dead_hosts:
         return None
     last = None
-    for attempt in range(tries):
+    for _ in range(tries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(req, timeout=45) as r:
@@ -147,123 +137,217 @@ def fetch(url, tries=2):
     return None
 
 
-def listing(url):
-    if url not in _listings:
-        _listings[url] = fetch(url)
-    return _listings[url]
-
-
 def fmt(template, day):
-    week = (day - GPS_EPOCH).days // 7
-    return template.format(y=f"{day.year:04d}", d=f"{day.timetuple().tm_yday:03d}", w=f"{week:04d}")
+    week = (datetime(day.year, day.month, day.day, tzinfo=timezone.utc) - GPS_EPOCH).days // 7
+    return template.format(y=f"{day.year:04d}", d=f"{day.timetuple().tm_yday:03d}",
+                           ymd=day.strftime("%y%m%d"), w=f"{week:04d}")
 
 
-def candidates(day, dirs, pattern, guesses, centers):
-    """Product URLs for one UTC day, best first."""
-    found = {}
-    rx = re.compile(fmt(pattern, day))
-    for d in dirs:
-        text = listing(fmt(d, day))
-        if not text:
-            continue
-        for m in rx.finditer(text.decode("utf-8", "replace")):
-            found.setdefault(m.group(0), (fmt(d, day) + m.group(0), m))
-    def rank(item):
-        name, (url, m) = item
-        ac = m.group("ac")
-        return (m.group("kind") != "FIN", centers.index(ac) if ac in centers else len(centers), m.group("camp") != "MGX", name)
-    urls = [url for _, (url, _) in sorted(found.items(), key=rank)]
-    for g in guesses:
-        u = fmt(g, day)
-        if all(Path(u).name != Path(x).name for x in urls):
-            urls.append(u)
-    return urls
-
-
-def load_product(url):
-    """Download (or reuse) a gzipped product; return its text, or None."""
+def load_text(url):
+    """Download (or reuse) a compressed product; return its text, or None."""
     CACHE.mkdir(exist_ok=True)
-    local = CACHE / Path(url).name
-    if local.exists():
-        raw = local.read_bytes()
-    else:
-        raw = fetch(url)
-        if raw is None:
-            return None
-        local.write_bytes(raw)
+    local = CACHE / Path(urllib.parse.urlsplit(url).path).name
+    raw = local.read_bytes() if local.exists() else fetch(url)
+    if raw is None:
+        return None
     try:
-        return gzip.decompress(raw).decode("ascii", "replace")
-    except (OSError, EOFError):
+        if url.endswith(".gz"):
+            text = gzip.decompress(raw)
+        elif url.endswith(".Z"):                      # unix compress; gzip can read it
+            text = subprocess.run(["gzip", "-dc"], input=raw, capture_output=True, check=True).stdout
+        else:
+            text = raw
+    except (OSError, EOFError, subprocess.CalledProcessError):
         local.unlink(missing_ok=True)
         return None
+    if not local.exists():
+        local.write_bytes(raw)
+    return text.decode("ascii", "replace")
 
 
 # ---------------------------------------------------------------------------
-# Orbits (SP3)
+# Broadcast navigation (RINEX 3 mixed) -> satellite positions
 # ---------------------------------------------------------------------------
 
-def parse_sp3(text):
-    """{'G01': (times[s, UTC posix], xyz[m] Nx3), ...}"""
-    sats, t = {}, None
-    system_gps = True
-    for line in text.splitlines():
-        if line.startswith("%c") and len(line) > 13:
-            system_gps = line[9:12].strip() in ("GPS", "ccc", "")
-        elif line.startswith("*"):
-            p = line[1:].split()
-            y, mo, d, h, mi = map(int, p[:5])
-            sec = float(p[5])
-            t = datetime(y, mo, d, h, mi, tzinfo=timezone.utc).timestamp() + sec
-            if system_gps:
-                t -= GPS_MINUS_UTC
-        elif line.startswith("P") and t is not None and len(line) >= 46:
-            prn = line[1:4].replace(" ", "0")
-            try:
-                xyz = (float(line[4:18]), float(line[18:32]), float(line[32:46]))
-            except ValueError:
-                continue
-            if xyz == (0.0, 0.0, 0.0) or any(abs(v) > 99999 for v in xyz):
-                continue                    # no position at this epoch
-            sats.setdefault(prn, []).append((t, xyz[0] * 1000, xyz[1] * 1000, xyz[2] * 1000))
+def _num(s):
+    s = s.strip().replace("D", "E").replace("d", "e")
+    return float(s) if s else math.nan
+
+
+# Lines per record after the first, by system.
+NAV_LINES = {"G": 7, "E": 7, "C": 7, "J": 7, "I": 7, "R": 3, "S": 3}
+
+
+def parse_nav(text):
+    """{'G': [record, ...], 'R': [...], ...}. Each record is a dict."""
     out = {}
-    for prn, rows in sats.items():
-        a = np.array(sorted(rows))
-        out[prn] = (a[:, 0], a[:, 1:4])
-    return out
-
-
-def merge_orbits(parts):
-    merged = {}
-    for orb in parts:
-        for prn, (t, xyz) in orb.items():
-            if prn in merged:
-                t0, x0 = merged[prn]
-                t = np.concatenate([t0, t]); xyz = np.vstack([x0, xyz])
-            order = np.argsort(t, kind="stable")
-            t, xyz = t[order], xyz[order]
-            keep = np.concatenate([[True], np.diff(t) > 0.5])
-            merged[prn] = (t[keep], xyz[keep])
-    return merged
-
-
-def sat_positions(orbits, tq):
-    """Positions at query times (linear interpolation of 5-15 min samples,
-    which is far more precise than satellite counting needs). NaN where a
-    satellite has no orbit or the samples are more than 20 minutes apart."""
-    out = {}
-    for prn, (t, xyz) in orbits.items():
-        if len(t) < 2:
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines) and "END OF HEADER" not in lines[i]:
+        i += 1
+    i += 1
+    while i < len(lines):
+        line = lines[i]
+        sysc = line[:1]
+        if sysc not in NAV_LINES or len(line) < 23:
+            i += 1
             continue
-        idx = np.searchsorted(t, tq)
-        ok = (idx > 0) & (idx < len(t))
-        i1 = np.clip(idx, 1, len(t) - 1)
-        ok &= (t[i1] - t[i1 - 1]) <= 1200
-        exact = np.isin(tq, t)
-        p = np.column_stack([np.interp(tq, t, xyz[:, k]) for k in range(3)])
-        p[~(ok | exact)] = np.nan
-        out[prn] = p
+        n = NAV_LINES[sysc]
+        block = lines[i:i + n + 1]
+        i += n + 1
+        try:
+            prn = f"{sysc}{int(line[1:3]):02d}"
+            y, mo, d, h, mi, s = (int(v) for v in line[3:23].split())
+            vals = [_num(line[23 + 19 * k:42 + 19 * k]) for k in range(3)]
+            for b in block[1:]:
+                vals += [_num(b[4 + 19 * k:23 + 19 * k]) for k in range(4)]
+        except (ValueError, IndexError):
+            continue
+        epoch = datetime(y, mo, d, h, mi, s, tzinfo=timezone.utc)
+        out.setdefault(sysc, []).append({"prn": prn, "epoch": epoch, "v": vals})
     return out
 
+
+# Kepler constants per system: (GM, Earth rotation rate)
+KEPLER = {"G": (3.986005e14, 7.2921151467e-5), "J": (3.986005e14, 7.2921151467e-5),
+          "E": (3.986004418e14, 7.2921151467e-5), "C": (3.986004418e14, 7.292115e-5)}
+BDS_GEO = {1, 2, 3, 4, 5, 59, 60, 61, 62, 63}
+
+
+def kepler_positions(rec, t_sys):
+    """ECEF positions (m) of a GPS / Galileo / BeiDou / QZSS satellite at
+    system times t_sys (seconds of the same week numbering as Toe)."""
+    v = rec["v"]
+    sysc = rec["prn"][0]
+    gm, we = KEPLER[sysc]
+    crs, dn, m0 = v[4], v[5], v[6]
+    cuc, e, cus, sqa = v[7], v[8], v[9], v[10]
+    toe, cic, om0, cis = v[11], v[12], v[13], v[14]
+    i0, crc, w, omd = v[15], v[16], v[17], v[18]
+    idot = v[19]
+    a = sqa * sqa
+    tk = t_sys - toe
+    tk = (tk + 302400) % 604800 - 302400       # week crossover
+    n = math.sqrt(gm / a ** 3) + dn
+    M = m0 + n * tk
+    E = M.copy()
+    for _ in range(10):
+        E = M + e * np.sin(E)
+    nu = np.arctan2(math.sqrt(1 - e * e) * np.sin(E), np.cos(E) - e)
+    phi = nu + w
+    du = cus * np.sin(2 * phi) + cuc * np.cos(2 * phi)
+    dr = crs * np.sin(2 * phi) + crc * np.cos(2 * phi)
+    di = cis * np.sin(2 * phi) + cic * np.cos(2 * phi)
+    u = phi + du
+    r = a * (1 - e * np.cos(E)) + dr
+    inc = i0 + di + idot * tk
+    xo, yo = r * np.cos(u), r * np.sin(u)
+    geo = sysc == "C" and int(rec["prn"][1:]) in BDS_GEO
+    if geo:
+        om = om0 + omd * tk - we * toe
+    else:
+        om = om0 + (omd - we) * tk - we * toe
+    x = xo * np.cos(om) - yo * np.cos(inc) * np.sin(om)
+    y = xo * np.sin(om) + yo * np.cos(inc) * np.cos(om)
+    z = yo * np.sin(inc)
+    if geo:                                    # BeiDou GEO: rotate from the -5° frame
+        f, g = we * tk, math.radians(-5)
+        xg, yg, zg = x, y * math.cos(g) + z * math.sin(g), -y * math.sin(g) + z * math.cos(g)
+        x = xg * np.cos(f) + yg * np.sin(f)
+        y = -xg * np.sin(f) + yg * np.cos(f)
+        z = zg
+    return np.column_stack([x, y, z])
+
+
+GLO_GM, GLO_AE, GLO_J2, GLO_WE = 398600.4418e9, 6378136.0, 1.08262575e-3, 7.292115e-5
+
+
+def _glo_deriv(s, acc):
+    x, y, z, vx, vy, vz = s
+    r2 = x * x + y * y + z * z
+    r = math.sqrt(r2)
+    a = GLO_GM / r ** 3
+    b = 1.5 * GLO_J2 * GLO_GM * GLO_AE ** 2 / r ** 5
+    zz = 5 * z * z / r2
+    return np.array([vx, vy, vz,
+                     -a * x - b * x * (1 - zz) + GLO_WE ** 2 * x + 2 * GLO_WE * vy + acc[0],
+                     -a * y - b * y * (1 - zz) + GLO_WE ** 2 * y - 2 * GLO_WE * vx + acc[1],
+                     -a * z - b * z * (3 - zz) + acc[2]])
+
+
+def glonass_positions(rec, dt):
+    """ECEF positions (m) at dt seconds from the record epoch (|dt| <= ~20 min),
+    by RK4 integration of the broadcast state (GLONASS ICD)."""
+    v = rec["v"]
+    s0 = np.array([v[3], v[7], v[11], v[4], v[8], v[12]]) * 1000.0
+    acc = np.array([v[5], v[9], v[13]]) * 1000.0
+    step = 30.0
+    out = np.empty((len(dt), 3))
+    for sign in (1, -1):
+        sel = np.where((dt >= 0) if sign > 0 else (dt < 0))[0]
+        if not len(sel):
+            continue
+        order = sel[np.argsort(np.abs(dt[sel]))]
+        s, t = s0.copy(), 0.0
+        for k in order:
+            target = abs(dt[k])
+            while t < target - 1e-9:
+                hh = min(step, target - t) * sign
+                k1 = _glo_deriv(s, acc); k2 = _glo_deriv(s + hh / 2 * k1, acc)
+                k3 = _glo_deriv(s + hh / 2 * k2, acc); k4 = _glo_deriv(s + hh * k3, acc)
+                s = s + hh / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+                t += abs(hh)
+            out[k] = s[:3]
+    return out
+
+
+def healthy(rec):
+    v, sysc = rec["v"], rec["prn"][0]
+    if sysc == "R":
+        return v[6] == 0                          # Bn health flag
+    if sysc in ("G", "J"):
+        return v[24] == 0                         # SV health
+    if sysc == "E":
+        return v[24] == 0                         # SV health bits (E1B/E5a/E5b)
+    if sysc == "C":
+        return v[24] == 0                         # SatH1
+    return True
+
+
+def broadcast_positions(nav, letters, tq):
+    """{prn: positions Nx3 (NaN where no valid ephemeris)} at UTC posix times tq."""
+    gps_sow = (tq + GPS_MINUS_UTC - GPS_EPOCH.timestamp()) % 604800
+    out = {}
+    for sysc in letters:
+        recs = [r for r in nav.get(sysc, []) if healthy(r) and np.all(np.isfinite(r["v"][:19 if sysc != "R" else 15]))]
+        by_prn = {}
+        for r in recs:
+            by_prn.setdefault(r["prn"], []).append(r)
+        for prn, rs in by_prn.items():
+            if sysc == "R":
+                ref = np.array([r["epoch"].timestamp() for r in rs])                       # UTC
+                limit = 20 * 60
+            else:
+                # Toe as UTC posix (approx.; only used to pick the nearest record).
+                ref = np.array([r["epoch"].timestamp() - (GPS_MINUS_UTC if sysc != "C" else GPS_MINUS_UTC + BDT_MINUS_GPS) for r in rs])
+                limit = 4 * 3600 if sysc in ("G", "J") else 3 * 3600
+            pick = np.abs(tq[:, None] - ref[None, :]).argmin(axis=1)
+            near = np.abs(tq - ref[pick]) <= limit
+            pos = np.full((len(tq), 3), np.nan)
+            for j in np.unique(pick[near]):
+                idx = np.where(near & (pick == j))[0]
+                if sysc == "R":
+                    pos[idx] = glonass_positions(rs[j], tq[idx] - ref[j])
+                else:
+                    t_sys = gps_sow[idx] + (BDT_MINUS_GPS if sysc == "C" else 0)
+                    pos[idx] = kepler_positions(rs[j], t_sys)
+            out[prn] = pos
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Geometry
+# ---------------------------------------------------------------------------
 
 def station_ecef(lat, lon, h):
     la, lo = math.radians(lat), math.radians(lon)
@@ -276,36 +360,39 @@ def station_ecef(lat, lon, h):
     return r, np.vstack([east, north, up])
 
 
-def geometry(orbits, tq, site, letters):
-    """Satellites in view (count) and PDOP for the given constellations."""
+def geometry(pos, site, want_pdop=False):
+    """Satellites above the mask at each time, and optionally PDOP (one
+    receiver clock per constellation, as multi-GNSS receivers solve)."""
     r0, enu = station_ecef(*site)
-    pos = sat_positions({p: v for p, v in orbits.items() if p[0] in letters}, tq)
-    sys_list = sorted(set(p[0] for p in pos))
-    count = np.zeros(len(tq), dtype=int)
-    rows = []                                   # per satellite: (visible mask, unit los ENU, system index)
+    n = len(next(iter(pos.values()))) if pos else 0
+    count = np.zeros(n, dtype=int)
+    rows = []
+    systems = sorted({p[0] for p in pos})
     for prn, p in pos.items():
         los = p - r0
         rng = np.linalg.norm(los, axis=1)
         u = (los @ enu.T) / rng[:, None]
-        el = np.degrees(np.arcsin(np.clip(u[:, 2], -1, 1)))
-        vis = np.nan_to_num(el, nan=-90) >= ELEVATION_MASK_DEG
+        el = np.degrees(np.arcsin(np.clip(np.nan_to_num(u[:, 2], nan=-1), -1, 1)))
+        vis = np.isfinite(rng) & (el >= ELEVATION_MASK_DEG)
         count += vis
-        rows.append((vis, u, sys_list.index(prn[0])))
-    pdop = np.full(len(tq), np.nan)
-    ns = len(sys_list)
-    for k in range(len(tq)):
-        G = [list(-u[k]) + [1.0 if s == j else 0.0 for j in range(ns)] for vis, u, s in rows if vis[k]]
-        if len(G) < 3 + ns:
+        rows.append((vis, u, systems.index(prn[0])))
+    if not want_pdop:
+        return count, None
+    pdop = np.full(n, np.nan)
+    for k in range(n):
+        G = [list(-u[k]) + [1.0 if s == j else 0.0 for j in range(len(systems))] for vis, u, s in rows if vis[k]]
+        if not G:
             continue
         G = np.array(G)
-        used = G[:, 3:].any(axis=0)             # drop clock columns of systems with no satellites
-        G = np.hstack([G[:, :3], G[:, 3:][:, used]])
+        G = np.hstack([G[:, :3], G[:, 3:][:, G[:, 3:].any(axis=0)]])
+        if len(G) < G.shape[1]:
+            continue
         try:
             Q = np.linalg.inv(G.T @ G)
         except np.linalg.LinAlgError:
             continue
         pdop[k] = math.sqrt(Q[0, 0] + Q[1, 1] + Q[2, 2])
-    return count, pdop, sys_list
+    return count, pdop
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +403,7 @@ def parse_ionex(text):
     """List of (time UTC posix, lats, lons, grid[lat, lon] in TECU)."""
     head, _, body = text.partition("END OF HEADER")
     exponent = -1
-    lat1 = lat2 = dlat = lon1 = lon2 = dlon = None
+    lat1 = dlat = lon1 = lon2 = dlon = None
     for line in head.splitlines():
         label = line[60:].strip()
         if label == "EXPONENT":
@@ -325,8 +412,10 @@ def parse_ionex(text):
             lat1, lat2, dlat = map(float, line[:60].split()[:3])
         elif label == "LON1 / LON2 / DLON":
             lon1, lon2, dlon = map(float, line[:60].split()[:3])
-    lats = np.arange(lat1, lat2 + dlat / 2, dlat) if dlat else None
-    lons = np.arange(lon1, lon2 + dlon / 2, dlon) if dlon else None
+    if dlat is None or dlon is None:
+        return []
+    lats = np.arange(lat1, lat2 + dlat / 2, dlat)
+    lons = np.arange(lon1, lon2 + dlon / 2, dlon)
     nlon = len(lons)
     maps, grid, epoch, scale = [], None, None, 10.0 ** exponent
     lines = body.splitlines()
@@ -334,7 +423,7 @@ def parse_ionex(text):
     while i < len(lines):
         line = lines[i]
         label = line[60:].strip()
-        if label == "START OF RMS MAP" or label == "START OF HEIGHT MAP":
+        if label in ("START OF RMS MAP", "START OF HEIGHT MAP"):
             break
         if label == "START OF TEC MAP":
             grid = np.full((len(lats), nlon), np.nan); epoch = None
@@ -348,12 +437,12 @@ def parse_ionex(text):
             vals = []
             while len(vals) < nlon and i + 1 < len(lines):
                 i += 1
-                row = lines[i]
-                vals += [int(row[k:k + 5]) for k in range(0, len(row.rstrip()), 5) if row[k:k + 5].strip()]
+                row = lines[i].rstrip()
+                vals += [int(row[k:k + 5]) for k in range(0, len(row), 5) if row[k:k + 5].strip()]
             j = int(round((lat - lat1) / dlat))
             v = np.array(vals[:nlon], dtype=float)
             v[v == 9999] = np.nan
-            if 0 <= j < len(lats):
+            if 0 <= j < len(lats) and len(v) == nlon:
                 grid[j] = v * scale
         elif label == "END OF TEC MAP" and grid is not None and epoch is not None:
             maps.append((epoch, lats, lons, grid))
@@ -365,17 +454,17 @@ def parse_ionex(text):
 def vtec_at(maps, tq, lat, lon):
     maps = sorted({m[0]: m for m in maps}.values(), key=lambda m: m[0])
     times = np.array([m[0] for m in maps])
+
     def at_map(m):
         _, lats, lons, g = m
         fy = (lat - lats[0]) / (lats[1] - lats[0]); fx = (lon - lons[0]) / (lons[1] - lons[0])
-        j, i = int(math.floor(fy)), int(math.floor(fx))
-        j = min(max(j, 0), len(lats) - 2); i = min(max(i, 0), len(lons) - 2)
+        j = min(max(int(math.floor(fy)), 0), len(lats) - 2); i = min(max(int(math.floor(fx)), 0), len(lons) - 2)
         wy, wx = fy - j, fx - i
         return ((1 - wy) * ((1 - wx) * g[j, i] + wx * g[j, i + 1]) + wy * ((1 - wx) * g[j + 1, i] + wx * g[j + 1, i + 1]))
+
     vals = np.array([at_map(m) for m in maps])
     out = np.interp(tq, times, vals, left=np.nan, right=np.nan)
-    gap = np.searchsorted(times, tq)
-    gi = np.clip(gap, 1, len(times) - 1)
+    gi = np.clip(np.searchsorted(times, tq), 1, len(times) - 1)
     out[(times[gi] - times[gi - 1]) > 3 * 3600 + 1] = np.nan
     return out
 
@@ -384,65 +473,56 @@ def vtec_at(maps, tq, lat, lon):
 # Sessions
 # ---------------------------------------------------------------------------
 
-def utc_days(t0, t1):
-    d, last = (datetime.fromtimestamp(t0, timezone.utc) - timedelta(minutes=30)).date(), \
-              (datetime.fromtimestamp(t1, timezone.utc) + timedelta(minutes=30)).date()
+def utc_days(t0, t1, margin_s=0):
+    d = datetime.fromtimestamp(t0 - margin_s, timezone.utc).date()
+    last = datetime.fromtimestamp(t1 + margin_s, timezone.utc).date()
     days = []
     while d <= last:
         days.append(d); d += timedelta(days=1)
     return days
 
 
-def get_orbits(days, letters, log):
-    parts, used = [], []
+def first_available(urls, day, parse):
+    for template in urls:
+        url = fmt(template, day)
+        text = load_text(url)
+        if text:
+            parsed = parse(text)
+            if parsed:
+                return parsed, Path(urllib.parse.urlsplit(url).path).name
+    return None, None
+
+
+def get_nav(days):
+    nav, used = {}, []
     for day in days:
-        got = None
-        for url in candidates(day, ORBIT_DIRS, ORBIT_RE, ORBIT_GUESSES, ORBIT_CENTERS):
-            text = load_product(url)
-            if not text:
-                continue
-            orb = parse_sp3(text)
-            have = {p[0] for p in orb}
-            if not set(letters) <= have:
-                log(f"  {Path(url).name} lacks {''.join(sorted(set(letters) - have))}; trying next")
-                continue
-            got = (orb, Path(url).name)
-            break
+        got, name = first_available(NAV_URLS, day, parse_nav)
         if not got:
-            return None, f"no orbit file with {letters} yet for {day}"
-        parts.append(got[0]); used.append(got[1])
-    return (merge_orbits(parts), used), None
+            return None, f"no broadcast navigation file yet for {day}"
+        for k, v in got.items():
+            nav.setdefault(k, []).extend(v)
+        used.append(name)
+    return (nav, used), None
 
 
-def get_ionosphere(days, log):
+def get_ionosphere(days):
     maps, used = [], []
     for day in days:
-        got = None
-        for url in candidates(day, ION_DIRS, ION_RE, ION_GUESSES, ION_CENTERS):
-            text = load_product(url)
-            if not text:
-                continue
-            m = parse_ionex(text)
-            if m:
-                got = (m, Path(url).name)
-                break
+        got, name = first_available(ION_URLS, day, parse_ionex)
         if not got:
             return None, f"no ionosphere map yet for {day}"
-        maps += got[0]; used.append(got[1])
+        maps += got; used.append(name)
     return (maps, used), None
 
 
-def session_times(data, offset_hours=None):
-    """UTC posix time of the session start, and the computation grid (s from start)."""
+def session_grid(data, utc_offset_h=None):
+    """UTC posix times of the computation grid, and the grid in s from start."""
     start = datetime.fromisoformat(data["start"])
-    if offset_hours is None:
-        start_utc = start.replace(tzinfo=ZoneInfo(COLLECTOR_TIME_ZONE)).timestamp()
-    else:
-        start_utc = start.replace(tzinfo=timezone(timedelta(hours=offset_hours))).timestamp()
+    tz = ZoneInfo(COLLECTOR_TIME_ZONE) if utc_offset_h is None else timezone(timedelta(hours=utc_offset_h))
+    start_utc = start.replace(tzinfo=tz).timestamp()
     end = data["t"][-1]
-    grid = np.arange(0, end + STEP_S, STEP_S, dtype=float)
-    grid = grid[grid <= end + STEP_S / 2]
-    return start_utc, grid
+    grid = np.arange(0, end + STEP_S / 2, STEP_S, dtype=float)
+    return start_utc + grid, grid
 
 
 def as_extra(values, dec, unit, note):
@@ -451,36 +531,58 @@ def as_extra(values, dec, unit, note):
             "v": [None if not np.isfinite(v) else int(round(v * scale)) for v in values]}
 
 
-def compute(summary, data, log):
+def compute(summary, data):
     site = SITE_LOCATIONS[summary["site"]]
     letters = summary["test"]
-    start_utc, grid = session_times(data)
-    tq = start_utc + grid
-    days = utc_days(tq[0], tq[-1])
-    orb, why = get_orbits(days, letters, log)
-    if not orb:
+    tq, _ = session_grid(data)
+    nav, why = get_nav(utc_days(tq[0], tq[-1], 4 * 3600))
+    if not nav:
         return None, why
-    ion, why = get_ionosphere(days, log)
+    ion, why = get_ionosphere(utc_days(tq[0], tq[-1]))
     if not ion:
         return None, why
-    (orbits, orb_files), (maps, ion_files) = orb, ion
-    count, _, _ = geometry(orbits, tq, site, letters)
+    (nav, nav_files), (maps, ion_files) = nav, ion
+    pos = broadcast_positions(nav, letters, tq)
+    count, _ = geometry(pos, site)
     vtec = vtec_at(maps, tq, site[0], site[1])
     cons = " + ".join(summary.get("constellations", [])) or letters
     extras = {
         SAT_NAME: as_extra(count.astype(float), 0, "",
-                           f"Computed: {cons} satellites above {ELEVATION_MASK_DEG:g}° from IGS precise orbits ({', '.join(orb_files)})."),
+                           f"Satellites in view are computed, not logged: healthy {cons} satellites above "
+                           f"{ELEVATION_MASK_DEG:g}° at the site, from the broadcast orbits ({', '.join(nav_files)})."),
         ION_NAME: as_extra(vtec, 1, "TECU",
-                           f"Computed: vertical TEC above the site from IGS ionosphere maps ({', '.join(ion_files)}). 1 TECU ≈ 16 cm of L1 delay."),
+                           f"Ionosphere VTEC is computed, not logged: vertical total electron content above the site "
+                           f"from global ionosphere maps ({', '.join(ion_files)}). 1 TECU ≈ 16 cm of GPS L1 delay."),
     }
-    info = {"status": "done", "version": CONDITIONS_VERSION, "mask_deg": ELEVATION_MASK_DEG,
-            "step_s": STEP_S, "time_zone": COLLECTOR_TIME_ZONE, "orbits": orb_files, "ionosphere": ion_files,
+    info = {"status": "done", "version": CONDITIONS_VERSION, "mask_deg": ELEVATION_MASK_DEG, "step_s": STEP_S,
+            "time_zone": COLLECTOR_TIME_ZONE, "navigation": nav_files, "ionosphere": ion_files,
             "computed": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
-    return (extras, info, orbits, tq), None
+    return (extras, info, nav), None
+
+
+# ---------------------------------------------------------------------------
+# Checks (--report)
+# ---------------------------------------------------------------------------
+
+def parse_sp3(text):
+    sats, t, gps = {}, None, True
+    for line in text.splitlines():
+        if line.startswith("%c") and len(line) > 13:
+            gps = line[9:12].strip() in ("GPS", "ccc", "")
+        elif line.startswith("*"):
+            p = line[1:].split()
+            t = datetime(*map(int, p[:5]), tzinfo=timezone.utc).timestamp() + float(p[5]) - (GPS_MINUS_UTC if gps else 0)
+        elif line.startswith("P") and t is not None and len(line) >= 46:
+            try:
+                xyz = tuple(float(line[4 + 14 * k:18 + 14 * k]) * 1000 for k in range(3))
+            except ValueError:
+                continue
+            if xyz != (0.0, 0.0, 0.0):
+                sats.setdefault(line[1:4].replace(" ", "0"), []).append((t,) + xyz)
+    return {p: np.array(sorted(v)) for p, v in sats.items()}
 
 
 def recorded_on_grid(data, grid):
-    """Recorded PDOP sampled at the grid times (nearest epoch within 5 s)."""
     x = (data.get("extra") or {}).get("PDOP")
     if not x:
         return None
@@ -493,27 +595,50 @@ def recorded_on_grid(data, grid):
     return out
 
 
-def time_zone_check(summary, data, orbits):
-    """Correlation of computed vs recorded PDOP for a range of UTC offsets."""
-    site = SITE_LOCATIONS[summary["site"]]
-    rows = []
-    for off in range(-10, 3):
-        start_utc, grid = session_times(data, off)
-        _, pdop, _ = geometry(orbits, start_utc + grid, site, summary["test"])
-        rec = recorded_on_grid(data, grid)
-        if rec is None:
-            return None
-        ok = np.isfinite(pdop) & np.isfinite(rec)
-        r = float(np.corrcoef(pdop[ok], rec[ok])[0, 1]) if ok.sum() > 10 else float("nan")
-        rows.append((off, r, int(ok.sum())))
-    return rows
+def report_checks(summary, data, nav, lines):
+    site, letters = SITE_LOCATIONS[summary["site"]], summary["test"]
+    # 1. Broadcast vs precise orbit positions, at the precise orbit's epochs.
+    day = datetime.fromisoformat(data["start"]).date() + timedelta(days=1)
+    sp3 = load_text(fmt(CHECK_SP3_URL, day))
+    if sp3:
+        prec = parse_sp3(sp3)
+        errs = {}
+        for prn, a in prec.items():
+            if prn[0] not in letters:
+                continue
+            tq = a[::12, 0]
+            p = broadcast_positions(nav, prn[0], tq).get(prn)
+            if p is None:
+                continue
+            d = np.linalg.norm(p - a[::12, 1:4], axis=1)
+            d = d[np.isfinite(d)]
+            if len(d):
+                errs.setdefault(prn[0], []).append(float(np.median(d)))
+        lines.append("- broadcast vs ESA precise orbit, median error per satellite (m): " +
+                     "; ".join(f"{k}: median {np.median(v):.1f}, worst {max(v):.1f} ({len(v)} sats)" for k, v in sorted(errs.items())))
+    else:
+        lines.append("- precise orbit check skipped (ESA file not found)")
+    # 2. Time zone: correlation of computed vs recorded PDOP for several offsets.
+    if "PDOP" in (data.get("extra") or {}):
+        res = []
+        for off in (-9, -8, -7, -6, 0):
+            tq, grid = session_grid(data, off)
+            sub = slice(None, None, 4)                    # every 2 minutes is plenty
+            _, pdop = geometry(broadcast_positions(nav, letters, tq[sub]), site, want_pdop=True)
+            rec = recorded_on_grid(data, grid[sub])
+            ok = np.isfinite(pdop) & np.isfinite(rec)
+            r = float(np.corrcoef(pdop[ok], rec[ok])[0, 1]) if ok.sum() > 20 else float("nan")
+            res.append(f"UTC{off:+d}h r={r:.3f}")
+            if off == -7:
+                lines.append(f"- PDOP at UTC-7: recorded mean {np.nanmean(rec):.2f}, computed mean {np.nanmean(pdop):.2f}")
+        lines.append("- recorded vs computed PDOP correlation by collector time offset: " + ", ".join(res))
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--only", help="comma-separated session ids to compute")
     ap.add_argument("--force", action="store_true", help="recompute even if already done")
-    ap.add_argument("--report", help="write a check report (Markdown) to this file")
+    ap.add_argument("--report", help="also run checks and write them (Markdown) to this file")
     args = ap.parse_args()
 
     index = json.loads(INDEX.read_text())
@@ -534,35 +659,29 @@ def main():
         if current and not args.force and not args.report:
             continue
         print(f"{s['id']} ({s['site']} / {s['test']}):", flush=True)
-        result, why = compute(s, data, print)
+        result, why = compute(s, data)
         if not result:
-            print(f"  pending: {why}")
-            new = {"status": "pending", "reason": why, "version": CONDITIONS_VERSION,
-                   "checked": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+            print(f"  pending: {why}", flush=True)
             if cond.get("status") != "done":
-                changed |= cond != new
-                s["conditions"] = new
+                s["conditions"] = {"status": "pending", "reason": why, "version": CONDITIONS_VERSION}
+                changed |= cond != s["conditions"]
             report += [f"## {s['id']} {s['site']} {s['test']}", f"- pending: {why}", ""]
             continue
-        extras, info, orbits, tq = result
+        extras, info, nav = result
         sats = [v for v in extras[SAT_NAME]["v"] if v is not None]
         ions = [v / 10 for v in extras[ION_NAME]["v"] if v is not None]
         print(f"  satellites {min(sats)}–{max(sats)}, VTEC {min(ions):.1f}–{max(ions):.1f} TECU "
-              f"from {', '.join(info['orbits'])} and {', '.join(info['ionosphere'])}")
+              f"from {', '.join(info['navigation'])} and {', '.join(info['ionosphere'])}", flush=True)
         if args.report:
-            report += [f"## {s['id']} {s['site']} {s['test']}",
-                       f"- orbits: {', '.join(info['orbits'])}", f"- ionosphere: {', '.join(info['ionosphere'])}",
-                       f"- satellites: min {min(sats)}, max {max(sats)}, mean {sum(sats)/len(sats):.1f}",
-                       f"- VTEC TECU: min {min(ions):.1f}, max {max(ions):.1f}",
-                       "- first hour (local, every 10 min): " + ", ".join(
-                           f"{extras[SAT_NAME]['v'][k]}/{extras[ION_NAME]['v'][k]/10 if extras[ION_NAME]['v'][k] is not None else '-'}"
-                           for k in range(0, min(121, len(extras[SAT_NAME]['v'])), 20))]
-            rows = time_zone_check(s, data, orbits)
-            if rows:
-                best = max(rows, key=lambda r: -1 if math.isnan(r[1]) else r[1])
-                report.append(f"- PDOP correlation by UTC offset (best {best[0]:+d} h): " +
-                              ", ".join(f"{o:+d}h {r:.2f}" for o, r, _ in rows))
-            report.append("")
+            sv, iv = extras[SAT_NAME]["v"], extras[ION_NAME]["v"]
+            lines = [f"## {s['id']} {s['site']} {s['test']} (start {data['start']} local)",
+                     f"- files: {', '.join(info['navigation'])}; {', '.join(info['ionosphere'])}",
+                     f"- satellites: min {min(sats)}, max {max(sats)}, mean {sum(sats) / len(sats):.1f}",
+                     f"- VTEC: min {min(ions):.1f}, max {max(ions):.1f} TECU",
+                     "- every 2 h from start (sats / TECU): " + ", ".join(
+                         f"{sv[k]}/{'-' if iv[k] is None else iv[k] / 10}" for k in range(0, len(sv), 240))]
+            report_checks(s, data, nav, lines)
+            report += lines + [""]
         extra.update(extras)
         path.write_text(json.dumps(data, separators=(",", ":")))
         s["conditions"] = info
