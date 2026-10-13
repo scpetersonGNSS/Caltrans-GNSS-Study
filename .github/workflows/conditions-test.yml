@@ -1,0 +1,26 @@
+# Temporary: checks the satellite / ionosphere computation on GitHub's
+# machines. Runs only on the conditions-test branch.
+name: Conditions test
+on:
+  push:
+    branches: [conditions-test]
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy
+      - name: Compute and check
+        run: |
+          python scripts/compute_conditions.py --report test-report.md --only 20260926-082350,20260926-080720,20260926-082140,20260926-080719 2>&1 | tee test-log.txt || true
+      - name: Save results to the branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f test-report.md test-log.txt
+          git commit -m "Conditions test results" && git push
