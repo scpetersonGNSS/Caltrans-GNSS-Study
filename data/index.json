@@ -30,7 +30,23 @@
       "test_number": 1,
       "constellations": [
         "GPS"
-      ]
+      ],
+      "conditions": {
+        "status": "done",
+        "version": 1,
+        "mask_deg": 10.0,
+        "step_s": 30,
+        "time_zone": "America/Los_Angeles",
+        "navigation": [
+          "BRDC00IGS_R_20262690000_01D_MN.rnx.gz",
+          "BRDC00IGS_R_20262700000_01D_MN.rnx.gz"
+        ],
+        "ionosphere": [
+          "UPC0OPSRAP_20262690000_01D_15M_GIM.INX.Z",
+          "UPC0OPSRAP_20262700000_01D_15M_GIM.INX.Z"
+        ],
+        "computed": "2026-10-13T18:14:45Z"
+      }
     },
     {
       "id": "20260926-082140",
@@ -64,7 +80,23 @@
         "Galileo",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-082140_SJER_GREC.asc"
+      "raw_file": "data/raw/20260926-082140_SJER_GREC.asc",
+      "conditions": {
+        "status": "done",
+        "version": 1,
+        "mask_deg": 10.0,
+        "step_s": 30,
+        "time_zone": "America/Los_Angeles",
+        "navigation": [
+          "BRDC00IGS_R_20262690000_01D_MN.rnx.gz",
+          "BRDC00IGS_R_20262700000_01D_MN.rnx.gz"
+        ],
+        "ionosphere": [
+          "UPC0OPSRAP_20262690000_01D_15M_GIM.INX.Z",
+          "UPC0OPSRAP_20262700000_01D_15M_GIM.INX.Z"
+        ],
+        "computed": "2026-10-13T18:14:50Z"
+      }
     },
     {
       "id": "20260926-082130",
@@ -97,7 +129,23 @@
         "GLONASS",
         "Galileo"
       ],
-      "raw_file": "data/raw/20260926-082130_SJER_GRE.asc"
+      "raw_file": "data/raw/20260926-082130_SJER_GRE.asc",
+      "conditions": {
+        "status": "done",
+        "version": 1,
+        "mask_deg": 10.0,
+        "step_s": 30,
+        "time_zone": "America/Los_Angeles",
+        "navigation": [
+          "BRDC00IGS_R_20262690000_01D_MN.rnx.gz",
+          "BRDC00IGS_R_20262700000_01D_MN.rnx.gz"
+        ],
+        "ionosphere": [
+          "UPC0OPSRAP_20262690000_01D_15M_GIM.INX.Z",
+          "UPC0OPSRAP_20262700000_01D_15M_GIM.INX.Z"
+        ],
+        "computed": "2026-10-13T18:14:54Z"
+      }
     },
     {
       "id": "20260926-082128",
@@ -130,7 +178,23 @@
         "GLONASS",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-082128_SJER_GRC.asc"
+      "raw_file": "data/raw/20260926-082128_SJER_GRC.asc",
+      "conditions": {
+        "status": "done",
+        "version": 1,
+        "mask_deg": 10.0,
+        "step_s": 30,
+        "time_zone": "America/Los_Angeles",
+        "navigation": [
+          "BRDC00IGS_R_20262690000_01D_MN.rnx.gz",
+          "BRDC00IGS_R_20262700000_01D_MN.rnx.gz"
+        ],
+        "ionosphere": [
+          "UPC0OPSRAP_20262690000_01D_15M_GIM.INX.Z",
+          "UPC0OPSRAP_20262700000_01D_15M_GIM.INX.Z"
+        ],
+        "computed": "2026-10-13T18:14:58Z"
+      }
     },
     {
       "id": "20260926-082125",
@@ -163,7 +227,23 @@
         "Galileo",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-082125_SJER_GEC.asc"
+      "raw_file": "data/raw/20260926-082125_SJER_GEC.asc",
+      "conditions": {
+        "status": "done",
+        "version": 1,
+        "mask_deg": 10.0,
+        "step_s": 30,
+        "time_zone": "America/Los_Angeles",
+        "navigation": [
+          "BRDC00IGS_R_20262690000_01D_MN.rnx.gz",
+          "BRDC00IGS_R_20262700000_01D_MN.rnx.gz"
+        ],
+        "ionosphere": [
+          "UPC0OPSRAP_20262690000_01D_15M_GIM.INX.Z",
+          "UPC0OPSRAP_20262700000_01D_15M_GIM.INX.Z"
+        ],
+        "computed": "2026-10-13T18:15:00Z"
+      }
     },
     {
       "id": "20260926-080901",
@@ -196,7 +276,23 @@
         "Galileo",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-080901_Elk_GEC.asc"
+      "raw_file": "data/raw/20260926-080901_Elk_GEC.asc",
+      "conditions": {
+        "status": "done",
+        "version": 1,
+        "mask_deg": 10.0,
+        "step_s": 30,
+        "time_zone": "America/Los_Angeles",
+        "navigation": [
+          "BRDC00IGS_R_20262690000_01D_MN.rnx.gz",
+          "BRDC00IGS_R_20262700000_01D_MN.rnx.gz"
+        ],
+        "ionosphere": [
+          "UPC0OPSRAP_20262690000_01D_15M_GIM.INX.Z",
+          "UPC0OPSRAP_20262700000_01D_15M_GIM.INX.Z"
+        ],
+        "computed": "2026-10-13T18:15:02Z"
+      }
     },
     {
       "id": "20260926-080855",
@@ -230,7 +326,23 @@
         "Galileo",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-080855_Elk_GREC.asc"
+      "raw_file": "data/raw/20260926-080855_Elk_GREC.asc",
+      "conditions": {
+        "status": "done",
+        "version": 1,
+        "mask_deg": 10.0,
+        "step_s": 30,
+        "time_zone": "America/Los_Angeles",
+        "navigation": [
+          "BRDC00IGS_R_20262690000_01D_MN.rnx.gz",
+          "BRDC00IGS_R_20262700000_01D_MN.rnx.gz"
+        ],
+        "ionosphere": [
+          "UPC0OPSRAP_20262690000_01D_15M_GIM.INX.Z",
+          "UPC0OPSRAP_20262700000_01D_15M_GIM.INX.Z"
+        ],
+        "computed": "2026-10-13T18:15:06Z"
+      }
     },
     {
       "id": "20260926-080732",
@@ -263,7 +375,23 @@
         "GLONASS",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-080732_Elk_GRC.asc"
+      "raw_file": "data/raw/20260926-080732_Elk_GRC.asc",
+      "conditions": {
+        "status": "done",
+        "version": 1,
+        "mask_deg": 10.0,
+        "step_s": 30,
+        "time_zone": "America/Los_Angeles",
+        "navigation": [
+          "BRDC00IGS_R_20262690000_01D_MN.rnx.gz",
+          "BRDC00IGS_R_20262700000_01D_MN.rnx.gz"
+        ],
+        "ionosphere": [
+          "UPC0OPSRAP_20262690000_01D_15M_GIM.INX.Z",
+          "UPC0OPSRAP_20262700000_01D_15M_GIM.INX.Z"
+        ],
+        "computed": "2026-10-13T18:15:10Z"
+      }
     },
     {
       "id": "20260926-080720",
@@ -294,7 +422,23 @@
       "constellations": [
         "GPS"
       ],
-      "raw_file": "data/raw/20260926-080720_Elk_G.asc"
+      "raw_file": "data/raw/20260926-080720_Elk_G.asc",
+      "conditions": {
+        "status": "done",
+        "version": 1,
+        "mask_deg": 10.0,
+        "step_s": 30,
+        "time_zone": "America/Los_Angeles",
+        "navigation": [
+          "BRDC00IGS_R_20262690000_01D_MN.rnx.gz",
+          "BRDC00IGS_R_20262700000_01D_MN.rnx.gz"
+        ],
+        "ionosphere": [
+          "UPC0OPSRAP_20262690000_01D_15M_GIM.INX.Z",
+          "UPC0OPSRAP_20262700000_01D_15M_GIM.INX.Z"
+        ],
+        "computed": "2026-10-13T18:15:12Z"
+      }
     },
     {
       "id": "20260926-080719",
@@ -327,7 +471,23 @@
         "GLONASS",
         "Galileo"
       ],
-      "raw_file": "data/raw/20260926-080719_Elk_GRE.asc"
+      "raw_file": "data/raw/20260926-080719_Elk_GRE.asc",
+      "conditions": {
+        "status": "done",
+        "version": 1,
+        "mask_deg": 10.0,
+        "step_s": 30,
+        "time_zone": "America/Los_Angeles",
+        "navigation": [
+          "BRDC00IGS_R_20262690000_01D_MN.rnx.gz",
+          "BRDC00IGS_R_20262700000_01D_MN.rnx.gz"
+        ],
+        "ionosphere": [
+          "UPC0OPSRAP_20262690000_01D_15M_GIM.INX.Z",
+          "UPC0OPSRAP_20262700000_01D_15M_GIM.INX.Z"
+        ],
+        "computed": "2026-10-13T18:15:16Z"
+      }
     },
     {
       "id": "20260831-072247",
