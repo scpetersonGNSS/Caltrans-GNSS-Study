@@ -21,6 +21,9 @@
     --cP: #d97706; --cP2: #f6c26b;   /* PDOP */
     --cH: #0891b2; --cH2: #67d3e6;   /* H. Precision */
     --cX: #7c6f64; --cX2: #bcaaa4;   /* any other column */
+    /* Constellations and predicted DOP (Satellites and DOP chart) */
+    --sG: #2f63c0; --sR: #c0392b; --sE: #7b4fc4; --sC: #138a72;
+    --dH: #2e7d32; --dV: #8e3f9e;
     --body: "Barlow", "Segoe UI", system-ui, sans-serif;
     --cond: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
     box-sizing: border-box;
@@ -36,6 +39,7 @@
       --pos: #5bd08a; --neg: #ff8a80;
       --cN: #6f9bff; --cN2: #3557a8; --cE: #4cd38a; --cE2: #237a50; --cU: #f06292; --cU2: #9c3a63;
       --cP: #f5b041; --cP2: #9a6a1f; --cH: #22d3ee; --cH2: #1b7f92; --cX: #bcaaa4; --cX2: #6d5f58;
+      --sG: #79a1f0; --sR: #ef7b70; --sE: #b393f2; --sC: #4fd1b4; --dH: #7bd389; --dV: #d39ae0;
     }
   }
   :root[data-theme="dark"] {
@@ -46,6 +50,7 @@
     --pos: #5bd08a; --neg: #ff8a80;
     --cN: #6f9bff; --cN2: #3557a8; --cE: #4cd38a; --cE2: #237a50; --cU: #f06292; --cU2: #9c3a63;
       --cP: #f5b041; --cP2: #9a6a1f; --cH: #22d3ee; --cH2: #1b7f92; --cX: #bcaaa4; --cX2: #6d5f58;
+      --sG: #79a1f0; --sR: #ef7b70; --sE: #b393f2; --sC: #4fd1b4; --dH: #7bd389; --dV: #d39ae0;
   }
   *, *::before, *::after { box-sizing: inherit; }
   html { scroll-padding-top: env(safe-area-inset-top, 0px); }
@@ -120,6 +125,10 @@
   .pair-readout { position: absolute; top: 0; left: 118px; right: 72px; height: 46px; display: flex; flex-wrap: wrap; align-content: center; gap: .1rem 1.1rem; font-size: .82rem; line-height: 1.3; color: var(--muted); overflow: hidden; pointer-events: none; }
   .pair-readout span { white-space: nowrap; }
   .pair-readout b { color: var(--ink); font-weight: 600; }
+  .sat-shell { position: relative; height: min(42vh, 380px); min-height: 300px; }
+  .sat-shell canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+  .sw.bar { width: 14px; height: 12px; border: 0; border-radius: 2px; background: currentColor; }
+  .sw.thin { border-top-width: 1.5px; }
   .pair-shell canvas { width: 100%; height: 100%; display: block; touch-action: none; }
   .legend { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font-size: .88rem; color: var(--muted); margin-bottom: .5rem; }
   .legend span { display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; }
@@ -368,6 +377,31 @@
             <div class="pair-shell" id="pairShell_u"><canvas id="pair_u" aria-label="Elevation and PDOP over time"></canvas><div class="pair-readout" id="pairTip_u" aria-live="polite"></div></div>
           </div>
           <p class="chart-note" id="pairNote"></p>
+        </section>
+
+        <section class="plot" id="satCard" hidden>
+          <h3>Satellites and DOP over time</h3>
+          <p>Predicted from the broadcast orbits for this site and time, like Trimble's GNSS Planning charts: how many healthy satellites were above the elevation mask, and the dilution of precision for the constellations used in this test. The PDOP the receiver logged is drawn over the predicted PDOP when the upload has it. The two charts share one time axis. Use the buttons or scroll to zoom, drag to pan, and double-click to reset.</p>
+          <div class="controls">
+            <div class="seg" role="group" aria-label="Constellations shown" id="satScopeSeg">
+              <button type="button" data-scope="test" aria-pressed="true" id="satScopeTest">This test's constellations</button>
+              <button type="button" data-scope="all" aria-pressed="false">All four</button>
+            </div>
+            <div class="seg" role="group" aria-label="Zoom">
+              <button type="button" id="satZoomIn">+ Zoom in</button>
+              <button type="button" id="satZoomOut" disabled>− Zoom out</button>
+            </div>
+            <button type="button" id="satReset" disabled>Reset zoom</button>
+          </div>
+          <div class="pair">
+            <div class="legend" id="satCountLegend"></div>
+            <div class="sat-shell" id="satShell_c"><canvas id="sat_c" aria-label="Number of satellites over time"></canvas><div class="pair-readout" id="satTip_c" aria-live="polite"></div></div>
+          </div>
+          <div class="pair">
+            <div class="legend" id="satDopLegend"></div>
+            <div class="sat-shell" id="satShell_d"><canvas id="sat_d" aria-label="DOP over time"></canvas><div class="pair-readout" id="satTip_d" aria-live="polite"></div></div>
+          </div>
+          <p class="chart-note" id="satNote"></p>
         </section>
 
         <section class="plot" id="windowCard">
@@ -700,6 +734,7 @@
       renderSummary();
       TS.load();
       PAIR.load();
+      SAT.load();
       Win.load();
       Drift.load();
       renderList();
@@ -1343,6 +1378,316 @@
     $("pairZoomOut").addEventListener("click", () => zoom(1.5));
     $("pairReset").addEventListener("click", () => setView(0, total));
     withSel.addEventListener("change", () => { want = withSel.value; if (cur) setRight(); });
+    return { load, redraw: drawAll };
+  })();
+
+  // ===================== Satellites and DOP over time =========================
+  // Predicted visibility and DOP from data/geometry/<id>.json (written by
+  // scripts/satellite_geometry.py), plus the PDOP the receiver logged.
+  const SAT = (() => {
+    const SYS = { G: "GPS", R: "GLONASS", E: "Galileo", C: "BeiDou" };
+    const charts = ["c", "d"].map(k => {
+      const canvas = $(`sat_${k}`);
+      return { k, canvas, ctx: canvas.getContext("2d"), shell: $(`satShell_${k}`), tip: $(`satTip_${k}`) };
+    });
+    const MIN_SPAN = 600, READOUT_H = 48;
+    const TIME_STEPS = [60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400];
+    const geoCache = new Map();
+    let G = null, T = null, total = 1, v0 = 0, v1 = 1, hover = -1, drag = null, pending = false, loadToken = 0;
+    let pref = "test", scope = "test", shown = [], used = new Set(), cMax = 1, dMax = 1, LOGGED = null, dops = [];
+    const lowerBound = (arr, t) => { let lo = 0, hi = arr.length; while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] < t) lo = m + 1; else hi = m; } return lo; };
+    const niceStep = (range, target) => { const raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag; return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * mag; };
+
+    async function load() {
+      const id = cur.summary.id, token = ++loadToken;
+      $("satCard").hidden = true;
+      let g = geoCache.get(id);
+      if (g === undefined) {
+        try { g = await getJSON(`data/geometry/${id}.json`); } catch { g = null; }
+        geoCache.set(id, g);
+      }
+      if (token !== loadToken || !g) return;
+      G = g; T = g.t; total = Math.max(MIN_SPAN, T[T.length - 1]);
+      v0 = 0; v1 = total; hover = -1;
+      used = new Set((g.test || "").split(""));
+      dops = [["pdop", "Predicted PDOP", "--cP", 2.2], ["hdop", "Predicted HDOP", "--dH", 1.3], ["vdop", "Predicted VDOP", "--dV", 1.3]]
+        .map(([key, name, color, width]) => ({ key, name, color, width, values: g[key].map(v => v === null ? null : v / g.dop_scale) }));
+      LOGGED = getSeries("x:PDOP");
+      if (LOGGED) { LOGGED.name = "Logged PDOP"; LOGGED.color = "--cP2"; }
+      // Scale to the predicted DOP and to nearly all of the logged PDOP; the
+      // logged PDOP's rare spikes run off the top rather than flattening the rest.
+      let pMax = 0, lMax = 0, l99 = 0;
+      for (const S of dops) for (const v of S.values) if (v !== null && v > pMax) pMax = v;
+      if (LOGGED) {
+        const lv = LOGGED.values.filter(v => v !== null).sort((a, b) => a - b);
+        if (lv.length) { lMax = lv[lv.length - 1]; l99 = lv[Math.floor(lv.length * .99)]; }
+      }
+      dMax = Math.min(Math.max(2, Math.ceil(Math.max(pMax, l99) * 1.15 * 2) / 2), 12);
+      const cut = lMax > dMax ? ` A few logged PDOP values (up to ${fmtNum(lMax, 1)}) run off the top of the DOP chart.` : "";
+      $("satScopeTest").textContent = `This test's constellations (${g.test})`;
+      $("satScopeTest").parentElement.hidden = used.size === 4;
+      const loc = g.location;
+      $("satNote").textContent = `Computed every ${g.step_s / 60} minute${g.step_s === 60 ? "" : "s"} at ${loc.lat.toFixed(4)}°, ${loc.lon.toFixed(4)}° (from the mean position) with a ${g.mask_deg}° elevation mask, counting healthy satellites only, from the IGS broadcast orbits (${g.nav_files.join(", ")}). DOP uses only the constellations in this test (${g.test}), with one receiver clock per constellation.${cut} The receiver's own elevation mask and tracking can differ, so its logged PDOP will not match exactly.`;
+      $("satCard").hidden = false;
+      setScope(pref);
+    }
+
+    function setScope(s) {
+      pref = s;
+      scope = used.size === 4 ? "all" : s;
+      document.querySelectorAll("#satScopeSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.scope === scope)));
+      shown = (G.systems || "GREC").split("").filter(k => scope === "all" || used.has(k));
+      cMax = 1;
+      for (let i = 0; i < T.length; i++) { let n = 0; for (const k of shown) n += G.count[k][i]; if (n > cMax) cMax = n; }
+      cMax = Math.ceil((cMax + 1) / 2) * 2;
+      const legC = $("satCountLegend"); legC.textContent = "";
+      for (const k of shown) {
+        const sp = document.createElement("span"); sp.style.color = `var(--s${k})`;
+        if (!used.has(k)) sp.style.opacity = ".55";
+        sp.innerHTML = `<i class="sw bar"></i>${SYS[k]}${used.has(k) ? "" : " (not used in this test)"}`;
+        legC.append(sp);
+      }
+      if (scope === "all" && used.size < shown.length) {
+        const sp = document.createElement("span"); sp.style.color = "var(--ink)";
+        sp.innerHTML = `<i class="sw thin"></i>Total used in this test`; legC.append(sp);
+      }
+      const legD = $("satDopLegend"); legD.textContent = "";
+      for (const S of dops) { const sp = document.createElement("span"); sp.style.color = `var(${S.color})`; sp.innerHTML = `<i class="sw${S.key === "pdop" ? "" : " thin"}" style="border-top-width:${S.width + .8}px"></i>${S.name}`; legD.append(sp); }
+      if (LOGGED) { const sp = document.createElement("span"); sp.style.color = `var(--cP2)`; sp.innerHTML = `<i class="sw thin"></i>PDOP logged by the receiver`; legD.append(sp); }
+      resizeAll();
+    }
+
+    function resizeAll() {
+      const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+      for (const ch of charts) {
+        const rect = ch.shell.getBoundingClientRect();
+        if (!rect.width) continue;
+        ch.canvas.width = Math.round(rect.width * ratio); ch.canvas.height = Math.round(rect.height * ratio);
+        ch.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+      drawAll();
+    }
+    const drawAll = () => { if (G && !$("satCard").hidden) { charts.forEach(draw); updateReadouts(); } };
+
+    function frame(ch, yMax, yTitle, yDec) {
+      const { ctx, shell } = ch, w = shell.clientWidth, h = shell.clientHeight;
+      const muted = css("--muted"), grid = css("--grid"), ink = css("--ink"), font = css("--body");
+      ctx.clearRect(0, 0, w, h);
+      const L = 118, R = w - 18, Tp = READOUT_H, Bt = h - 76;
+      const X = t => L + (t - v0) / (v1 - v0) * (R - L);
+      const Y = v => Bt - v / yMax * (Bt - Tp);
+      ch.geo = { L, R, T: Tp, B: Bt, X, Y };
+      const full = v0 <= 0 && v1 >= total;
+      ch.canvas.style.cursor = drag ? "grabbing" : full ? "crosshair" : "grab";
+      ctx.font = `12px ${font}`; ctx.lineWidth = 1;
+      const span = v1 - v0, step = TIME_STEPS.find(s => (R - L) * s / span >= 90) || 86400;
+      const startS = cur.startMs / 1000, longFmt = step >= 3600 && span > 18 * 3600;
+      for (let t = Math.ceil((startS + v0) / step) * step - startS; t <= v1 + 1e-9; t += step) {
+        const x = X(t);
+        ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(x, Tp); ctx.lineTo(x, Bt); ctx.stroke();
+        const d = new Date(cur.startMs + t * 1000);
+        const lab = longFmt ? d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", hour12: true })
+          : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+        ctx.save(); ctx.translate(x, Bt + 12); ctx.rotate(-Math.PI / 6);
+        ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(lab, 0, 0); ctx.restore();
+      }
+      const sy = Math.max(yDec ? 0.5 : 1, niceStep(yMax, 5));
+      ctx.textBaseline = "middle";
+      for (let v = 0; v <= yMax + 1e-9; v += sy) {
+        const y = Y(v);
+        ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke();
+        ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.fillText(fmtNum(v, yDec && sy < 1 ? 1 : 0), L - 8, y);
+      }
+      ctx.save(); ctx.fillStyle = ink; ctx.font = `600 13px ${font}`; ctx.textAlign = "center";
+      ctx.translate(16, (Tp + Bt) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(yTitle, 0, 0); ctx.restore();
+      ctx.fillStyle = ink; ctx.font = `600 13px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillText("Time", (L + R) / 2, h - 6);
+      return { L, R, Tp, Bt, X, Y };
+    }
+
+    function finish(ch, g) {
+      const { ctx } = ch;
+      ctx.strokeStyle = css("--rule"); ctx.lineWidth = 1; ctx.strokeRect(g.L, g.Tp, g.R - g.L, g.Bt - g.Tp);
+      if (hover >= 0) {
+        const x = g.X(T[hover]);
+        ctx.save(); ctx.beginPath(); ctx.rect(g.L, g.Tp, g.R - g.L, g.Bt - g.Tp); ctx.clip();
+        ctx.strokeStyle = css("--ink"); ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(x, g.Tp); ctx.lineTo(x, g.Bt); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+      }
+    }
+
+    function draw(ch) {
+      if (!ch.shell.clientWidth) return;
+      const { ctx } = ch;
+      if (ch.k === "c") {
+        const g = frame(ch, cMax, "Number of satellites", false);
+        ctx.save(); ctx.beginPath(); ctx.rect(g.L, g.Tp, g.R - g.L, g.Bt - g.Tp); ctx.clip();
+        const i0 = Math.max(0, lowerBound(T, v0) - 1), i1 = Math.min(T.length - 1, lowerBound(T, v1) + 1);
+        const colors = shown.map(k => css(`--s${k}`));
+        for (let i = i0; i <= i1; i++) {
+          const xa = g.X(T[i]), xb = i + 1 < T.length ? g.X(T[i + 1]) : g.X(T[i] + G.step_s);
+          let acc = 0;
+          shown.forEach((k, j) => {
+            const n = G.count[k][i]; if (!n) return;
+            ctx.globalAlpha = used.has(k) ? .85 : .35; ctx.fillStyle = colors[j];
+            const ya = g.Y(acc + n), yb = g.Y(acc);
+            ctx.fillRect(xa, ya, Math.max(.6, xb - xa + .4), yb - ya);
+            acc += n;
+          });
+        }
+        ctx.globalAlpha = 1;
+        // Total of the constellations used in this test
+        if (scope === "all" && used.size < shown.length) {
+          ctx.strokeStyle = css("--ink"); ctx.lineWidth = 1.2; ctx.beginPath();
+          for (let i = i0; i <= i1; i++) {
+            let n = 0; for (const k of used) n += G.count[k] ? G.count[k][i] : 0;
+            const x = g.X(T[i]), y = g.Y(n);
+            if (i === i0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
+        finish(ch, g);
+      } else {
+        const g = frame(ch, dMax, "DOP", true);
+        ctx.save(); ctx.beginPath(); ctx.rect(g.L, g.Tp, g.R - g.L, g.Bt - g.Tp); ctx.clip();
+        if (LOGGED) {
+          ctx.strokeStyle = css("--cP2"); ctx.lineWidth = 1; ctx.globalAlpha = .7;
+          lineOf(ctx, cur.data.t, LOGGED.values, g, cur.gap);
+        }
+        ctx.globalAlpha = 1;
+        for (const S of [...dops].reverse()) {
+          ctx.strokeStyle = css(S.color); ctx.lineWidth = S.width;
+          lineOf(ctx, T, S.values, g, G.step_s * 1.5);
+        }
+        ctx.restore();
+        finish(ch, g);
+      }
+    }
+
+    // A line over a time array, thinned to the min-max range per pixel column
+    // when there are many more points than pixels.
+    function lineOf(ctx, tt, vals, g, gap) {
+      const i0 = Math.max(0, lowerBound(tt, v0) - 1), i1 = Math.min(tt.length - 1, lowerBound(tt, v1) + 1);
+      const Yc = v => g.Y(Math.min(v, dMax * 1.02));
+      ctx.beginPath();
+      let prev = -1, col = null, mn = 0, mx = 0, first = 0, last = 0, open = false;
+      const dense = i1 - i0 > (g.R - g.L) * 3;
+      const flush = () => {
+        if (col === null) return;
+        const x = col + .5;
+        if (open) ctx.lineTo(x, Yc(first)); else { ctx.moveTo(x, Yc(first)); open = true; }
+        ctx.lineTo(x, Yc(mn)); ctx.lineTo(x, Yc(mx)); ctx.lineTo(x, Yc(last));
+        col = null;
+      };
+      for (let i = i0; i <= i1; i++) {
+        const v = vals[i];
+        if (v === null) { flush(); open = false; prev = -1; continue; }
+        const brk = prev < 0 || tt[i] - tt[prev] > gap;
+        if (!dense) { if (brk) ctx.moveTo(g.X(tt[i]), Yc(v)); else ctx.lineTo(g.X(tt[i]), Yc(v)); prev = i; continue; }
+        if (brk) { flush(); open = false; }
+        const c = Math.floor(g.X(tt[i]));
+        if (c !== col) { flush(); col = c; mn = mx = first = last = v; }
+        else { if (v < mn) mn = v; if (v > mx) mx = v; last = v; }
+        prev = i;
+      }
+      flush();
+      ctx.stroke();
+    }
+
+    function updateReadouts() {
+      for (const ch of charts) {
+        const el = ch.tip, g = ch.geo;
+        if (g) { el.style.left = `${g.L}px`; el.style.right = `${ch.shell.clientWidth - g.R}px`; }
+        if (hover < 0) { el.innerHTML = `<span>Hover over a chart to read the values at that time.</span>`; continue; }
+        const i = hover, sq = col => `<span style="color:${css(col)}">■</span> `;
+        const when = new Date(cur.startMs + T[i] * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+        const parts = [`<span><b>${when}</b></span>`];
+        if (ch.k === "c") {
+          let n = 0;
+          for (const k of shown) { parts.push(`<span>${sq(`--s${k}`)}${SYS[k]} <b>${G.count[k][i]}</b></span>`); if (used.has(k)) n += G.count[k][i]; }
+          parts.push(`<span>Used in this test <b>${n}</b></span>`);
+        } else {
+          for (const S of dops) parts.push(`<span>${sq(S.color)}${S.name.replace("Predicted ", "")} <b>${S.values[i] === null ? "–" : S.values[i].toFixed(2)}</b></span>`);
+          if (LOGGED) {
+            const dt = cur.data.t; let j = Math.min(dt.length - 1, lowerBound(dt, T[i]));
+            if (j > 0 && Math.abs(dt[j - 1] - T[i]) < Math.abs(dt[j] - T[i])) j--;
+            const ok = Math.abs(dt[j] - T[i]) <= Math.max(cur.gap, G.step_s) && LOGGED.values[j] !== null;
+            parts.push(`<span>${sq("--cP2")}Logged PDOP <b>${ok ? fmtNum(LOGGED.values[j], LOGGED.dec) : "no value"}</b></span>`);
+          }
+        }
+        el.innerHTML = parts.join("");
+      }
+    }
+
+    function updateButtons() {
+      const full = v0 <= 0 && v1 >= total;
+      $("satReset").disabled = full; $("satZoomOut").disabled = full;
+      $("satZoomIn").disabled = v1 - v0 <= MIN_SPAN + 1e-6;
+    }
+    function setView(a, b) {
+      const span = clamp(b - a, MIN_SPAN, total);
+      v0 = clamp(a, 0, total - span); v1 = v0 + span;
+      hover = -1; updateButtons(); drawAll();
+    }
+    const zoom = f => { const mid = (v0 + v1) / 2, span = (v1 - v0) * f; setView(mid - span / 2, mid + span / 2); };
+
+    for (const ch of charts) {
+      const cv = ch.canvas;
+      const pos = ev => { const r = cv.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+      const inPlot = (mx, my) => ch.geo && mx >= ch.geo.L && mx <= ch.geo.R && my >= ch.geo.T && my <= ch.geo.B;
+      cv.addEventListener("pointerdown", ev => {
+        const [mx, my] = pos(ev);
+        if (ev.button !== 0 || !inPlot(mx, my) || (v0 <= 0 && v1 >= total)) return;
+        ev.preventDefault();
+        drag = { id: ev.pointerId, ch, x0: mx, x1: mx, a: v0, b: v1 };
+        cv.setPointerCapture(ev.pointerId); hover = -1; drawAll();
+      });
+      cv.addEventListener("pointermove", ev => {
+        if (!T || !ch.geo) return;
+        const [mx, my] = pos(ev);
+        if (drag) {
+          if (drag.ch !== ch) return;
+          drag.x1 = mx;
+          if (!pending) {
+            pending = true;
+            requestAnimationFrame(() => {
+              pending = false; if (!drag) return;
+              const shift = -(drag.x1 - drag.x0) / (ch.geo.R - ch.geo.L) * (drag.b - drag.a);
+              setView(drag.a + shift, drag.b + shift);
+            });
+          }
+          return;
+        }
+        if (!inPlot(mx, my)) { if (hover >= 0) { hover = -1; drawAll(); } return; }
+        const g = ch.geo, t = v0 + (mx - g.L) / (g.R - g.L) * (v1 - v0);
+        let i = Math.min(T.length - 1, lowerBound(T, t));
+        if (i > 0 && Math.abs(T[i - 1] - t) < Math.abs(T[i] - t)) i--;
+        if (i !== hover) { hover = i; drawAll(); }
+      });
+      const endDrag = ev => {
+        if (!drag || ev.pointerId !== drag.id) return;
+        if (cv.hasPointerCapture(ev.pointerId)) cv.releasePointerCapture(ev.pointerId);
+        drag = null; drawAll();
+      };
+      cv.addEventListener("pointerup", endDrag);
+      cv.addEventListener("pointercancel", endDrag);
+      cv.addEventListener("pointerleave", () => { if (!drag && hover >= 0) { hover = -1; drawAll(); } });
+      cv.addEventListener("wheel", ev => {
+        const [mx, my] = pos(ev);
+        if (!inPlot(mx, my)) return;
+        ev.preventDefault();
+        const g = ch.geo, ratio = (mx - g.L) / (g.R - g.L), anchor = v0 + ratio * (v1 - v0);
+        const span = clamp((v1 - v0) * (ev.deltaY < 0 ? .76 : 1.32), MIN_SPAN, total);
+        setView(anchor - ratio * span, anchor - ratio * span + span);
+      }, { passive: false });
+      cv.addEventListener("dblclick", ev => { ev.preventDefault(); setView(0, total); });
+      new ResizeObserver(() => resizeAll()).observe(ch.shell);
+    }
+    $("satZoomIn").addEventListener("click", () => zoom(1 / 1.5));
+    $("satZoomOut").addEventListener("click", () => zoom(1.5));
+    $("satReset").addEventListener("click", () => setView(0, total));
+    document.querySelectorAll("#satScopeSeg button").forEach(b => b.addEventListener("click", () => { if (G) setScope(b.dataset.scope); }));
     return { load, redraw: drawAll };
   })();
 
@@ -2243,7 +2588,7 @@
   // ============================== Wiring ======================================
   $("dateFilter").addEventListener("change", renderList);
   $("clearFilter").addEventListener("click", () => { $("dateFilter").value = ""; cell = null; renderGrid(); renderList(); });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); PAIR.redraw(); Win.redraw(); Drift.redraw(); } });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); PAIR.redraw(); SAT.redraw(); Win.redraw(); Drift.redraw(); } });
 
   (async function init() {
     try {

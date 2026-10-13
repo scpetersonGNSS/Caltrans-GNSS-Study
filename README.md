@@ -14,6 +14,9 @@ scripts/process_uploads.py   turns each upload into a dataset
 data/index.json          list of uploads with summary statistics
 data/sessions/<id>.json  plot data for one upload (integer mm offsets)
 data/raw/<id>_<file>     the original file, for download
+scripts/satellite_geometry.py   predicts satellite counts and DOP per upload
+data/geometry/<id>.json  predicted satellites and DOP for one upload
+data/nav/                broadcast orbit files downloaded for those predictions
 index.html               the website
 .github/workflows/update-site.yml   runs the script and publishes the site
 ```
@@ -25,6 +28,17 @@ Uploading the exact same file twice is detected and skipped.
 
 The script auto-detects the Northing, Easting, Elevation, and time columns, so
 `.asc`, `.csv`, and `.txt` exports with similar headers work without changes.
+
+After that, `scripts/satellite_geometry.py` predicts, for each tagged upload,
+how many satellites of each constellation were above a 10° elevation mask and
+the PDOP / HDOP / VDOP for the constellations in that test, every minute, like
+Trimble's GNSS Planning charts. It downloads the IGS broadcast orbits for those
+days (public, no login) into `data/nav/` and writes `data/geometry/<id>.json`.
+The site shows these in the **Satellites and DOP over time** charts, with the
+receiver's logged PDOP drawn over the prediction. The elevation mask, the time
+zone of the uploaded timestamps, and each site's coordinate zone are set near
+the top of that script. Untagged uploads are skipped, since their location is
+not known.
 
 ## One-time setup
 
@@ -65,13 +79,14 @@ To add a new timestamp format, add it to `TIME_FORMATS` near the top of
 
 ## Removing an upload
 
-Delete its three traces and commit: its entry in `data/index.json`, its file
-in `data/sessions/`, and its file in `data/raw/`.
+Delete its traces and commit: its entry in `data/index.json`, its file in
+`data/sessions/`, its file in `data/raw/`, and its file in `data/geometry/`.
 
 ## Previewing on your own computer
 
 ```
 python scripts/process_uploads.py
+python scripts/satellite_geometry.py
 python -m http.server 8000
 ```
 
