@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-24T22:27:50Z",
+  "updated": "2026-10-24T23:47:57Z",
   "sessions": [
     {
       "id": "20261017-083944",
@@ -31,6 +31,39 @@
         "GPS"
       ],
       "raw_file": "data/raw/20261017-083944_Fres_G.asc"
+    },
+    {
+      "id": "20261017-083930",
+      "source_file": "Fres_GRC.asc",
+      "start": "2026-10-17T08:39:30",
+      "end": "2026-10-18T08:46:03",
+      "duration_h": 24.11,
+      "epochs": 86625,
+      "interval_s": 1.0,
+      "gaps": 1,
+      "skipped_rows": 0,
+      "mean_m": {
+        "n": 665106.801,
+        "e": 1933526.642,
+        "u": 105.587
+      },
+      "std_mm": {
+        "n": 8.6,
+        "e": 9.8,
+        "u": 25.9
+      },
+      "drms_mm": 13.0,
+      "uploaded": "2026-10-24T23:47:57Z",
+      "sha256": "a93f9b9e8de860d663a4b2a9df2eb06b65e3d9fe9aad1415805fe9b06fc5f7f6",
+      "site": "FRES",
+      "test": "GRC",
+      "test_number": 5,
+      "constellations": [
+        "GPS",
+        "GLONASS",
+        "BeiDou"
+      ],
+      "raw_file": "data/raw/20261017-083930_Fres_GRC.asc"
     },
     {
       "id": "20261017-083919",
