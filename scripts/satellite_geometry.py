@@ -56,7 +56,7 @@ CA_ZONE_3 = {"lat1": 37 + 4 / 60, "lat2": 38 + 26 / 60, "lat0": 36.5,
              "lon0": -120.5, "fe": 2000000.0, "fn": 500000.0}
 CA_ZONE_4 = {"lat1": 36.0, "lat2": 37.25, "lat0": 35 + 20 / 60,
              "lon0": -119.0, "fe": 2000000.0, "fn": 500000.0}
-SITE_PROJECTION = {"SJER": CA_ZONE_3, "ELK": CA_ZONE_3, "FRES": CA_ZONE_3}
+SITE_PROJECTION = {"SJER": CA_ZONE_3, "ELK": CA_ZONE_4, "FRES": CA_ZONE_4}
 
 # Where to download broadcast orbits from, tried in order. {y} year, {j} day
 # of year (3 digits). All are public and need no login.
