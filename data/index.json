@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-24T21:08:21Z",
+  "updated": "2026-10-24T22:27:50Z",
   "sessions": [
     {
       "id": "20261017-083944",
@@ -31,6 +31,39 @@
         "GPS"
       ],
       "raw_file": "data/raw/20261017-083944_Fres_G.asc"
+    },
+    {
+      "id": "20261017-083919",
+      "source_file": "Fres_GRE.asc",
+      "start": "2026-10-17T08:39:19",
+      "end": "2026-10-18T08:46:18",
+      "duration_h": 24.12,
+      "epochs": 86655,
+      "interval_s": 1.0,
+      "gaps": 1,
+      "skipped_rows": 2,
+      "mean_m": {
+        "n": 665100.751,
+        "e": 1933526.623,
+        "u": 105.615
+      },
+      "std_mm": {
+        "n": 7.6,
+        "e": 9.3,
+        "u": 20.9
+      },
+      "drms_mm": 12.0,
+      "uploaded": "2026-10-24T22:27:50Z",
+      "sha256": "62698bf8aa08fad4faaf6eca8d338ea2e90f38030a4098d627dc5d8be703370e",
+      "site": "FRES",
+      "test": "GRE",
+      "test_number": 4,
+      "constellations": [
+        "GPS",
+        "GLONASS",
+        "Galileo"
+      ],
+      "raw_file": "data/raw/20261017-083919_Fres_GRE.asc"
     },
     {
       "id": "20261017-083906",
