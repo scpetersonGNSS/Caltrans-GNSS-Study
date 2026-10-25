@@ -148,7 +148,9 @@
   .roll-wrap { position: relative; width: 100%; height: 340px; }
   #rollReadout { min-height: 1.6rem; margin-bottom: .2rem; }
   .roll-legend { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; font-size: .85rem; color: var(--muted); margin: 0 0 .4rem; }
-  .roll-legend span { display: inline-flex; align-items: center; gap: .4rem; }
+  .roll-legend span, .roll-legend label { display: inline-flex; align-items: center; gap: .4rem; }
+  .roll-legend label { cursor: pointer; }
+  .ctl-label { font-size: .88rem; color: var(--muted); }
   .roll-legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; }
   .roll-legend i.dash { height: 0; border-top: 2px dashed var(--muted); }
   .readout { font-size: .88rem; color: var(--ink); }
@@ -588,8 +590,19 @@
         </section>
 
         <section class="plot" id="rollCard">
-          <h3>Rolling 30-second HZ precision</h3>
-          <p>The horizontal precision of every 30-second window in the upload: from the first epoch to 30 seconds later, then one second later, and so on to the end. It shows how the precision of a short observation changes over the day. Scroll or use the buttons to zoom, drag to pan (or draw a box in Box zoom), and double-click to reset. Download PNG saves the view you are looking at.</p>
+          <h3 id="rollTitle">Rolling 30-second HZ precision</h3>
+          <p>The horizontal precision of every window of the chosen length in the upload: from the first epoch to that many seconds later, then one epoch later, and so on to the end. It shows how the precision of a short observation changes over the day. The second line is how far each window's average position is from the upload's average position. Scroll or use the buttons to zoom, drag to pan (or draw a box in Box zoom), and double-click to reset. Download PNG saves the view you are looking at.</p>
+          <div class="controls">
+            <span class="ctl-label">Window</span>
+            <div class="seg" role="group" aria-label="Window length" id="rollWinSeg">
+              <button type="button" data-w="5" aria-pressed="false">5 s</button>
+              <button type="button" data-w="10" aria-pressed="false">10 s</button>
+              <button type="button" data-w="15" aria-pressed="false">15 s</button>
+              <button type="button" data-w="30" aria-pressed="true">30 s</button>
+              <button type="button" data-w="60" aria-pressed="false">60 s</button>
+              <button type="button" data-w="120" aria-pressed="false">120 s</button>
+            </div>
+          </div>
           <div class="controls">
             <div class="seg" role="group" aria-label="Drag mode" id="rollModeSeg">
               <button type="button" data-mode="pan" aria-pressed="true">Pan</button>
@@ -602,7 +615,7 @@
             <button type="button" id="rollReset" disabled>Reset zoom</button>
             <button type="button" id="rollPng">Download PNG of this view</button>
           </div>
-          <div class="legend roll-legend"><span><i style="background:var(--cN)"></i>30-second window HZ precision</span><span><i style="background:var(--ink)"></i>10-minute running median</span><span><i class="dash"></i>DRMS of the whole upload</span></div>
+          <div class="legend roll-legend"><label><input type="checkbox" id="rollShowP" checked> <i style="background:var(--cN)"></i><span id="rollLegP">30-second window HZ precision</span></label><label><input type="checkbox" id="rollShowD" checked> <i style="background:var(--cP)"></i>Distance of the window average from the upload average</label><span><i style="background:var(--ink)"></i>10-minute running median (HZ precision)</span><span><i class="dash"></i>DRMS of the whole upload</span></div>
           <div class="readout fixed-strip" id="rollReadout"><span>Hover over the chart to read the window and its precision.</span></div>
           <div class="roll-wrap" id="rollWrap"><canvas id="rollCanvas" style="touch-action:none"></canvas></div>
           <p class="chart-note" id="rollView"></p>
@@ -2947,51 +2960,66 @@
 
   const Roll = (() => {
     const wrap = $("rollWrap"), cv = $("rollCanvas"), ro = $("rollReadout");
-    let S = null, V = null, M = null, total = 1, drms = 0, stats = null, geo = null, hover = -1;
+    let S = null, V = null, O = null, M = null, total = 1, drms = 0, stats = null, ostats = null, geo = null, hover = -1, winS = ROLL_W, slotS = 1;
+    let showP = true, showD = true;
     let v0 = 0, v1 = 1, mode = "pan", drag = null, pending = false;
     const MIN_SPAN = 120;
-    function load() {
-      const d = keptData(cur.data);
+    function load(keepView) {
+      const d = keptData(cur.data), sm = cur.summary;
       total = cur.data.t[cur.data.t.length - 1];
-      // One slot per second of the upload; missing seconds stay empty.
-      const len = total + 1, has = new Uint8Array(len), xn = new Float64Array(len), xe = new Float64Array(len);
-      for (let i = 0; i < d.t.length; i++) { const k = d.t[i]; if (k >= 0 && k < len) { has[k] = 1; xn[k] = d.n_mm[i]; xe[k] = d.e_mm[i]; } }
-      const n = ROLL_W + 1, starts = [], vals = [];
+      slotS = cur.data.interval_s || 1;
+      // The upload's average position, from the same epochs (unrounded).
+      let mn = 0, me = 0; for (let i = 0; i < d.t.length; i++) { mn += d.n_mm[i]; me += d.e_mm[i]; } mn /= d.t.length || 1; me /= d.t.length || 1;
+      // One slot per logging interval; missing epochs stay empty.
+      const len = Math.floor(total / slotS) + 1, has = new Uint8Array(len), xn = new Float64Array(len), xe = new Float64Array(len);
+      for (let i = 0; i < d.t.length; i++) { const k = Math.round(d.t[i] / slotS); if (k >= 0 && k < len) { has[k] = 1; xn[k] = d.n_mm[i]; xe[k] = d.e_mm[i]; } }
+      const ok = winS % slotS === 0 && winS / slotS >= 1;
+      const n = ok ? winS / slotS + 1 : 0, starts = [], vals = [], offs = [];
       let c = 0, s1n = 0, s2n = 0, s1e = 0, s2e = 0;
-      for (let k = 0; k < len; k++) {
+      if (ok) for (let k = 0; k < len; k++) {
         if (has[k]) { c++; s1n += xn[k]; s2n += xn[k] * xn[k]; s1e += xe[k]; s2e += xe[k] * xe[k]; }
         const j = k - n;
         if (j >= 0 && has[j]) { c--; s1n -= xn[j]; s2n -= xn[j] * xn[j]; s1e -= xe[j]; s2e -= xe[j] * xe[j]; }
         if (k >= n - 1 && c === n) {
           const vn = Math.max(0, (s2n - s1n * s1n / n) / (n - 1)), ve = Math.max(0, (s2e - s1e * s1e / n) / (n - 1));
-          starts.push(k - n + 1); vals.push(Math.sqrt(vn + ve));
+          starts.push((k - n + 1) * slotS); vals.push(Math.sqrt(vn + ve)); offs.push(Math.hypot(s1n / n - mn, s1e / n - me));
         }
       }
-      S = Int32Array.from(starts); V = Float64Array.from(vals);
-      // 10-minute running median (trailing), every 10 seconds
+      S = Int32Array.from(starts); V = Float64Array.from(vals); O = Float64Array.from(offs);
+      // 10-minute running median of HZ precision (trailing), every 10 seconds
       M = [];
+      const need = Math.max(5, Math.floor(300 / slotS));
       if (S.length) {
         let lo = 0;
-        for (let t = S[0]; t <= S[S.length - 1]; t += 10) {
+        for (let t = S[0]; t <= S[S.length - 1]; t += Math.max(10, slotS)) {
           while (lo < S.length && S[lo] <= t - 600) lo++;
           let hi = lo; while (hi < S.length && S[hi] <= t) hi++;
-          if (hi - lo >= 300) { const w = Array.from(V.subarray(lo, hi)).sort((a, b) => a - b); M.push([t, w[w.length >> 1]]); }
+          if (hi - lo >= need) { const w = Array.from(V.subarray(lo, hi)).sort((a, b) => a - b); M.push([t, w[w.length >> 1]]); }
           else M.push([t, null]);
         }
       }
-      drms = cur.summary.drms_mm;
-      const sorted = Array.from(V).sort((a, b) => a - b), q = p => sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] : 0;
-      let imax = 0; for (let i = 1; i < V.length; i++) if (V[i] > V[imax]) imax = i;
-      stats = { n: V.length, med: q(.5), p95: q(.95), max: V.length ? V[imax] : 0, imax };
+      drms = sm.drms_mm;
+      const summ = A => { const so = Array.from(A).sort((a, b) => a - b), q = p => so.length ? so[Math.min(so.length - 1, Math.floor(p * so.length))] : 0;
+        let im = 0; for (let i = 1; i < A.length; i++) if (A[i] > A[im]) im = i; return { n: A.length, med: q(.5), p95: q(.95), max: A.length ? A[im] : 0, imax: im }; };
+      stats = summ(V); ostats = summ(O);
       const when = k => new Date(cur.startMs + k * 1000).toLocaleString("en-US", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
-      $("rollNote").textContent = `${stats.n.toLocaleString()} windows. Median ${stats.med.toFixed(1)} mm, 95th percentile ${stats.p95.toFixed(1)} mm, largest ${stats.max.toFixed(1)} mm (window starting ${V.length ? when(S[imax]) : "–"}); the upload's DRMS is ${drms.toFixed(1)} mm. HZ precision = √(σN² + σE²), sample standard deviations of the ${ROLL_W + 1} positions in each window (start through start + ${ROLL_W} s), plotted at the window's start time. Windows with a missing second are skipped, so gaps show as breaks. The black line is a 10-minute running median.` + (exclRanges().length ? ` Data not used (${exclText()}) is left out.` : "");
-      hover = -1; v0 = 0; v1 = Math.max(MIN_SPAN, total); updateButtons(); setReadout(); draw();
+      const lab = `${winS}-second`;
+      $("rollTitle").textContent = `Rolling ${lab} HZ precision`;
+      $("rollLegP").textContent = `${lab} window HZ precision`;
+      $("rollNote").textContent = !ok ? `This upload is logged every ${slotS} s, so ${winS}-second windows are not available. Choose a window that is a multiple of ${slotS} s.` :
+        `${lab} windows (${n} epochs each, start through start + ${winS} s), ${stats.n.toLocaleString()} in all, each plotted at its start time. ` +
+        `HZ precision = √(σN² + σE²) of the positions in the window (sample standard deviations): median ${stats.med.toFixed(1)} mm, 95th percentile ${stats.p95.toFixed(1)} mm, largest ${stats.max.toFixed(1)} mm (window starting ${V.length ? when(S[stats.imax]) : "–"}). ` +
+        `Distance from the average = horizontal distance between the window's average position and the upload's average position: median ${ostats.med.toFixed(1)} mm, 95th percentile ${ostats.p95.toFixed(1)} mm, largest ${ostats.max.toFixed(1)} mm. ` +
+        `The upload's DRMS is ${drms.toFixed(1)} mm. Windows with a missing epoch are skipped, so gaps show as breaks. The black line is a 10-minute running median of the HZ precision.` + (exclRanges().length ? ` Data not used (${exclText()}) is left out.` : "");
+      hover = -1;
+      if (!keepView) { v0 = 0; v1 = Math.max(MIN_SPAN, total); }
+      updateButtons(); setReadout(); draw();
     }
     function setReadout() {
       if (hover < 0 || !S) { ro.innerHTML = `<span>Hover over the chart to read the window and its precision.</span>`; return; }
-      const a = new Date(cur.startMs + S[hover] * 1000), b = new Date(cur.startMs + (S[hover] + ROLL_W) * 1000);
+      const a = new Date(cur.startMs + S[hover] * 1000), b = new Date(cur.startMs + (S[hover] + winS) * 1000);
       const f = d => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
-      ro.innerHTML = `<span><b>${a.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${f(a)} to ${f(b)}</b></span> <span>HZ precision <b>${V[hover].toFixed(2)} mm</b></span>`;
+      ro.innerHTML = `<span><b>${a.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${f(a)} to ${f(b)}</b></span> <span>HZ precision <b>${V[hover].toFixed(2)} mm</b></span> <span>Distance from average <b>${O[hover].toFixed(2)} mm</b></span>`;
     }
     function draw(forExport) {
       if (!S) return;
@@ -3001,16 +3029,17 @@
       ctx.fillStyle = panel; ctx.fillRect(0, 0, W, Hh);
       const L = 64, R = W - 14, T = forExport ? 74 : 10, B = Hh - 54;
       const i0 = lb(v0), i1 = Math.max(i0, lb(v1 + 1e-9) - 1), full = isFull();
-      let vmax = 0, vs = [];
-      for (let i = i0; i <= i1 && i < V.length; i++) { if (V[i] > vmax) vmax = V[i]; vs.push(V[i]); }
-      let yMax = full ? Math.max(drms * 1.15, stats.p95 * 2.2, 4) : Math.max(drms * 1.1, vmax * 1.1, 2);
+      let vmax = 0, omax = 0, vs = [], os = [];
+      for (let i = i0; i <= i1 && i < V.length; i++) { if (V[i] > vmax) vmax = V[i]; if (O[i] > omax) omax = O[i]; vs.push(V[i]); os.push(O[i]); }
+      let yMax = full ? Math.max(drms * 1.15, showP ? stats.p95 * 2.2 : 0, showD ? ostats.p95 * 1.25 : 0, 4)
+        : Math.max(drms * 1.1, showP ? vmax * 1.1 : 0, showD ? omax * 1.1 : 0, 2);
       yMax = yMax > 6 ? Math.ceil(yMax / 2) * 2 : Math.ceil(yMax);
       const span = v1 - v0;
       const X = t => L + (t - v0) / span * (R - L), Y = v => B - Math.min(v, yMax) / yMax * (B - T);
-      vs.sort((a, b) => a - b);
-      view = { n: vs.length, med: vs.length ? vs[vs.length >> 1] : 0, max: vmax };
+      vs.sort((a, b) => a - b); os.sort((a, b) => a - b);
+      view = { n: vs.length, med: vs.length ? vs[vs.length >> 1] : 0, max: vmax, omed: os.length ? os[os.length >> 1] : 0, omax };
       geo = { L, R, T, B, X, Y };
-      if (forExport) { ctx.fillStyle = ink; ctx.font = `600 14px ${font}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(`Rolling 30-second HZ precision · ${sessionTitle()}`, 12, 20); }
+      if (forExport) { ctx.fillStyle = ink; ctx.font = `600 14px ${font}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(`Rolling ${winS}-second HZ precision · ${sessionTitle()}`, 12, 20); }
       ctx.font = `12px ${font}`; ctx.lineWidth = 1;
       const sy = niceStepOf(yMax, 5);
       for (let v = 0; v <= yMax + 1e-9; v += sy) {
@@ -3026,27 +3055,31 @@
       }
       ctx.strokeStyle = rule; ctx.strokeRect(L, T, R - L, B - T);
       ctx.fillStyle = ink; ctx.font = `600 13px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
-      ctx.fillText("Start of 30-second window", (L + R) / 2, Hh - 12);
-      ctx.save(); ctx.translate(16, (T + B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("HZ precision (mm)", 0, 0); ctx.restore();
+      ctx.fillText(`Start of ${winS}-second window`, (L + R) / 2, Hh - 12);
+      ctx.save(); ctx.translate(16, (T + B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(showD ? "HZ precision / distance (mm)" : "HZ precision (mm)", 0, 0); ctx.restore();
       ctx.save(); ctx.beginPath(); ctx.rect(L, T, R - L, B - T); ctx.clip();
       drawExcluded(ctx, exclSpans(), X, L, R, T, B);
       // windows, as a min-max band per pixel column, broken across gaps
-      ctx.strokeStyle = col; ctx.globalAlpha = .7; ctx.lineWidth = 1; ctx.beginPath();
-      let colx = null, mn = 0, mx = 0, open = false, prev = -2;
-      const flush = () => { if (colx === null) return; const x = colx + .5; if (open) ctx.lineTo(x, Y(mn)); else { ctx.moveTo(x, Y(mn)); open = true; } ctx.lineTo(x, Y(mx)); colx = null; };
-      for (let i = Math.max(0, i0 - 1); i <= Math.min(S.length - 1, i1 + 1); i++) {
-        if (S[i] - prev > 1) { flush(); open = false; }
-        const c = Math.floor(X(S[i]));
-        if (c !== colx) { flush(); colx = c; mn = mx = V[i]; } else { if (V[i] < mn) mn = V[i]; if (V[i] > mx) mx = V[i]; }
-        prev = S[i];
-      }
-      flush(); ctx.stroke(); ctx.globalAlpha = 1;
+      const band = (A, color, alpha) => {
+        ctx.strokeStyle = color; ctx.globalAlpha = alpha; ctx.lineWidth = 1; ctx.beginPath();
+        let colx = null, mn = 0, mx = 0, open = false, prev = -1e9;
+        const flush = () => { if (colx === null) return; const x = colx + .5; if (open) ctx.lineTo(x, Y(mn)); else { ctx.moveTo(x, Y(mn)); open = true; } ctx.lineTo(x, Y(mx)); colx = null; };
+        for (let i = Math.max(0, i0 - 1); i <= Math.min(S.length - 1, i1 + 1); i++) {
+          if (S[i] - prev > slotS) { flush(); open = false; }
+          const c = Math.floor(X(S[i]));
+          if (c !== colx) { flush(); colx = c; mn = mx = A[i]; } else { if (A[i] < mn) mn = A[i]; if (A[i] > mx) mx = A[i]; }
+          prev = S[i];
+        }
+        flush(); ctx.stroke(); ctx.globalAlpha = 1;
+      };
+      if (showD) band(O, css("--cP"), .55);
+      if (showP) band(V, col, .7);
       ctx.strokeStyle = ink; ctx.lineWidth = 1.6; ctx.beginPath(); let on = false;
-      for (const [t, v] of M) { if (v === null) { on = false; continue; } if (on) ctx.lineTo(X(t), Y(v)); else { ctx.moveTo(X(t), Y(v)); on = true; } }
+      if (showP) for (const [t, v] of M) { if (v === null) { on = false; continue; } if (on) ctx.lineTo(X(t), Y(v)); else { ctx.moveTo(X(t), Y(v)); on = true; } }
       ctx.stroke();
       ctx.strokeStyle = muted; ctx.lineWidth = 1.2; ctx.setLineDash([7, 4]); ctx.beginPath(); ctx.moveTo(L, Y(drms)); ctx.lineTo(R, Y(drms)); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = muted; ctx.font = `11px ${font}`; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(`DRMS ${drms.toFixed(1)} mm`, R - 4, Y(drms) - 2);
-      if (view.max > yMax) { ctx.fillStyle = "#dc2626"; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText(`peaks run off the top (max ${view.max.toFixed(1)} mm)`, L + 6, T + 4); }
+      { const top = Math.max(showP ? view.max : 0, showD ? view.omax : 0); if (top > yMax) { ctx.fillStyle = "#dc2626"; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText(`peaks run off the top (max ${top.toFixed(1)} mm)`, L + 6, T + 4); } }
       if (drag && drag.box) {
         const xa = Math.min(drag.x0, drag.x1), xb = Math.max(drag.x0, drag.x1);
         ctx.fillStyle = "rgba(37,99,235,.12)"; ctx.strokeStyle = "rgba(37,99,235,.72)"; ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
@@ -3054,16 +3087,17 @@
       }
       if (hover >= 0) {
         const x = X(S[hover]); ctx.strokeStyle = muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, B); ctx.stroke(); ctx.setLineDash([]);
-        ctx.fillStyle = col; ctx.strokeStyle = panel; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, Y(V[hover]), 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        if (showD) { ctx.fillStyle = css("--cP"); ctx.strokeStyle = panel; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, Y(O[hover]), 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+        if (showP) { ctx.fillStyle = col; ctx.strokeStyle = panel; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, Y(V[hover]), 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
       }
       ctx.restore();
       const when = t => new Date(cur.startMs + t * 1000).toLocaleString("en-US", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
-      const shown = `${full ? "Whole upload" : `Shown: ${when(v0)} to ${when(v1)}`} · ${view.n.toLocaleString()} windows · median ${view.med.toFixed(1)} mm · max ${view.max.toFixed(1)} mm`;
+      const shown = `${full ? "Whole upload" : `Shown: ${when(v0)} to ${when(v1)}`} · ${view.n.toLocaleString()} windows · HZ precision median ${view.med.toFixed(1)} mm, max ${view.max.toFixed(1)} mm · distance from average median ${view.omed.toFixed(1)} mm, max ${view.omax.toFixed(1)} mm`;
       $("rollView").textContent = shown;
       if (forExport) { ctx.fillStyle = muted; ctx.font = `11px ${font}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(shown, 12, 62); }
       if (forExport) {
         ctx.font = `11px ${font}`; ctx.textBaseline = "middle"; ctx.textAlign = "left";
-        const items = [[col, "30-s window HZ precision", []], [ink, "10-min running median", []], [muted, "DRMS (whole upload)", [7, 4]]];
+        const items = [...(showP ? [[col, `${winS}-s window HZ precision`, []], [ink, "10-min running median", []]] : []), ...(showD ? [[css("--cP"), "Distance of window average from upload average", []]] : []), [muted, "DRMS (whole upload)", [7, 4]]];
         const wOf = lab => 22 + ctx.measureText(lab).width + 18;
         let x = 12;
         for (const [c, lab, dash] of items) {
@@ -3141,6 +3175,13 @@
       setView(anchor - ratio * sp, anchor - ratio * sp + sp);
     }, { passive: false });
     cv.addEventListener("dblclick", ev => { ev.preventDefault(); setView(0, total); });
+    document.querySelectorAll("#rollWinSeg button").forEach(btn => btn.addEventListener("click", () => {
+      winS = +btn.dataset.w;
+      document.querySelectorAll("#rollWinSeg button").forEach(x => x.setAttribute("aria-pressed", String(x === btn)));
+      if (cur) load(true);
+    }));
+    $("rollShowP").addEventListener("change", e => { showP = e.target.checked; draw(); });
+    $("rollShowD").addEventListener("change", e => { showD = e.target.checked; draw(); });
     $("rollZoomIn").addEventListener("click", () => zoom(1 / 1.5));
     $("rollZoomOut").addEventListener("click", () => zoom(1.5));
     $("rollReset").addEventListener("click", () => setView(0, total));
@@ -3153,11 +3194,11 @@
       const h = hover; hover = -1;
       const H0 = wrap.style.height; wrap.style.height = "420px"; draw(true);
       const stamp = full => full ? "" : "_" + new Date(cur.startMs + v0 * 1000).toTimeString().slice(0, 8).replace(/:/g, "") + "-" + new Date(cur.startMs + v1 * 1000).toTimeString().slice(0, 8).replace(/:/g, "");
-      savePng(cv, `${cur.summary.id}_rolling_30s_hz_precision${stamp(isFull())}.png`);
+      savePng(cv, `${cur.summary.id}_rolling_${winS}s_hz_precision${stamp(isFull())}.png`);
       wrap.style.height = H0; hover = h; draw();
     });
     new ResizeObserver(() => { if (cur) draw(); }).observe(wrap);
-    return { load, redraw: () => draw() };
+    return { load: () => load(false), redraw: () => draw() };
   })();
 
   // ============================== Wiring ======================================
