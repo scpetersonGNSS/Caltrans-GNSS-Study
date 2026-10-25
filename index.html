@@ -143,6 +143,14 @@
   .tooltip strong { display: block; }
   .tip-series + .tip-series { border-top: 1px solid var(--rule); margin-top: .45rem; padding-top: .45rem; }
   .chart-note { margin: .5rem 0 0; font-size: .82rem; color: var(--muted); }
+  .hd-wrap { position: relative; width: 100%; max-width: 640px; aspect-ratio: 1 / 1; margin: 0 auto; }
+  .hd-wrap canvas, .roll-wrap canvas { width: 100%; height: 100%; display: block; }
+  .roll-wrap { position: relative; width: 100%; height: 340px; }
+  #rollReadout { min-height: 1.6rem; margin-bottom: .2rem; }
+  .roll-legend { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; font-size: .85rem; color: var(--muted); margin: 0 0 .4rem; }
+  .roll-legend span { display: inline-flex; align-items: center; gap: .4rem; }
+  .roll-legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; }
+  .roll-legend i.dash { height: 0; border-top: 2px dashed var(--muted); }
   .readout { font-size: .88rem; color: var(--ink); }
   input[type="range"] { width: min(320px, 100%); accent-color: var(--brass); }
   .drift-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "ah sh" "aw sw"; gap: .6rem 2rem; align-items: end; }
@@ -162,7 +170,7 @@
   .cbar i { display: inline-block; width: 90px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, #440154, #3b528b, #21918c, #5ec962, #fde725); }
   .drift-wrap { position: relative; width: 100%; max-width: 680px; aspect-ratio: 1 / 1; }
   .drift-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .drift-wrap .tooltip { transform: none; }
+  .drift-wrap .tooltip, .hd-wrap .tooltip { transform: none; }
   .anim-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: .6rem; align-items: start; max-width: 860px; }
   .anim-row.with-gauges { grid-template-columns: minmax(0, 1fr) 142px; }
   .drift-grid:has(.with-gauges) { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
@@ -570,6 +578,24 @@
             </div>
           </div>
         </section>
+
+        <section class="plot" id="hourlyCard">
+          <h3>Hourly horizontal drift</h3>
+          <p>The average position for each clock hour, as an offset from the upload's mean position, joined in time order. It gives an overall view of how the position wandered during the occupation.</p>
+          <div class="controls"><button type="button" id="hourlyPng">Download PNG</button></div>
+          <div class="hd-wrap" id="hourlyWrap"><canvas id="hourlyCanvas"></canvas><div class="tooltip" id="hourlyTip"></div></div>
+          <p class="chart-note" id="hourlyNote"></p>
+        </section>
+
+        <section class="plot" id="rollCard">
+          <h3>Rolling 30-second HZ precision</h3>
+          <p>The horizontal precision of every 30-second window in the upload: from the first epoch to 30 seconds later, then one second later, and so on to the end. It shows how the precision of a short observation changes over the day.</p>
+          <div class="controls"><button type="button" id="rollPng">Download PNG</button></div>
+          <div class="legend roll-legend"><span><i style="background:var(--cN)"></i>30-second window HZ precision</span><span><i style="background:var(--ink)"></i>10-minute running median</span><span><i class="dash"></i>DRMS of the whole upload</span></div>
+          <div class="readout fixed-strip" id="rollReadout"><span>Hover over the chart to read the window and its precision.</span></div>
+          <div class="roll-wrap" id="rollWrap"><canvas id="rollCanvas"></canvas></div>
+          <p class="chart-note" id="rollNote"></p>
+        </section>
       </div>
     </div>
   </main>
@@ -824,6 +850,8 @@
       SAT.load();
       Win.load();
       Drift.load();
+      Hourly.load();
+      Roll.load();
       renderList();
     } catch (err) {
       showError(`The data for this upload could not be loaded (${err.message}).`);
@@ -2799,10 +2827,244 @@
   $("staticClose").addEventListener("click", () => $("staticDialog").close());
   $("staticDialog").addEventListener("click", e => { if (e.target === $("staticDialog")) $("staticDialog").close(); });
 
+  // ============== Hourly drift and rolling 30-second HZ precision ==============
+  // Both use only the epochs that are not in a "Data not used" period.
+  const ROLL_W = 30;            // window: start epoch through start + 30 s
+  const HOURLY_MIN_S = 900;     // an hour needs at least 15 minutes of data
+  function savePng(canvas, name) {
+    canvas.toBlob(b => {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = name;
+      document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }, "image/png");
+  }
+  const sessionTitle = () => {
+    const s = cur.summary, site = siteOf(s.site);
+    return s.site ? `${site ? `Site #${site.number}, ${site.name}` : s.site} · Test ${s.test_number}: ${s.test === "G" ? "GPS" : s.test}` : s.source_file;
+  };
+  function prepCanvas(c, w, h) {
+    const ratio = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+    c.width = Math.round(w * ratio); c.height = Math.round(h * ratio);
+    const ctx = c.getContext("2d"); ctx.setTransform(ratio, 0, 0, ratio, 0, 0); return ctx;
+  }
+  const niceStepOf = (range, target) => { const raw = range / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag; return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * mag; };
+
+  const Hourly = (() => {
+    const wrap = $("hourlyWrap"), cv = $("hourlyCanvas"), tip = $("hourlyTip");
+    let H = [], drms = 0, lim = 1, geo = null;
+    function load() {
+      const d = keptData(cur.data), s = cur.summary;
+      const mn = (s.mean_m.n - d.base_m.n) * 1000, me = (s.mean_m.e - d.base_m.e) * 1000;
+      const bins = new Map();
+      for (let i = 0; i < d.t.length; i++) {
+        const dt = new Date(cur.startMs + d.t[i] * 1000); dt.setMinutes(0, 0, 0);
+        const k = dt.getTime(); let b = bins.get(k);
+        if (!b) { b = { k, n: 0, sn: 0, se: 0 }; bins.set(k, b); }
+        b.n++; b.sn += d.n_mm[i] - mn; b.se += d.e_mm[i] - me;
+      }
+      const step = cur.data.interval_s || 1;
+      H = [...bins.values()].filter(b => b.n * step >= HOURLY_MIN_S).sort((a, b) => a.k - b.k)
+        .map(b => ({ k: b.k, n: b.n, dn: b.sn / b.n, de: b.se / b.n }));
+      drms = s.drms_mm;
+      const m = Math.max(drms, ...H.map(h => Math.max(Math.abs(h.dn), Math.abs(h.de))));
+      lim = Math.ceil(m * 1.15 / 2) * 2;
+      const r = H.map(h => Math.hypot(h.dn, h.de)), rms = Math.sqrt(r.reduce((a, v) => a + v * v, 0) / (r.length || 1));
+      $("hourlyNote").textContent = `${H.length} hourly averages (hours with at least 15 minutes of data). RMS of the hourly offsets ${rms.toFixed(1)} mm, largest ${Math.max(...r).toFixed(1)} mm. Points are colored from the start (dark) to the end (yellow) of the upload; the dashed circle is the upload's DRMS (${drms.toFixed(1)} mm).` + (exclRanges().length ? ` Data not used (${exclText()}) is left out.` : "");
+      draw();
+    }
+    function draw(forExport) {
+      if (!H.length) return;
+      const W = wrap.clientWidth || 600, Hh = wrap.clientHeight || W;
+      const ctx = prepCanvas(cv, W, Hh);
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body"), panel = css("--panel");
+      ctx.fillStyle = panel; ctx.fillRect(0, 0, W, Hh);
+      const top = forExport ? 34 : 14, P = { l: 58, r: 16, t: top, b: forExport ? 64 : 46 };
+      const size = Math.min(W - P.l - P.r, Hh - P.t - P.b), L = P.l + (W - P.l - P.r - size) / 2, T = P.t;
+      const X = v => L + (v + lim) / (2 * lim) * size, Y = v => T + size - (v + lim) / (2 * lim) * size, k = size / (2 * lim);
+      geo = { X, Y };
+      if (forExport) { ctx.fillStyle = ink; ctx.font = `600 14px ${font}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(`Hourly horizontal drift · ${sessionTitle()}`, 12, 20); }
+      const st = niceStepOf(2 * lim, 8);
+      ctx.font = `12px ${font}`; ctx.lineWidth = 1;
+      for (let v = Math.ceil(-lim / st) * st; v <= lim + 1e-9; v += st) {
+        ctx.strokeStyle = Math.abs(v) < 1e-9 ? rule : grid;
+        ctx.beginPath(); ctx.moveTo(X(v), T); ctx.lineTo(X(v), T + size); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(L + size, Y(v)); ctx.stroke();
+        ctx.fillStyle = muted; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText(fmtNum(v, 0), X(v), T + size + 6);
+        ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(fmtNum(v, 0), L - 6, Y(v));
+      }
+      ctx.strokeStyle = rule; ctx.strokeRect(L, T, size, size);
+      ctx.fillStyle = ink; ctx.font = `600 13px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillText("Easting offset (mm)", L + size / 2, T + size + 38);
+      ctx.save(); ctx.translate(16, T + size / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("Northing offset (mm)", 0, 0); ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, size, size); ctx.clip();
+      ctx.strokeStyle = muted; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.arc(X(0), Y(0), drms * k, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = muted; ctx.globalAlpha = .55; ctx.lineWidth = 1.2; ctx.beginPath();
+      H.forEach((h, i) => { if (i) ctx.lineTo(X(h.de), Y(h.dn)); else ctx.moveTo(X(h.de), Y(h.dn)); }); ctx.stroke(); ctx.globalAlpha = 1;
+      const n = H.length;
+      H.forEach((h, i) => {
+        ctx.fillStyle = viridisColor(n > 1 ? i / (n - 1) : 0); ctx.strokeStyle = panel; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(X(h.de), Y(h.dn), 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      });
+      ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(0) - 6, Y(0)); ctx.lineTo(X(0) + 6, Y(0)); ctx.moveTo(X(0), Y(0) - 6); ctx.lineTo(X(0), Y(0) + 6); ctx.stroke();
+      ctx.font = `11px ${font}`; ctx.fillStyle = ink; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+      H.forEach((h, i) => {
+        const hr = new Date(h.k).getHours();
+        if (i === 0 || i === n - 1 || hr % 3 === 0) {
+          let lab = new Date(h.k).toLocaleTimeString("en-US", { hour: "numeric", hour12: true }).replace(" ", "").toLowerCase().replace("m", "");
+          if (i === 0) lab = `start ${lab}`; if (i === n - 1) lab = `end ${lab}`;
+          ctx.fillText(lab, X(h.de) + 7, Y(h.dn) - 4);
+        }
+      });
+      ctx.restore();
+      if (forExport) { ctx.fillStyle = muted; ctx.font = `11px ${font}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(`Dashed circle: DRMS ${drms.toFixed(1)} mm. Dark = start, yellow = end.${exclRanges().length ? " Data not used: " + exclText() + "." : ""}`, 12, Hh - 6); }
+    }
+    cv.addEventListener("mousemove", ev => {
+      if (!geo) return;
+      const r = cv.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+      let best = -1, bd = 14;
+      H.forEach((h, i) => { const dd = Math.hypot(geo.X(h.de) - mx, geo.Y(h.dn) - my); if (dd < bd) { bd = dd; best = i; } });
+      if (best < 0) { tip.style.opacity = 0; return; }
+      const h = H[best], t0 = new Date(h.k);
+      tip.innerHTML = `${t0.toLocaleString("en-US", { month: "numeric", day: "numeric", hour: "numeric", hour12: true })} hour (${h.n.toLocaleString()} epochs)<br>dE = ${h.de.toFixed(1)} mm, dN = ${h.dn.toFixed(1)} mm<br>offset ${Math.hypot(h.dn, h.de).toFixed(1)} mm`;
+      tip.style.left = `${mx + 14}px`; tip.style.top = `${my - 10}px`; tip.style.opacity = 1;
+    });
+    cv.addEventListener("mouseleave", () => { tip.style.opacity = 0; });
+    $("hourlyPng").addEventListener("click", () => { draw(true); savePng(cv, `${cur.summary.id}_hourly_drift.png`); draw(); });
+    new ResizeObserver(() => { if (cur) draw(); }).observe(wrap);
+    return { load, redraw: () => draw() };
+  })();
+
+  const Roll = (() => {
+    const wrap = $("rollWrap"), cv = $("rollCanvas"), ro = $("rollReadout");
+    let S = null, V = null, M = null, total = 1, drms = 0, stats = null, geo = null, hover = -1;
+    function load() {
+      const d = keptData(cur.data);
+      total = cur.data.t[cur.data.t.length - 1];
+      // One slot per second of the upload; missing seconds stay empty.
+      const len = total + 1, has = new Uint8Array(len), xn = new Float64Array(len), xe = new Float64Array(len);
+      for (let i = 0; i < d.t.length; i++) { const k = d.t[i]; if (k >= 0 && k < len) { has[k] = 1; xn[k] = d.n_mm[i]; xe[k] = d.e_mm[i]; } }
+      const n = ROLL_W + 1, starts = [], vals = [];
+      let c = 0, s1n = 0, s2n = 0, s1e = 0, s2e = 0;
+      for (let k = 0; k < len; k++) {
+        if (has[k]) { c++; s1n += xn[k]; s2n += xn[k] * xn[k]; s1e += xe[k]; s2e += xe[k] * xe[k]; }
+        const j = k - n;
+        if (j >= 0 && has[j]) { c--; s1n -= xn[j]; s2n -= xn[j] * xn[j]; s1e -= xe[j]; s2e -= xe[j] * xe[j]; }
+        if (k >= n - 1 && c === n) {
+          const vn = Math.max(0, (s2n - s1n * s1n / n) / (n - 1)), ve = Math.max(0, (s2e - s1e * s1e / n) / (n - 1));
+          starts.push(k - n + 1); vals.push(Math.sqrt(vn + ve));
+        }
+      }
+      S = Int32Array.from(starts); V = Float64Array.from(vals);
+      // 10-minute running median (trailing), every 10 seconds
+      M = [];
+      if (S.length) {
+        let lo = 0;
+        for (let t = S[0]; t <= S[S.length - 1]; t += 10) {
+          while (lo < S.length && S[lo] <= t - 600) lo++;
+          let hi = lo; while (hi < S.length && S[hi] <= t) hi++;
+          if (hi - lo >= 300) { const w = Array.from(V.subarray(lo, hi)).sort((a, b) => a - b); M.push([t, w[w.length >> 1]]); }
+          else M.push([t, null]);
+        }
+      }
+      drms = cur.summary.drms_mm;
+      const sorted = Array.from(V).sort((a, b) => a - b), q = p => sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] : 0;
+      let imax = 0; for (let i = 1; i < V.length; i++) if (V[i] > V[imax]) imax = i;
+      stats = { n: V.length, med: q(.5), p95: q(.95), max: V.length ? V[imax] : 0, imax };
+      const when = k => new Date(cur.startMs + k * 1000).toLocaleString("en-US", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+      $("rollNote").textContent = `${stats.n.toLocaleString()} windows. Median ${stats.med.toFixed(1)} mm, 95th percentile ${stats.p95.toFixed(1)} mm, largest ${stats.max.toFixed(1)} mm (window starting ${V.length ? when(S[imax]) : "–"}); the upload's DRMS is ${drms.toFixed(1)} mm. HZ precision = √(σN² + σE²), sample standard deviations of the ${ROLL_W + 1} positions in each window (start through start + ${ROLL_W} s), plotted at the window's start time. Windows with a missing second are skipped, so gaps show as breaks. The black line is a 10-minute running median.` + (exclRanges().length ? ` Data not used (${exclText()}) is left out.` : "");
+      hover = -1; setReadout(); draw();
+    }
+    function setReadout() {
+      if (hover < 0 || !S) { ro.innerHTML = `<span>Hover over the chart to read the window and its precision.</span>`; return; }
+      const a = new Date(cur.startMs + S[hover] * 1000), b = new Date(cur.startMs + (S[hover] + ROLL_W) * 1000);
+      const f = d => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+      ro.innerHTML = `<span><b>${a.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${f(a)} to ${f(b)}</b></span> <span>HZ precision <b>${V[hover].toFixed(2)} mm</b></span>`;
+    }
+    function draw(forExport) {
+      if (!S) return;
+      const W = wrap.clientWidth || 800, Hh = wrap.clientHeight || 340;
+      const ctx = prepCanvas(cv, W, Hh);
+      const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body"), panel = css("--panel"), col = css("--cN");
+      ctx.fillStyle = panel; ctx.fillRect(0, 0, W, Hh);
+      const L = 64, R = W - 14, T = forExport ? 58 : 10, B = Hh - 54;
+      let yMax = Math.max(drms * 1.15, stats.p95 * 2.2, 4); yMax = Math.ceil(yMax / 2) * 2;
+      const X = t => L + t / Math.max(1, total) * (R - L), Y = v => B - Math.min(v, yMax) / yMax * (B - T);
+      geo = { L, R, T, B, X, Y };
+      if (forExport) { ctx.fillStyle = ink; ctx.font = `600 14px ${font}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(`Rolling 30-second HZ precision · ${sessionTitle()}`, 12, 20); }
+      ctx.font = `12px ${font}`; ctx.lineWidth = 1;
+      const sy = niceStepOf(yMax, 5);
+      for (let v = 0; v <= yMax + 1e-9; v += sy) {
+        ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(R, Y(v)); ctx.stroke();
+        ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(fmtNum(v, sy < 1 ? 1 : 0), L - 6, Y(v));
+      }
+      const startS = cur.startMs / 1000, step = [3600, 7200, 10800, 21600].find(s => (R - L) * s / total >= 70) || 21600;
+      for (let t = Math.ceil(startS / step) * step - startS; t <= total; t += step) {
+        ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(X(t), T); ctx.lineTo(X(t), B); ctx.stroke();
+        ctx.fillStyle = muted; ctx.textAlign = "center"; ctx.textBaseline = "top";
+        ctx.fillText(new Date(cur.startMs + t * 1000).toLocaleTimeString("en-US", { hour: "numeric", hour12: true }), X(t), B + 6);
+      }
+      ctx.strokeStyle = rule; ctx.strokeRect(L, T, R - L, B - T);
+      ctx.fillStyle = ink; ctx.font = `600 13px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillText("Start of 30-second window", (L + R) / 2, Hh - 12);
+      ctx.save(); ctx.translate(16, (T + B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("HZ precision (mm)", 0, 0); ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T, R - L, B - T); ctx.clip();
+      drawExcluded(ctx, exclSpans(), X, L, R, T, B);
+      // windows, as a min-max band per pixel column, broken across gaps
+      ctx.strokeStyle = col; ctx.globalAlpha = .7; ctx.lineWidth = 1; ctx.beginPath();
+      let colx = null, mn = 0, mx = 0, open = false, prev = -2;
+      const flush = () => { if (colx === null) return; const x = colx + .5; if (open) ctx.lineTo(x, Y(mn)); else { ctx.moveTo(x, Y(mn)); open = true; } ctx.lineTo(x, Y(mx)); colx = null; };
+      for (let i = 0; i < S.length; i++) {
+        if (S[i] - prev > 1) { flush(); open = false; }
+        const c = Math.floor(X(S[i]));
+        if (c !== colx) { flush(); colx = c; mn = mx = V[i]; } else { if (V[i] < mn) mn = V[i]; if (V[i] > mx) mx = V[i]; }
+        prev = S[i];
+      }
+      flush(); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = ink; ctx.lineWidth = 1.6; ctx.beginPath(); let on = false;
+      for (const [t, v] of M) { if (v === null) { on = false; continue; } if (on) ctx.lineTo(X(t), Y(v)); else { ctx.moveTo(X(t), Y(v)); on = true; } }
+      ctx.stroke();
+      ctx.strokeStyle = muted; ctx.lineWidth = 1.2; ctx.setLineDash([7, 4]); ctx.beginPath(); ctx.moveTo(L, Y(drms)); ctx.lineTo(R, Y(drms)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = muted; ctx.font = `11px ${font}`; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(`DRMS ${drms.toFixed(1)} mm`, R - 4, Y(drms) - 2);
+      if (stats.max > yMax) { ctx.fillStyle = "#dc2626"; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText(`peaks run off the top (max ${stats.max.toFixed(1)} mm)`, L + 6, T + 4); }
+      if (hover >= 0) {
+        const x = X(S[hover]); ctx.strokeStyle = muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, B); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = col; ctx.strokeStyle = panel; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, Y(V[hover]), 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+      if (forExport) {
+        ctx.font = `11px ${font}`; ctx.textBaseline = "middle"; ctx.textAlign = "left";
+        const items = [[col, "30-s window HZ precision", []], [ink, "10-min running median", []], [muted, "DRMS (whole upload)", [7, 4]]];
+        const wOf = lab => 22 + ctx.measureText(lab).width + 18;
+        let x = 12;
+        for (const [c, lab, dash] of items) {
+          ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.setLineDash(dash); ctx.beginPath(); ctx.moveTo(x, 40); ctx.lineTo(x + 18, 40); ctx.stroke(); ctx.setLineDash([]);
+          ctx.fillStyle = ink; ctx.fillText(lab, x + 22, 40); x += wOf(lab);
+        }
+      }
+    }
+    const lb = t => { let lo = 0, hi = S.length; while (lo < hi) { const m = (lo + hi) >> 1; if (S[m] < t) lo = m + 1; else hi = m; } return lo; };
+    cv.addEventListener("mousemove", ev => {
+      if (!geo || !S || !S.length) return;
+      const r = cv.getBoundingClientRect(), mx = ev.clientX - r.left;
+      if (mx < geo.L || mx > geo.R) { if (hover >= 0) { hover = -1; setReadout(); draw(); } return; }
+      const t = (mx - geo.L) / (geo.R - geo.L) * total;
+      let i = Math.min(S.length - 1, lb(t)); if (i > 0 && Math.abs(S[i - 1] - t) < Math.abs(S[i] - t)) i--;
+      if (Math.abs(S[i] - t) > total / (geo.R - geo.L) * 6) { if (hover >= 0) { hover = -1; setReadout(); draw(); } return; }
+      hover = i; setReadout(); draw();
+    });
+    cv.addEventListener("mouseleave", () => { hover = -1; setReadout(); draw(); });
+    $("rollPng").addEventListener("click", () => {
+      const h = hover; hover = -1;
+      const W0 = wrap.style.height; wrap.style.height = "420px"; draw(true); savePng(cv, `${cur.summary.id}_rolling_30s_hz_precision.png`);
+      wrap.style.height = W0; hover = h; draw();
+    });
+    new ResizeObserver(() => { if (cur) draw(); }).observe(wrap);
+    return { load, redraw: () => draw() };
+  })();
+
   // ============================== Wiring ======================================
   $("dateFilter").addEventListener("change", renderList);
   $("clearFilter").addEventListener("click", () => { $("dateFilter").value = ""; cell = null; renderGrid(); renderList(); });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); PAIR.redraw(); SAT.redraw(); Win.redraw(); Drift.redraw(); } });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cur) { TS.redraw(); PAIR.redraw(); SAT.redraw(); Win.redraw(); Drift.redraw(); Hourly.redraw(); Roll.redraw(); } });
 
   (async function init() {
     try {
