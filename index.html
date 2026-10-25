@@ -234,6 +234,9 @@
   table.sumtab tbody tr[aria-current="true"] { background: var(--brass-soft); }
   table.sumtab td button { padding: .2rem .6rem; font-size: .85rem; }
   .sum-dialog .note { font-size: .85rem; margin: .6rem 0 0; }
+  #staticDialog thead { position: sticky; top: 0; z-index: 1; background: var(--panel); }
+  #staticDialog thead th { position: static; }
+  #staticDialog thead tr:nth-child(2) th { text-align: right; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -270,6 +273,17 @@
           </table>
         </div>
         <p class="note" id="posNote"></p>
+      </dialog>
+      <button type="button" class="link-btn" id="staticBtn">Static vs NRTK summary</button>
+      <dialog class="sum-dialog" id="staticDialog" aria-labelledby="staticTitle">
+        <div class="sm-head"><h3 id="staticTitle">Static vs NRTK summary</h3><button type="button" class="sm-close" id="staticClose" aria-label="Close">&times;</button></div>
+        <div class="sum-scroll">
+          <table class="sumtab">
+            <thead><tr><th rowspan="2">Site</th><th rowspan="2">Test</th><th rowspan="2">Static</th><th colspan="3" style="text-align:center">Static Data</th><th colspan="4" style="text-align:center">Difference from NRTK 24-hr Mean</th><th rowspan="2"></th></tr><tr><th>Northing</th><th>Easting</th><th>Elevation</th><th>ΔN</th><th>ΔE</th><th>ΔElev</th><th>ΔHorizontal</th></tr></thead>
+            <tbody id="staticBody"></tbody>
+          </table>
+        </div>
+        <p class="note" id="staticNote"></p>
       </dialog>
     </section>
 
@@ -2634,6 +2648,59 @@
   $("posBtn").addEventListener("click", () => { renderPositionTable(); $("posDialog").showModal(); });
   $("posClose").addEventListener("click", () => $("posDialog").close());
   $("posDialog").addEventListener("click", e => { if (e.target === $("posDialog")) $("posDialog").close(); });
+
+  // ======================= Static vs NRTK summary =============================
+  // Static coordinates from data/static.json; differences are static minus the
+  // NRTK 24-hour mean of the same post and test.
+  let STATIC = null;
+  const SFT = 1200 / 3937;  // US survey foot in meters
+  async function renderStaticTable() {
+    if (STATIC === null) { try { STATIC = await getJSON("data/static.json"); } catch { STATIC = { sites: {} }; } }
+    const body = $("staticBody");
+    body.textContent = "";
+    const siteNum = s => { const x = siteOf(s.site); return x ? x.number : 99; };
+    const rows = sessions.filter(s => s.site)
+      .sort((a, b) => siteNum(a) - siteNum(b) || (a.test_number || 0) - (b.test_number || 0) || a.start.localeCompare(b.start));
+    const m3 = v => `${v.toFixed(3)} m`, mm0 = v => { const r = Math.round(v) || 0; return `${r > 0 ? "+" : ""}${r} mm`; };
+    let shown = 0;
+    for (const s of rows) {
+      const st = STATIC.sites[s.site], t = st && st.tests[s.test];
+      const site = siteOf(s.site), test = testOf(s.test);
+      let cells;
+      if (t) {
+        const k = st.units === "sft" ? SFT : 1;
+        const n = t.n * k, e = t.e * k, u = t.u * k;
+        const dN = (n - s.mean_m.n) * 1000, dE = (e - s.mean_m.e) * 1000, dU = (u - s.mean_m.u) * 1000;
+        cells = [site ? `${site.number} · ${s.site}` : s.site, `${s.test_number} · ${s.test}`, "Yes",
+          m3(n), m3(e), m3(u),
+          mm0(dN), mm0(dE), mm0(dU), `${Math.round(Math.hypot(dN, dE))} mm`];
+        shown++;
+      } else {
+        cells = [site ? `${site.number} · ${s.site}` : s.site, `${s.test_number} · ${s.test}`, "No", "–", "–", "–", "–", "–", "–", "–"];
+      }
+      const tr = document.createElement("tr");
+      tr.setAttribute("aria-current", cur && cur.summary.id === s.id ? "true" : "false");
+      cells.forEach((v, j) => {
+        const td = document.createElement("td");
+        td.textContent = v;
+        if (j >= 3) td.className = "num";
+        if (j === 0 && site) td.title = site.name;
+        if (j === 1 && test) td.title = test.constellations.join(" + ");
+        if (j === 2 && st) td.title = st.source + (st.control ? ` Control: ${st.control}.` : "");
+        tr.append(td);
+      });
+      const td = document.createElement("td"), b = document.createElement("button");
+      b.type = "button"; b.textContent = "View";
+      b.setAttribute("aria-label", `View site ${cells[0]}, test ${cells[1]}`);
+      b.addEventListener("click", () => { $("staticDialog").close(); selectSession(s.id); });
+      td.append(b); tr.append(td);
+      body.append(tr);
+    }
+    $("staticNote").textContent = `${shown} of ${rows.length} tests have a static solution. Δ = static data minus the NRTK 24-hour mean, in millimeters; ΔHorizontal = √(ΔN² + ΔE²). Static coordinates reported in US survey feet are converted to meters (1 sft = 1200/3937 m). Hover the Static column for each site's source and control.`;
+  }
+  $("staticBtn").addEventListener("click", async () => { await renderStaticTable(); $("staticDialog").showModal(); });
+  $("staticClose").addEventListener("click", () => $("staticDialog").close());
+  $("staticDialog").addEventListener("click", e => { if (e.target === $("staticDialog")) $("staticDialog").close(); });
 
   // ============================== Wiring ======================================
   $("dateFilter").addEventListener("change", renderList);

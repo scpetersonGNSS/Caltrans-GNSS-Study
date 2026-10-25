@@ -1,0 +1,42 @@
+{
+  "note": "Static (post-processed) coordinates for each post, compared with the NRTK 24-hour mean. Differences are static minus NRTK.",
+  "sites": {
+    "ELK": {
+      "source": "Trimble Business Center network adjustment, 24-hour occupation, September 26-27, 2026. NAD83(2011), GEOID18, CA Zone 4 (0404).",
+      "control": "KDL1, LEMA, MULN, RAPT, RBRU (3D)",
+      "units": "sft",
+      "ellipse": "DRMS",
+      "tests": {
+        "G":    {"n": 2063291.826, "e": 6330069.351, "u": 244.118, "semi_major": 0.008, "semi_minor": 0.008, "azimuth": 2},
+        "GREC": {"n": 2063243.353, "e": 6330058.009, "u": 243.236, "semi_major": 0.007, "semi_minor": 0.007, "azimuth": 1},
+        "GEC":  {"n": 2063269.277, "e": 6330067.940, "u": 243.987, "semi_major": 0.007, "semi_minor": 0.007, "azimuth": 2},
+        "GRE":  {"n": 2063302.416, "e": 6330062.407, "u": 244.788, "semi_major": 0.032, "semi_minor": 0.032, "azimuth": 2},
+        "GRC":  {"n": 2063288.832, "e": 6330056.931, "u": 244.752, "semi_major": 0.007, "semi_minor": 0.007, "azimuth": 2}
+      }
+    },
+    "FRES": {
+      "source": "24-hour static, October 17-18, 2026.",
+      "units": "m",
+      "tests": {
+        "G":    {"n": 665103.935, "e": 1933526.493, "u": 105.608},
+        "GREC": {"n": 665094.533, "e": 1933526.323, "u": 105.515},
+        "GEC":  {"n": 665088.399, "e": 1933526.514, "u": 105.738},
+        "GRE":  {"n": 665100.739, "e": 1933526.617, "u": 105.665},
+        "GRC":  {"n": 665106.789, "e": 1933526.634, "u": 105.650}
+      }
+    },
+    "SJER": {
+      "source": "Trimble Business Center network adjustment, 24-hour occupation, September 26-27, 2026. NAD83(2011), GEOID18, CA Zone 3 (0403).",
+      "control": "CHOW, DONO, KDL1, LEMA, MULN (horizontal), DOND (3D)",
+      "units": "sft",
+      "ellipse": "DRMS",
+      "tests": {
+        "G":    {"n": 1859078.198, "e": 6781027.014, "u": 1170.739, "semi_major": 0.012, "semi_minor": 0.012, "azimuth": 44},
+        "GREC": {"n": 1859058.497, "e": 6781013.687, "u": 1176.193, "semi_major": 0.022, "semi_minor": 0.022, "azimuth": 28},
+        "GEC":  {"n": 1859043.932, "e": 6781033.226, "u": 1175.396, "semi_major": 0.011, "semi_minor": 0.011, "azimuth": 42},
+        "GRE":  {"n": 1859027.164, "e": 6780997.304, "u": 1173.351, "semi_major": 0.012, "semi_minor": 0.012, "azimuth": 34},
+        "GRC":  {"n": 1859094.811, "e": 6781021.595, "u": 1169.366, "semi_major": 0.013, "semi_minor": 0.012, "azimuth": 44}
+      }
+    }
+  }
+}
