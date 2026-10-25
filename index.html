@@ -260,6 +260,17 @@
         </div>
         <p class="note" id="sumNote"></p>
       </dialog>
+      <button type="button" class="link-btn" id="posBtn">Position summary of all tests</button>
+      <dialog class="sum-dialog" id="posDialog" aria-labelledby="posTitle">
+        <div class="sm-head"><h3 id="posTitle">Position summary of all tests</h3><button type="button" class="sm-close" id="posClose" aria-label="Close">&times;</button></div>
+        <div class="sum-scroll">
+          <table class="sumtab">
+            <thead><tr><th>Site</th><th>Test</th><th>Start</th><th>Mean Northing</th><th>Mean Easting</th><th>Mean Elevation</th><th>Horizontal σ (DRMS)</th><th>95% horizontal (2DRMS)</th><th></th></tr></thead>
+            <tbody id="posBody"></tbody>
+          </table>
+        </div>
+        <p class="note" id="posNote"></p>
+      </dialog>
     </section>
 
     <section class="sitemap" id="siteMap">
@@ -2584,6 +2595,45 @@
   $("summaryBtn").addEventListener("click", () => { renderSummaryTable(); $("sumDialog").showModal(); });
   $("sumClose").addEventListener("click", () => $("sumDialog").close());
   $("sumDialog").addEventListener("click", e => { if (e.target === $("sumDialog")) $("sumDialog").close(); });
+
+  // ===================== Position summary of all tests ========================
+  function renderPositionTable() {
+    const body = $("posBody");
+    body.textContent = "";
+    const siteNum = s => { const x = siteOf(s.site); return x ? x.number : 99; };
+    const rows = sessions.filter(s => s.site)
+      .sort((a, b) => siteNum(a) - siteNum(b) || (a.test_number || 0) - (b.test_number || 0) || a.start.localeCompare(b.start));
+    const m3 = v => `${v.toFixed(3)} m`, mm1 = v => `${v.toFixed(1)} mm`;
+    for (const s of rows) {
+      const site = siteOf(s.site), test = testOf(s.test);
+      const cells = [
+        site ? `${site.number} · ${s.site}` : s.site,
+        `${s.test_number} · ${s.test}`,
+        parseLocal(s.start).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "2-digit" }),
+        m3(s.mean_m.n), m3(s.mean_m.e), m3(s.mean_m.u),
+        mm1(s.drms_mm), mm1(s.drms2_mm ?? 2 * s.drms_mm)];
+      const tr = document.createElement("tr");
+      tr.setAttribute("aria-current", cur && cur.summary.id === s.id ? "true" : "false");
+      cells.forEach((v, j) => {
+        const td = document.createElement("td");
+        td.textContent = v;
+        if (j >= 3) td.className = "num";
+        if (j === 0 && site) td.title = site.name;
+        if (j === 1 && test) td.title = test.constellations.join(" + ");
+        tr.append(td);
+      });
+      const td = document.createElement("td"), b = document.createElement("button");
+      b.type = "button"; b.textContent = "View";
+      b.setAttribute("aria-label", `View site ${cells[0]}, test ${cells[1]}`);
+      b.addEventListener("click", () => { $("posDialog").close(); selectSession(s.id); });
+      td.append(b); tr.append(td);
+      body.append(tr);
+    }
+    $("posNote").textContent = `${rows.length} test${rows.length === 1 ? "" : "s"}. Mean coordinates are the average of every epoch in the upload, in the units of the export. Horizontal σ is DRMS = √(σN² + σE²); the 95% horizontal figure is 2DRMS (2 × DRMS), the radius expected to contain about 95% of horizontal positions. Click View to open a test.`;
+  }
+  $("posBtn").addEventListener("click", () => { renderPositionTable(); $("posDialog").showModal(); });
+  $("posClose").addEventListener("click", () => $("posDialog").close());
+  $("posDialog").addEventListener("click", e => { if (e.target === $("posDialog")) $("posDialog").close(); });
 
   // ============================== Wiring ======================================
   $("dateFilter").addEventListener("change", renderList);

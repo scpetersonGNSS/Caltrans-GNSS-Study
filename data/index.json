@@ -30,7 +30,8 @@
       "constellations": [
         "GPS"
       ],
-      "raw_file": "data/raw/20261017-083944_Fres_G.asc"
+      "raw_file": "data/raw/20261017-083944_Fres_G.asc",
+      "drms2_mm": 29.0
     },
     {
       "id": "20261017-083930",
@@ -63,7 +64,8 @@
         "GLONASS",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20261017-083930_Fres_GRC.asc"
+      "raw_file": "data/raw/20261017-083930_Fres_GRC.asc",
+      "drms2_mm": 26.0
     },
     {
       "id": "20261017-083919",
@@ -96,7 +98,8 @@
         "GLONASS",
         "Galileo"
       ],
-      "raw_file": "data/raw/20261017-083919_Fres_GRE.asc"
+      "raw_file": "data/raw/20261017-083919_Fres_GRE.asc",
+      "drms2_mm": 24.0
     },
     {
       "id": "20261017-083906",
@@ -129,7 +132,8 @@
         "Galileo",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20261017-083906_Fres_GEC.asc"
+      "raw_file": "data/raw/20261017-083906_Fres_GEC.asc",
+      "drms2_mm": 21.8
     },
     {
       "id": "20261017-083855",
@@ -163,7 +167,8 @@
         "Galileo",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20261017-083855_Fres_GREC.asc"
+      "raw_file": "data/raw/20261017-083855_Fres_GREC.asc",
+      "drms2_mm": 22.2
     },
     {
       "id": "20260926-082350",
@@ -194,7 +199,8 @@
       "test_number": 1,
       "constellations": [
         "GPS"
-      ]
+      ],
+      "drms2_mm": 21.4
     },
     {
       "id": "20260926-082140",
@@ -228,7 +234,8 @@
         "Galileo",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-082140_SJER_GREC.asc"
+      "raw_file": "data/raw/20260926-082140_SJER_GREC.asc",
+      "drms2_mm": 15.5
     },
     {
       "id": "20260926-082130",
@@ -261,7 +268,8 @@
         "GLONASS",
         "Galileo"
       ],
-      "raw_file": "data/raw/20260926-082130_SJER_GRE.asc"
+      "raw_file": "data/raw/20260926-082130_SJER_GRE.asc",
+      "drms2_mm": 16.6
     },
     {
       "id": "20260926-082128",
@@ -294,7 +302,8 @@
         "GLONASS",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-082128_SJER_GRC.asc"
+      "raw_file": "data/raw/20260926-082128_SJER_GRC.asc",
+      "drms2_mm": 18.8
     },
     {
       "id": "20260926-082125",
@@ -327,7 +336,8 @@
         "Galileo",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-082125_SJER_GEC.asc"
+      "raw_file": "data/raw/20260926-082125_SJER_GEC.asc",
+      "drms2_mm": 15.3
     },
     {
       "id": "20260926-080901",
@@ -360,7 +370,8 @@
         "Galileo",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-080901_Elk_GEC.asc"
+      "raw_file": "data/raw/20260926-080901_Elk_GEC.asc",
+      "drms2_mm": 12.5
     },
     {
       "id": "20260926-080855",
@@ -394,7 +405,8 @@
         "Galileo",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-080855_Elk_GREC.asc"
+      "raw_file": "data/raw/20260926-080855_Elk_GREC.asc",
+      "drms2_mm": 11.7
     },
     {
       "id": "20260926-080732",
@@ -427,7 +439,8 @@
         "GLONASS",
         "BeiDou"
       ],
-      "raw_file": "data/raw/20260926-080732_Elk_GRC.asc"
+      "raw_file": "data/raw/20260926-080732_Elk_GRC.asc",
+      "drms2_mm": 17.8
     },
     {
       "id": "20260926-080720",
@@ -458,7 +471,8 @@
       "constellations": [
         "GPS"
       ],
-      "raw_file": "data/raw/20260926-080720_Elk_G.asc"
+      "raw_file": "data/raw/20260926-080720_Elk_G.asc",
+      "drms2_mm": 15.3
     },
     {
       "id": "20260926-080719",
@@ -491,7 +505,8 @@
         "GLONASS",
         "Galileo"
       ],
-      "raw_file": "data/raw/20260926-080719_Elk_GRE.asc"
+      "raw_file": "data/raw/20260926-080719_Elk_GRE.asc",
+      "drms2_mm": 13.4
     },
     {
       "id": "20260831-072247",
@@ -516,7 +531,8 @@
       "drms_mm": 8.9,
       "uploaded": "2026-09-24T19:14:50Z",
       "sha256": "e6d06bebecf1d05688644ecd07decad18245a227cb6b48b03613bf07b895da62",
-      "raw_file": "data/raw/20260831-072247_All_Day.asc"
+      "raw_file": "data/raw/20260831-072247_All_Day.asc",
+      "drms2_mm": 17.9
     }
   ],
   "study": {

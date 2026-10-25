@@ -341,6 +341,7 @@ def build_session(path):
         "mean_m": {"n": round(mean_n, 3), "e": round(mean_e, 3), "u": round(mean_u, 3)},
         "std_mm": {"n": round(sn * 1000, 1), "e": round(se * 1000, 1), "u": round(su * 1000, 1)},
         "drms_mm": round(drms * 1000, 1),
+        "drms2_mm": round(2 * drms * 1000, 1),
         "uploaded": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     return data, summary
