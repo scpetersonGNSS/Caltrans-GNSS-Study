@@ -589,11 +589,23 @@
 
         <section class="plot" id="rollCard">
           <h3>Rolling 30-second HZ precision</h3>
-          <p>The horizontal precision of every 30-second window in the upload: from the first epoch to 30 seconds later, then one second later, and so on to the end. It shows how the precision of a short observation changes over the day.</p>
-          <div class="controls"><button type="button" id="rollPng">Download PNG</button></div>
+          <p>The horizontal precision of every 30-second window in the upload: from the first epoch to 30 seconds later, then one second later, and so on to the end. It shows how the precision of a short observation changes over the day. Scroll or use the buttons to zoom, drag to pan (or draw a box in Box zoom), and double-click to reset. Download PNG saves the view you are looking at.</p>
+          <div class="controls">
+            <div class="seg" role="group" aria-label="Drag mode" id="rollModeSeg">
+              <button type="button" data-mode="pan" aria-pressed="true">Pan</button>
+              <button type="button" data-mode="box" aria-pressed="false">Box zoom</button>
+            </div>
+            <div class="seg" role="group" aria-label="Zoom">
+              <button type="button" id="rollZoomIn">+ Zoom in</button>
+              <button type="button" id="rollZoomOut" disabled>− Zoom out</button>
+            </div>
+            <button type="button" id="rollReset" disabled>Reset zoom</button>
+            <button type="button" id="rollPng">Download PNG of this view</button>
+          </div>
           <div class="legend roll-legend"><span><i style="background:var(--cN)"></i>30-second window HZ precision</span><span><i style="background:var(--ink)"></i>10-minute running median</span><span><i class="dash"></i>DRMS of the whole upload</span></div>
           <div class="readout fixed-strip" id="rollReadout"><span>Hover over the chart to read the window and its precision.</span></div>
-          <div class="roll-wrap" id="rollWrap"><canvas id="rollCanvas"></canvas></div>
+          <div class="roll-wrap" id="rollWrap"><canvas id="rollCanvas" style="touch-action:none"></canvas></div>
+          <p class="chart-note" id="rollView"></p>
           <p class="chart-note" id="rollNote"></p>
         </section>
       </div>
@@ -2936,6 +2948,8 @@
   const Roll = (() => {
     const wrap = $("rollWrap"), cv = $("rollCanvas"), ro = $("rollReadout");
     let S = null, V = null, M = null, total = 1, drms = 0, stats = null, geo = null, hover = -1;
+    let v0 = 0, v1 = 1, mode = "pan", drag = null, pending = false;
+    const MIN_SPAN = 120;
     function load() {
       const d = keptData(cur.data);
       total = cur.data.t[cur.data.t.length - 1];
@@ -2971,7 +2985,7 @@
       stats = { n: V.length, med: q(.5), p95: q(.95), max: V.length ? V[imax] : 0, imax };
       const when = k => new Date(cur.startMs + k * 1000).toLocaleString("en-US", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
       $("rollNote").textContent = `${stats.n.toLocaleString()} windows. Median ${stats.med.toFixed(1)} mm, 95th percentile ${stats.p95.toFixed(1)} mm, largest ${stats.max.toFixed(1)} mm (window starting ${V.length ? when(S[imax]) : "–"}); the upload's DRMS is ${drms.toFixed(1)} mm. HZ precision = √(σN² + σE²), sample standard deviations of the ${ROLL_W + 1} positions in each window (start through start + ${ROLL_W} s), plotted at the window's start time. Windows with a missing second are skipped, so gaps show as breaks. The black line is a 10-minute running median.` + (exclRanges().length ? ` Data not used (${exclText()}) is left out.` : "");
-      hover = -1; setReadout(); draw();
+      hover = -1; v0 = 0; v1 = Math.max(MIN_SPAN, total); updateButtons(); setReadout(); draw();
     }
     function setReadout() {
       if (hover < 0 || !S) { ro.innerHTML = `<span>Hover over the chart to read the window and its precision.</span>`; return; }
@@ -2985,9 +2999,16 @@
       const ctx = prepCanvas(cv, W, Hh);
       const ink = css("--ink"), muted = css("--muted"), grid = css("--grid"), rule = css("--rule"), font = css("--body"), panel = css("--panel"), col = css("--cN");
       ctx.fillStyle = panel; ctx.fillRect(0, 0, W, Hh);
-      const L = 64, R = W - 14, T = forExport ? 58 : 10, B = Hh - 54;
-      let yMax = Math.max(drms * 1.15, stats.p95 * 2.2, 4); yMax = Math.ceil(yMax / 2) * 2;
-      const X = t => L + t / Math.max(1, total) * (R - L), Y = v => B - Math.min(v, yMax) / yMax * (B - T);
+      const L = 64, R = W - 14, T = forExport ? 74 : 10, B = Hh - 54;
+      const i0 = lb(v0), i1 = Math.max(i0, lb(v1 + 1e-9) - 1), full = isFull();
+      let vmax = 0, vs = [];
+      for (let i = i0; i <= i1 && i < V.length; i++) { if (V[i] > vmax) vmax = V[i]; vs.push(V[i]); }
+      let yMax = full ? Math.max(drms * 1.15, stats.p95 * 2.2, 4) : Math.max(drms * 1.1, vmax * 1.1, 2);
+      yMax = yMax > 6 ? Math.ceil(yMax / 2) * 2 : Math.ceil(yMax);
+      const span = v1 - v0;
+      const X = t => L + (t - v0) / span * (R - L), Y = v => B - Math.min(v, yMax) / yMax * (B - T);
+      vs.sort((a, b) => a - b);
+      view = { n: vs.length, med: vs.length ? vs[vs.length >> 1] : 0, max: vmax };
       geo = { L, R, T, B, X, Y };
       if (forExport) { ctx.fillStyle = ink; ctx.font = `600 14px ${font}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(`Rolling 30-second HZ precision · ${sessionTitle()}`, 12, 20); }
       ctx.font = `12px ${font}`; ctx.lineWidth = 1;
@@ -2996,11 +3017,12 @@
         ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(R, Y(v)); ctx.stroke();
         ctx.fillStyle = muted; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(fmtNum(v, sy < 1 ? 1 : 0), L - 6, Y(v));
       }
-      const startS = cur.startMs / 1000, step = [3600, 7200, 10800, 21600].find(s => (R - L) * s / total >= 70) || 21600;
-      for (let t = Math.ceil(startS / step) * step - startS; t <= total; t += step) {
+      const startS = cur.startMs / 1000, step = [10, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 10800, 21600].find(s => (R - L) * s / span >= 80) || 21600;
+      const tfmt = step < 60 ? { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true } : step < 3600 ? { hour: "numeric", minute: "2-digit", hour12: true } : { hour: "numeric", hour12: true };
+      for (let t = Math.ceil((startS + v0) / step) * step - startS; t <= v1 + 1e-9; t += step) {
         ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(X(t), T); ctx.lineTo(X(t), B); ctx.stroke();
         ctx.fillStyle = muted; ctx.textAlign = "center"; ctx.textBaseline = "top";
-        ctx.fillText(new Date(cur.startMs + t * 1000).toLocaleTimeString("en-US", { hour: "numeric", hour12: true }), X(t), B + 6);
+        ctx.fillText(new Date(cur.startMs + t * 1000).toLocaleTimeString("en-US", tfmt), X(t), B + 6);
       }
       ctx.strokeStyle = rule; ctx.strokeRect(L, T, R - L, B - T);
       ctx.fillStyle = ink; ctx.font = `600 13px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
@@ -3012,7 +3034,7 @@
       ctx.strokeStyle = col; ctx.globalAlpha = .7; ctx.lineWidth = 1; ctx.beginPath();
       let colx = null, mn = 0, mx = 0, open = false, prev = -2;
       const flush = () => { if (colx === null) return; const x = colx + .5; if (open) ctx.lineTo(x, Y(mn)); else { ctx.moveTo(x, Y(mn)); open = true; } ctx.lineTo(x, Y(mx)); colx = null; };
-      for (let i = 0; i < S.length; i++) {
+      for (let i = Math.max(0, i0 - 1); i <= Math.min(S.length - 1, i1 + 1); i++) {
         if (S[i] - prev > 1) { flush(); open = false; }
         const c = Math.floor(X(S[i]));
         if (c !== colx) { flush(); colx = c; mn = mx = V[i]; } else { if (V[i] < mn) mn = V[i]; if (V[i] > mx) mx = V[i]; }
@@ -3024,12 +3046,21 @@
       ctx.stroke();
       ctx.strokeStyle = muted; ctx.lineWidth = 1.2; ctx.setLineDash([7, 4]); ctx.beginPath(); ctx.moveTo(L, Y(drms)); ctx.lineTo(R, Y(drms)); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = muted; ctx.font = `11px ${font}`; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(`DRMS ${drms.toFixed(1)} mm`, R - 4, Y(drms) - 2);
-      if (stats.max > yMax) { ctx.fillStyle = "#dc2626"; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText(`peaks run off the top (max ${stats.max.toFixed(1)} mm)`, L + 6, T + 4); }
+      if (view.max > yMax) { ctx.fillStyle = "#dc2626"; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText(`peaks run off the top (max ${view.max.toFixed(1)} mm)`, L + 6, T + 4); }
+      if (drag && drag.box) {
+        const xa = Math.min(drag.x0, drag.x1), xb = Math.max(drag.x0, drag.x1);
+        ctx.fillStyle = "rgba(37,99,235,.12)"; ctx.strokeStyle = "rgba(37,99,235,.72)"; ctx.setLineDash([5, 4]); ctx.lineWidth = 1;
+        ctx.fillRect(xa, T, xb - xa, B - T); ctx.strokeRect(xa, T, xb - xa, B - T); ctx.setLineDash([]);
+      }
       if (hover >= 0) {
         const x = X(S[hover]); ctx.strokeStyle = muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, B); ctx.stroke(); ctx.setLineDash([]);
         ctx.fillStyle = col; ctx.strokeStyle = panel; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, Y(V[hover]), 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
       ctx.restore();
+      const when = t => new Date(cur.startMs + t * 1000).toLocaleString("en-US", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+      const shown = `${full ? "Whole upload" : `Shown: ${when(v0)} to ${when(v1)}`} · ${view.n.toLocaleString()} windows · median ${view.med.toFixed(1)} mm · max ${view.max.toFixed(1)} mm`;
+      $("rollView").textContent = shown;
+      if (forExport) { ctx.fillStyle = muted; ctx.font = `11px ${font}`; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(shown, 12, 62); }
       if (forExport) {
         ctx.font = `11px ${font}`; ctx.textBaseline = "middle"; ctx.textAlign = "left";
         const items = [[col, "30-s window HZ precision", []], [ink, "10-min running median", []], [muted, "DRMS (whole upload)", [7, 4]]];
@@ -3041,21 +3072,89 @@
         }
       }
     }
-    const lb = t => { let lo = 0, hi = S.length; while (lo < hi) { const m = (lo + hi) >> 1; if (S[m] < t) lo = m + 1; else hi = m; } return lo; };
-    cv.addEventListener("mousemove", ev => {
-      if (!geo || !S || !S.length) return;
-      const r = cv.getBoundingClientRect(), mx = ev.clientX - r.left;
-      if (mx < geo.L || mx > geo.R) { if (hover >= 0) { hover = -1; setReadout(); draw(); } return; }
-      const t = (mx - geo.L) / (geo.R - geo.L) * total;
+    const lb = t => { let lo = 0, hi = S ? S.length : 0; while (lo < hi) { const m = (lo + hi) >> 1; if (S[m] < t) lo = m + 1; else hi = m; } return lo; };
+    let view = { n: 0, med: 0, max: 0 };
+    const isFull = () => v0 <= 0 && v1 >= Math.max(MIN_SPAN, total);
+    function updateButtons() {
+      const full = isFull();
+      $("rollReset").disabled = full; $("rollZoomOut").disabled = full;
+      $("rollZoomIn").disabled = v1 - v0 <= MIN_SPAN + 1e-6;
+      cv.style.cursor = drag ? (drag.box ? "crosshair" : "grabbing") : mode === "box" ? "crosshair" : full ? "crosshair" : "grab";
+    }
+    function setView(a, b) {
+      const tot = Math.max(MIN_SPAN, total), span = clamp(b - a, MIN_SPAN, tot);
+      v0 = clamp(a, 0, tot - span); v1 = v0 + span;
+      updateButtons(); draw();
+    }
+    const zoom = f => { const mid = (v0 + v1) / 2, sp = (v1 - v0) * f; setView(mid - sp / 2, mid + sp / 2); };
+    const pos = ev => { const r = cv.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+    const inPlot = (mx, my) => geo && mx >= geo.L && mx <= geo.R && my >= geo.T && my <= geo.B;
+    const tAt = mx => v0 + (mx - geo.L) / (geo.R - geo.L) * (v1 - v0);
+    function hoverAt(mx) {
+      if (!S || !S.length) return;
+      const t = tAt(mx);
       let i = Math.min(S.length - 1, lb(t)); if (i > 0 && Math.abs(S[i - 1] - t) < Math.abs(S[i] - t)) i--;
-      if (Math.abs(S[i] - t) > total / (geo.R - geo.L) * 6) { if (hover >= 0) { hover = -1; setReadout(); draw(); } return; }
-      hover = i; setReadout(); draw();
+      hover = Math.abs(S[i] - t) > (v1 - v0) / (geo.R - geo.L) * 6 ? -1 : i;
+      setReadout(); draw();
+    }
+    cv.addEventListener("pointerdown", ev => {
+      const [mx, my] = pos(ev);
+      if (ev.button !== 0 || !inPlot(mx, my)) return;
+      if (mode === "pan" && isFull()) return;
+      ev.preventDefault();
+      drag = { id: ev.pointerId, x0: mx, x1: mx, a: v0, b: v1, box: mode === "box" };
+      cv.setPointerCapture(ev.pointerId); hover = -1; setReadout(); updateButtons(); draw();
     });
-    cv.addEventListener("mouseleave", () => { hover = -1; setReadout(); draw(); });
+    cv.addEventListener("pointermove", ev => {
+      if (!geo || !S) return;
+      const [mx, my] = pos(ev);
+      if (drag) {
+        drag.x1 = clamp(mx, geo.L, geo.R);
+        if (pending) return;
+        pending = true;
+        requestAnimationFrame(() => {
+          pending = false; if (!drag) return;
+          if (drag.box) draw();
+          else { const sh = -(drag.x1 - drag.x0) / (geo.R - geo.L) * (drag.b - drag.a); v0 = drag.a; v1 = drag.b; setView(drag.a + sh, drag.b + sh); }
+        });
+        return;
+      }
+      if (!inPlot(mx, my)) { if (hover >= 0) { hover = -1; setReadout(); draw(); } return; }
+      hoverAt(mx);
+    });
+    const endDrag = ev => {
+      if (!drag || ev.pointerId !== drag.id) return;
+      if (cv.hasPointerCapture(ev.pointerId)) cv.releasePointerCapture(ev.pointerId);
+      const d = drag; drag = null;
+      if (d.box && Math.abs(d.x1 - d.x0) > 4) { const a = tAt(Math.min(d.x0, d.x1)), b = tAt(Math.max(d.x0, d.x1)); setView(a, b); }
+      else { updateButtons(); draw(); }
+    };
+    cv.addEventListener("pointerup", endDrag);
+    cv.addEventListener("pointercancel", endDrag);
+    cv.addEventListener("pointerleave", () => { if (!drag && hover >= 0) { hover = -1; setReadout(); draw(); } });
+    cv.addEventListener("wheel", ev => {
+      const [mx, my] = pos(ev);
+      if (!inPlot(mx, my)) return;
+      ev.preventDefault();
+      const ratio = (mx - geo.L) / (geo.R - geo.L), anchor = v0 + ratio * (v1 - v0);
+      const sp = clamp((v1 - v0) * (ev.deltaY < 0 ? .76 : 1.32), MIN_SPAN, Math.max(MIN_SPAN, total));
+      setView(anchor - ratio * sp, anchor - ratio * sp + sp);
+    }, { passive: false });
+    cv.addEventListener("dblclick", ev => { ev.preventDefault(); setView(0, total); });
+    $("rollZoomIn").addEventListener("click", () => zoom(1 / 1.5));
+    $("rollZoomOut").addEventListener("click", () => zoom(1.5));
+    $("rollReset").addEventListener("click", () => setView(0, total));
+    document.querySelectorAll("#rollModeSeg button").forEach(btn => btn.addEventListener("click", () => {
+      mode = btn.dataset.mode;
+      document.querySelectorAll("#rollModeSeg button").forEach(x => x.setAttribute("aria-pressed", String(x === btn)));
+      updateButtons();
+    }));
     $("rollPng").addEventListener("click", () => {
       const h = hover; hover = -1;
-      const W0 = wrap.style.height; wrap.style.height = "420px"; draw(true); savePng(cv, `${cur.summary.id}_rolling_30s_hz_precision.png`);
-      wrap.style.height = W0; hover = h; draw();
+      const H0 = wrap.style.height; wrap.style.height = "420px"; draw(true);
+      const stamp = full => full ? "" : "_" + new Date(cur.startMs + v0 * 1000).toTimeString().slice(0, 8).replace(/:/g, "") + "-" + new Date(cur.startMs + v1 * 1000).toTimeString().slice(0, 8).replace(/:/g, "");
+      savePng(cv, `${cur.summary.id}_rolling_30s_hz_precision${stamp(isFull())}.png`);
+      wrap.style.height = H0; hover = h; draw();
     });
     new ResizeObserver(() => { if (cur) draw(); }).observe(wrap);
     return { load, redraw: () => draw() };
