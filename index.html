@@ -237,6 +237,7 @@
   #staticDialog thead { position: sticky; top: 0; z-index: 1; background: var(--panel); }
   #staticDialog thead th { position: static; }
   #staticDialog thead tr:nth-child(2) th { text-align: right; }
+  .excl-note { margin: .6rem 0 0; padding: .45rem .7rem; border: 1px dashed #dc2626; border-radius: 6px; background: rgba(220, 38, 38, .07); color: var(--ink); font-size: .88rem; line-height: 1.4; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -337,6 +338,7 @@
       </div>
       <p class="session-line" id="sessionLine"></p>
       <dl class="stats" id="stats"></dl>
+      <p class="excl-note" id="exclNote" hidden></p>
 
       <div class="plots">
         <section class="plot" id="tsCard">
@@ -497,6 +499,7 @@
         <section class="plot">
           <h3>Horizontal drift</h3>
           <p>Each epoch's offset from the mean position, in meters.</p>
+          <p class="excl-note" id="driftExcl" hidden></p>
           <div class="drift-grid">
             <div class="a-head">
               <h4>Animation</h4>
@@ -604,6 +607,54 @@
     return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
   };
   const f3 = v => { const t = v.toFixed(3); return t === "-0.000" ? "0.000" : t; };
+
+  // ================ Periods left out of the statistics ========================
+  // A session file can list periods of bad data ("excluded": [{t0, t1, note}],
+  // offsets in seconds from the session start). Their epochs are still drawn,
+  // inside a box marked "Data not used", but no statistic on the page uses them.
+  const exclRanges = () => (cur && cur.data.excluded) || [];
+  function excludedMask(d) {
+    const m = new Uint8Array(d.t.length), R = d.excluded || [];
+    if (R.length) for (let i = 0; i < d.t.length; i++) for (const r of R) if (d.t[i] >= r.t0 && d.t[i] <= r.t1) { m[i] = 1; break; }
+    return m;
+  }
+  const isUsed = i => !cur.exMask || !cur.exMask[i];
+  // The session's data with the excluded epochs taken out.
+  function keptData(d) {
+    if (!(d.excluded && d.excluded.length)) return d;
+    const keep = []; for (let i = 0; i < d.t.length; i++) if (isUsed(i)) keep.push(i);
+    const pick = a => a ? keep.map(i => a[i]) : a;
+    const extra = {};
+    for (const [k, x] of Object.entries(d.extra || {})) extra[k] = { ...x, v: pick(x.v) };
+    return { ...d, t: pick(d.t), n_mm: pick(d.n_mm), e_mm: pick(d.e_mm), u_mm: pick(d.u_mm), ids: pick(d.ids), extra };
+  }
+  const exclText = () => exclRanges().map(r => {
+    const f = ms => new Date(ms).toLocaleString("en-US", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+    return `${f(cur.startMs + r.t0 * 1000)} to ${new Date(cur.startMs + r.t1 * 1000).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`;
+  }).join(" and ");
+  // Draws each span [a, b] (in the chart's own time units) as a shaded, outlined
+  // box labelled "Data not used". X maps time to pixels.
+  function drawExcluded(ctx, spans, X, L, R, top, bottom) {
+    const font = css("--body");
+    for (const [ta, tb] of spans) {
+      let a = X(ta), b = X(tb);
+      if (b < L || a > R) continue;
+      a = Math.max(a, L); b = Math.min(b, R);
+      ctx.save();
+      ctx.fillStyle = "rgba(220, 38, 38, .12)"; ctx.fillRect(a, top, Math.max(1, b - a), bottom - top);
+      ctx.strokeStyle = "rgba(220, 38, 38, .9)"; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+      ctx.strokeRect(a, top + .75, Math.max(1, b - a), bottom - top - 1.5);
+      ctx.setLineDash([]);
+      ctx.font = `600 11px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      const label = "Data not used", tw = ctx.measureText(label).width + 10;
+      let mx = (a + b) / 2; mx = Math.max(L + tw / 2 + 2, Math.min(R - tw / 2 - 2, mx));
+      ctx.fillStyle = css("--panel"); ctx.fillRect(mx - tw / 2, top + 4, tw, 16);
+      ctx.strokeStyle = "rgba(220, 38, 38, .9)"; ctx.lineWidth = 1; ctx.strokeRect(mx - tw / 2, top + 4, tw, 16);
+      ctx.fillStyle = "#dc2626"; ctx.fillText(label, mx, top + 12);
+      ctx.restore();
+    }
+  }
+  const exclSpans = () => exclRanges().map(r => [r.t0, r.t1]);
 
   // ======================= Values that can be plotted ==========================
   // Northing / Easting / Elevation plus any extra numeric columns (PDOP, ...)
@@ -755,6 +806,7 @@
       let data = cache.get(id);
       if (!data) { data = await getJSON(`data/sessions/${id}.json`); cache.set(id, data); }
       cur = { summary, data, startMs: parseLocal(data.start).getTime(), gap: Math.max(MIN_GAP_SECONDS, (data.interval_s || 5) * (data.gap_factor || 3)) };
+      cur.exMask = excludedMask(data);
       history.replaceState(null, "", `#${id}`);
       renderSummary();
       TS.load();
@@ -781,7 +833,7 @@
     const a = document.createElement("a");
     a.href = s.raw_file; a.download = s.raw_file.split("/").pop(); a.textContent = "Download the original file";
     line.append(a, ".");
-    const stats = [["Duration", `${s.duration_h} h`], ["Epochs", s.epochs.toLocaleString()], ["Interval", `${s.interval_s} s`],
+    const stats = [["Duration", `${s.duration_h} h`], ["Epochs", s.epochs_used != null ? `${s.epochs_used.toLocaleString()} of ${s.epochs.toLocaleString()} used` : s.epochs.toLocaleString()], ["Interval", `${s.interval_s} s`],
       ["σ Northing", `${s.std_mm.n} mm`], ["σ Easting", `${s.std_mm.e} mm`], ["σ Elevation", `${s.std_mm.u} mm`],
       ["DRMS", `${s.drms_mm} mm`], ["Gaps", s.gaps]];
     const dl = $("stats"); dl.textContent = "";
@@ -791,6 +843,9 @@
       const dd = document.createElement("dd"); dd.textContent = v;
       d.append(dt, dd); dl.append(d);
     }
+    const ex = s.excluded || [], en = $("exclNote");
+    en.hidden = !ex.length;
+    if (ex.length) en.textContent = `Data not used: ${exclText()} (${ex.reduce((a, x) => a + x.epochs, 0).toLocaleString()} epochs). ${ex[0].note}. These epochs are shown inside a box marked "Data not used" on the charts and are left out of the mean, the standard deviations, DRMS and every other statistic on this page.`;
   }
 
   // ====================== Day/night time series ===============================
@@ -842,9 +897,9 @@
       SER = getSeries(comp);
       PDOP = getSeries("x:PDOP"); HPREC = getSeries("x:H. Precision");
       const vals = SER.values;
-      let n = 0, mean = 0; for (const v of vals) if (v !== null) { mean += v; n++; }
+      let n = 0, mean = 0; vals.forEach((v, i) => { if (v !== null && isUsed(i)) { mean += v; n++; } });
       mean /= n || 1;
-      let ss = 0, maxDev = 0; for (const v of vals) if (v !== null) { ss += (v - mean) ** 2; maxDev = Math.max(maxDev, Math.abs(v - mean)); }
+      let ss = 0, maxDev = 0; vals.forEach((v, i) => { if (v !== null) { if (isUsed(i)) ss += (v - mean) ** 2; maxDev = Math.max(maxDev, Math.abs(v - mean)); } });
       const sd = n > 1 ? Math.sqrt(ss / (n - 1)) : 0;
       const pad = Math.max(maxDev * 1.12, sd * 2.6, SER.coord ? 0.002 : Math.max(Math.abs(mean) * 0.002, 1e-6));
       STATS = { mean, sd, yMin: mean - pad, yMax: mean + pad, n };
@@ -872,7 +927,10 @@
       $("meanLegend").textContent = `Mean (${fmtV(mean)}${u})`;
       $("s1Legend").textContent = `±1σ (${sd.toFixed(SER.dec + 1)}${u})`;
       $("s2Legend").textContent = `±2σ (${(2 * sd).toFixed(SER.dec + 1)}${u})`;
-      $("tsNote").textContent = `Reference lines use all ${n.toLocaleString()} observations in this upload (sample σ). Lines break across gaps longer than ${cur.gap} seconds.`;
+      const nx = cur.exMask.reduce((a, v) => a + v, 0);
+      $("tsNote").textContent = nx
+        ? `Reference lines use ${n.toLocaleString()} observations (sample σ); the ${nx.toLocaleString()} epochs inside the "Data not used" box (${exclText()}) are left out. Lines break across gaps longer than ${cur.gap} seconds.`
+        : `Reference lines use all ${n.toLocaleString()} observations in this upload (sample σ). Lines break across gaps longer than ${cur.gap} seconds.`;
       viewStart = 0; viewEnd = duration(); hoverPoints = []; setReadout(null);
       resize();
     }
@@ -952,6 +1010,16 @@
 
       ctx.save();
       ctx.beginPath(); ctx.rect(geometry.left, geometry.top, geometry.plotWidth, geometry.plotHeight); ctx.clip();
+      {
+        // Excluded periods, in each visible series' own time axis.
+        const spans = [];
+        for (const sr of visibleSeries()) for (const r of exclRanges()) {
+          const len = HALF, off = sr.timeOffset || 0;
+          const a = Math.max(0, (cur.startMs + r.t0 * 1000 - sr.startMs) / 1000), b = Math.min(len, (cur.startMs + r.t1 * 1000 - sr.startMs) / 1000);
+          if (a < b) spans.push([a + off, b + off]);
+        }
+        drawExcluded(ctx, spans, x, geometry.left, geometry.right, geometry.top, geometry.bottom);
+      }
       hLine(y(STATS.mean), ink, [13, 5, 3, 5, 3, 5], 1.5);
       hLine(y(STATS.mean + STATS.sd), css("--sig1"), [7, 5], 1.25);
       hLine(y(STATS.mean - STATS.sd), css("--sig1"), [7, 5], 1.25);
@@ -1159,18 +1227,18 @@
       PDOP = getSeries("x:PDOP"); HPREC = getSeries("x:H. Precision");
       for (const ch of charts) {
         ch.A = getSeries(ch.c); [ch.lo, ch.hi] = range(ch.A.values, 0.001);
-        let sum = 0; for (const v of ch.A.mm) sum += v;
-        const n = ch.A.mm.length;
+        let sum = 0, n = 0; ch.A.mm.forEach((v, i) => { if (isUsed(i)) { sum += v; n++; } });
         ch.meanMm = sum / n;
-        let ss = 0; for (const v of ch.A.mm) ss += (v - ch.meanMm) ** 2;
+        let ss = 0; ch.A.mm.forEach((v, i) => { if (isUsed(i)) ss += (v - ch.meanMm) ** 2; });
         ch.sd = n > 1 ? Math.sqrt(ss / (n - 1)) / 1000 : 0;          // sample σ, meters
-        ch.mean = ch.A.values.reduce((a, v) => a + v, 0) / n;      // meters
+        let sv = 0; ch.A.values.forEach((v, i) => { if (isUsed(i)) sv += v; });
+        ch.mean = sv / n;                                          // meters
         ch.lo = Math.min(ch.lo, ch.mean - 2.2 * ch.sd); ch.hi = Math.max(ch.hi, ch.mean + 2.2 * ch.sd);
         $(`pairMean_${ch.c}`).textContent = `Mean (${fmtNum(ch.mean, 3)} m)`;
         $(`pairS1_${ch.c}`).textContent = `±1σ (${ch.sd.toFixed(4)} m)`;
         $(`pairS2_${ch.c}`).textContent = `±2σ (${(2 * ch.sd).toFixed(4)} m)`;
       }
-      $("pairNote").textContent = `Each chart's left axis is scaled to that coordinate's own range in this upload. Lines break across gaps longer than ${cur.gap} seconds.`;
+      $("pairNote").textContent = `Each chart's left axis is scaled to that coordinate's own range in this upload. Lines break across gaps longer than ${cur.gap} seconds.${exclRanges().length ? ` The mean and σ lines leave out the epochs inside the "Data not used" box (${exclText()}).` : ""}`;
       setRight();
     }
     function setRight() {
@@ -1288,6 +1356,7 @@
       ctx.strokeStyle = rule; ctx.lineWidth = 1; ctx.strokeRect(L, Tp, R - L, Bt - Tp);
 
       ctx.save(); ctx.beginPath(); ctx.rect(L, Tp, R - L, Bt - Tp); ctx.clip();
+      drawExcluded(ctx, exclSpans(), X, L, R, Tp, Bt);
       ctx.lineWidth = .9;
       if (B) { ctx.strokeStyle = cB; ctx.globalAlpha = .75; drawLine(ctx, B.values, X, YB, R - L); }
       ctx.strokeStyle = cA; ctx.globalAlpha = .9; drawLine(ctx, A.values, X, YA, R - L);
@@ -1532,6 +1601,9 @@
 
     function finish(ch, g) {
       const { ctx } = ch;
+      ctx.save(); ctx.beginPath(); ctx.rect(g.L, g.Tp, g.R - g.L, g.Bt - g.Tp); ctx.clip();
+      drawExcluded(ctx, exclSpans(), g.X, g.L, g.R, g.Tp, g.Bt);
+      ctx.restore();
       ctx.strokeStyle = css("--rule"); ctx.lineWidth = 1; ctx.strokeRect(g.L, g.Tp, g.R - g.L, g.Bt - g.Tp);
       if (hover >= 0) {
         const x = g.X(T[hover]);
@@ -1745,7 +1817,7 @@
       from.min = to.min = toInput(cur.startMs); from.max = to.max = toInput(endMs);
       from.value = toInput(cur.startMs); to.value = toInput(Math.min(endMs, cur.startMs + 5 * 60000));
       whole = {};
-      for (const c of ["n", "e", "u"]) whole[c] = stats(d[COMP[c].key]);
+      for (const c of ["n", "e", "u"]) whole[c] = stats(d[COMP[c].key].filter((v, i) => isUsed(i)));
       whole.drms = Math.hypot(whole.n.sd, whole.e.sd);
       sel = null;
       msg.className = "win-msg"; msg.textContent = "Choose a time window and click Calculate. The whole-upload values are shown for comparison.";
@@ -1777,7 +1849,7 @@
         });
         body.append(tr);
       }
-      foot.textContent = "Standard deviations are sample standard deviations (n − 1). Horizontal DRMS is √(σN² + σE²), and 2DRMS is twice that. The last column is the window average minus the whole-upload average; for Horizontal it is the distance between the two average positions.";
+      foot.textContent = (exclRanges().length ? `Data not used (${exclText()}) is left out of every value in this table. ` : "") + "Standard deviations are sample standard deviations (n − 1). Horizontal DRMS is √(σN² + σE²), and 2DRMS is twice that. The last column is the window average minus the whole-upload average; for Horizontal it is the distance between the two average positions.";
       return rows;
     }
 
@@ -1788,9 +1860,10 @@
       if (isNaN(a) || isNaN(b)) return fail("Enter both a start and an end time.");
       if (b <= a) return fail("The end time must be after the start time.");
       const d = cur.data, idx = [];
+      let dropped = 0;
       for (let i = 0; i < d.t.length; i++) {
         const ms = cur.startMs + d.t[i] * 1000;
-        if (ms >= a && ms <= b) idx.push(i);
+        if (ms >= a && ms <= b) { if (isUsed(i)) idx.push(i); else dropped++; }
       }
       if (idx.length < 2) return fail(`Only ${idx.length} epoch${idx.length === 1 ? "" : "s"} in that window. Choose a longer window.`);
       const st = {};
@@ -1802,7 +1875,7 @@
       const t0 = cur.startMs + d.t[idx[0]] * 1000, t1 = cur.startMs + d.t[idx[idx.length - 1]] * 1000;
       let gaps = 0; for (let k = 1; k < idx.length; k++) if (d.t[idx[k]] - d.t[idx[k - 1]] > cur.gap) gaps++;
       const pid = i => d.ids && d.ids[i] ? ` (point ${d.ids[i]})` : "";
-      msg.textContent = `${idx.length.toLocaleString()} epochs, from ${timeStr(t0)}${pid(idx[0])} to ${timeStr(t1)}${pid(idx[idx.length - 1])}.${gaps ? ` The window contains ${gaps} gap${gaps > 1 ? "s" : ""} in the record.` : ""}`;
+      msg.textContent = `${idx.length.toLocaleString()} epochs, from ${timeStr(t0)}${pid(idx[0])} to ${timeStr(t1)}${pid(idx[idx.length - 1])}.${gaps ? ` The window contains ${gaps} gap${gaps > 1 ? "s" : ""} in the record.` : ""}${dropped ? ` ${dropped.toLocaleString()} epochs in the window fall in a "Data not used" period (${exclText()}) and are left out.` : ""}`;
 
       const head = ["Component", "Window average (m)", "Window std. dev. (mm)", "Window 2 x std. dev. (mm)", "Window range (mm)", "Whole average (m)", "Whole std. dev. (mm)", "Whole 2 x std. dev. (mm)", "Window - whole average (mm)"];
       lastText = [`Window: ${timeStr(a)} to ${timeStr(b)}`, `Epochs: ${idx.length}`, head.join("\t"), ...rows.map(r => r.join("\t"))].join("\n");
@@ -2077,7 +2150,16 @@
       const k = c.getContext("2d"); k.setTransform(ratio, 0, 0, ratio, 0, 0);
     }
 
+    // The drift plots leave out the "Data not used" epochs entirely.
     function load() {
+      const full = cur.data;
+      cur.data = keptData(full);
+      try { loadKept(); } finally { cur.data = full; }
+      const de = $("driftExcl"), ex = cur.summary.excluded || [];
+      de.hidden = !ex.length;
+      if (ex.length) de.textContent = `Data not used: ${exclText()} (${ex.reduce((a, x) => a + x.epochs, 0).toLocaleString()} epochs) is left out of both drift plots, the DRMS circles and the PDOP / H. Precision gauges.`;
+    }
+    function loadKept() {
       stop();
       const d = cur.data, s = cur.summary;
       N = d.t.length;
@@ -2129,9 +2211,9 @@
       gBox.parentElement.classList.toggle("with-gauges", gauges.length > 0);
       drms = s.drms_mm / 1000; drms2 = 2 * drms;
       $("drmsLegend").textContent = `1 STD (DRMS ${s.drms_mm.toFixed(1)} mm)`;
-      $("drms2Legend").textContent = `2 STD (2DRMS ${(2 * s.drms_mm).toFixed(1)} mm)`;
+      $("drms2Legend").textContent = `2 STD (2DRMS ${(s.drms2_mm ?? 2 * s.drms_mm).toFixed(1)} mm)`;
       $("drmsLegendS").textContent = `DRMS ${s.drms_mm.toFixed(1)} mm`;
-      $("drms2LegendS").textContent = `2DRMS ${(2 * s.drms_mm).toFixed(1)} mm`;
+      $("drms2LegendS").textContent = `2DRMS ${(s.drms2_mm ?? 2 * s.drms_mm).toFixed(1)} mm`;
       $("cbarEnd").textContent = `${(d.t[N - 1] / 3600).toFixed(1)} h`;
 
       // Epoch closest to each full clock hour.

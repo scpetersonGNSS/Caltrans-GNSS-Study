@@ -87,7 +87,17 @@ GAP_FACTOR = 3
 
 # Bump when the session file layout changes; older sessions are rebuilt
 # automatically from their original file in data/raw/.
-FORMAT_VERSION = 3
+FORMAT_VERSION = 4
+
+# Periods of bad data to leave out of every statistic, by site code, in the
+# collector's local time (start, end, note). Their epochs stay in the session
+# file, and the website draws them inside a box marked "Data not used", but no
+# mean, standard deviation or DRMS includes them. After editing this list, bump
+# FORMAT_VERSION so existing sessions are rebuilt.
+EXCLUDED_PERIODS = {
+    "FRES": [("2026-10-18T03:55:00", "2026-10-18T04:35:00",
+              "Erratic positions on every receiver at this site")],
+}
 
 # Units for extra columns, by name as shown on the website. Columns not listed
 # are shown without a unit (PDOP, for example, has none).
@@ -295,9 +305,25 @@ def std(values):
     return statistics.pstdev(values) if len(values) > 1 else 0.0
 
 
-def build_session(path):
+def excluded_windows(site, times):
+    """The EXCLUDED_PERIODS for this site that overlap these times."""
+    out = []
+    for a, b, note in EXCLUDED_PERIODS.get(site or "", []):
+        a, b = datetime.fromisoformat(a), datetime.fromisoformat(b)
+        if b >= times[0] and a <= times[-1]:
+            out.append((a, b, note))
+    return out
+
+
+def build_session(path, site=None):
     times, coords, skipped, extra = read_observations(path)
-    N = [c[0] for c in coords]; E = [c[1] for c in coords]; U = [c[2] for c in coords]
+    windows = excluded_windows(site, times)
+    used = [not any(a <= t <= b for a, b, _ in windows) for t in times]
+    if sum(used) < 2:
+        raise ValueError("Fewer than two epochs are left after removing the excluded periods.")
+    N = [c[0] for c, u in zip(coords, used) if u]
+    E = [c[1] for c, u in zip(coords, used) if u]
+    U = [c[2] for c, u in zip(coords, used) if u]
     mean_n, mean_e, mean_u = statistics.fmean(N), statistics.fmean(E), statistics.fmean(U)
 
     # Round-number bases; values are stored as integer millimetres from these,
@@ -321,13 +347,16 @@ def build_session(path):
         "gap_factor": GAP_FACTOR,
         "base_m": base,
         "t": t_off,
-        "n_mm": [int(round((v - base["n"]) * 1000)) for v in N],
-        "e_mm": [int(round((v - base["e"]) * 1000)) for v in E],
-        "u_mm": [int(round((v - base["u"]) * 1000)) for v in U],
+        "n_mm": [int(round((c[0] - base["n"]) * 1000)) for c in coords],
+        "e_mm": [int(round((c[1] - base["e"]) * 1000)) for c in coords],
+        "u_mm": [int(round((c[2] - base["u"]) * 1000)) for c in coords],
         "ids": [c[3] for c in coords],
         "extra": extra,
         "format": FORMAT_VERSION,
     }
+    if windows:
+        data["excluded"] = [{"t0": int(round((a - start).total_seconds())), "t1": int(round((b - start).total_seconds())), "note": note}
+                            for a, b, note in windows]
     summary = {
         "id": session_id,
         "source_file": path.name,
@@ -344,6 +373,10 @@ def build_session(path):
         "drms2_mm": round(2 * drms * 1000, 1),
         "uploaded": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+    if windows:
+        summary["epochs_used"] = sum(used)
+        summary["excluded"] = [{"start": a.strftime("%Y-%m-%dT%H:%M:%S"), "end": b.strftime("%Y-%m-%dT%H:%M:%S"),
+                                "epochs": sum(1 for t in times if a <= t <= b), "note": note} for a, b, note in windows]
     return data, summary
 
 
@@ -364,7 +397,7 @@ def refresh_outdated(sessions):
         if current >= FORMAT_VERSION or not raw.is_file():
             continue
         try:
-            data, summary = build_session(raw)
+            data, summary = build_session(raw, s.get("site"))
         except ValueError as err:
             print(f"Could not refresh {s['id']}: {err}", file=sys.stderr)
             continue
@@ -409,7 +442,7 @@ def main():
             continue
         try:
             site, test = parse_tags(path.name)
-            data, summary = build_session(path)
+            data, summary = build_session(path, site)
         except ValueError as err:
             print(f"ERROR in {path.name}: {err}", file=sys.stderr)
             failures += 1

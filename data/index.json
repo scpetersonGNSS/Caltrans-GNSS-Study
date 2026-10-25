@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-24T23:47:57Z",
+  "updated": "2026-10-25T00:57:34Z",
   "sessions": [
     {
       "id": "20261017-083944",
@@ -12,26 +12,35 @@
       "gaps": 4,
       "skipped_rows": 0,
       "mean_m": {
-        "n": 665103.947,
+        "n": 665103.946,
         "e": 1933526.499,
-        "u": 105.538
+        "u": 105.536
       },
       "std_mm": {
-        "n": 10.7,
-        "e": 9.8,
-        "u": 26.0
+        "n": 9.6,
+        "e": 9.0,
+        "u": 23.4
       },
-      "drms_mm": 14.5,
+      "drms_mm": 13.1,
+      "drms2_mm": 26.3,
       "uploaded": "2026-10-24T19:51:15Z",
+      "epochs_used": 84126,
+      "excluded": [
+        {
+          "start": "2026-10-18T03:55:00",
+          "end": "2026-10-18T04:35:00",
+          "epochs": 2237,
+          "note": "Erratic positions on every receiver at this site"
+        }
+      ],
       "sha256": "b21572e53ea4614bf280d22c8269d2a39fcfe44e2ded930b8f5bdfd11a65ca92",
+      "raw_file": "data/raw/20261017-083944_Fres_G.asc",
       "site": "FRES",
       "test": "G",
       "test_number": 1,
       "constellations": [
         "GPS"
-      ],
-      "raw_file": "data/raw/20261017-083944_Fres_G.asc",
-      "drms2_mm": 29.0
+      ]
     },
     {
       "id": "20261017-083930",
@@ -46,16 +55,27 @@
       "mean_m": {
         "n": 665106.801,
         "e": 1933526.642,
-        "u": 105.587
+        "u": 105.586
       },
       "std_mm": {
-        "n": 8.6,
-        "e": 9.8,
-        "u": 25.9
+        "n": 7.5,
+        "e": 9.2,
+        "u": 23.3
       },
-      "drms_mm": 13.0,
+      "drms_mm": 11.9,
+      "drms2_mm": 23.7,
       "uploaded": "2026-10-24T23:47:57Z",
+      "epochs_used": 84225,
+      "excluded": [
+        {
+          "start": "2026-10-18T03:55:00",
+          "end": "2026-10-18T04:35:00",
+          "epochs": 2400,
+          "note": "Erratic positions on every receiver at this site"
+        }
+      ],
       "sha256": "a93f9b9e8de860d663a4b2a9df2eb06b65e3d9fe9aad1415805fe9b06fc5f7f6",
+      "raw_file": "data/raw/20261017-083930_Fres_GRC.asc",
       "site": "FRES",
       "test": "GRC",
       "test_number": 5,
@@ -63,9 +83,7 @@
         "GPS",
         "GLONASS",
         "BeiDou"
-      ],
-      "raw_file": "data/raw/20261017-083930_Fres_GRC.asc",
-      "drms2_mm": 26.0
+      ]
     },
     {
       "id": "20261017-083919",
@@ -78,18 +96,29 @@
       "gaps": 1,
       "skipped_rows": 2,
       "mean_m": {
-        "n": 665100.751,
-        "e": 1933526.623,
-        "u": 105.615
+        "n": 665100.75,
+        "e": 1933526.624,
+        "u": 105.613
       },
       "std_mm": {
-        "n": 7.6,
-        "e": 9.3,
-        "u": 20.9
+        "n": 6.9,
+        "e": 8.6,
+        "u": 18.3
       },
-      "drms_mm": 12.0,
+      "drms_mm": 11.1,
+      "drms2_mm": 22.2,
       "uploaded": "2026-10-24T22:27:50Z",
+      "epochs_used": 84254,
+      "excluded": [
+        {
+          "start": "2026-10-18T03:55:00",
+          "end": "2026-10-18T04:35:00",
+          "epochs": 2401,
+          "note": "Erratic positions on every receiver at this site"
+        }
+      ],
       "sha256": "62698bf8aa08fad4faaf6eca8d338ea2e90f38030a4098d627dc5d8be703370e",
+      "raw_file": "data/raw/20261017-083919_Fres_GRE.asc",
       "site": "FRES",
       "test": "GRE",
       "test_number": 4,
@@ -97,9 +126,7 @@
         "GPS",
         "GLONASS",
         "Galileo"
-      ],
-      "raw_file": "data/raw/20261017-083919_Fres_GRE.asc",
-      "drms2_mm": 24.0
+      ]
     },
     {
       "id": "20261017-083906",
@@ -112,18 +139,29 @@
       "gaps": 1,
       "skipped_rows": 0,
       "mean_m": {
-        "n": 665088.416,
+        "n": 665088.415,
         "e": 1933526.518,
-        "u": 105.679
+        "u": 105.677
       },
       "std_mm": {
-        "n": 7.0,
-        "e": 8.4,
-        "u": 20.0
+        "n": 6.5,
+        "e": 7.7,
+        "u": 17.6
       },
-      "drms_mm": 10.9,
+      "drms_mm": 10.0,
+      "drms2_mm": 20.0,
       "uploaded": "2026-10-24T21:08:20Z",
+      "epochs_used": 84227,
+      "excluded": [
+        {
+          "start": "2026-10-18T03:55:00",
+          "end": "2026-10-18T04:35:00",
+          "epochs": 2401,
+          "note": "Erratic positions on every receiver at this site"
+        }
+      ],
       "sha256": "e476802276e7fcd261b18ea476782923c4428c9ab20af4128772bfdba005df97",
+      "raw_file": "data/raw/20261017-083906_Fres_GEC.asc",
       "site": "FRES",
       "test": "GEC",
       "test_number": 3,
@@ -131,9 +169,7 @@
         "GPS",
         "Galileo",
         "BeiDou"
-      ],
-      "raw_file": "data/raw/20261017-083906_Fres_GEC.asc",
-      "drms2_mm": 21.8
+      ]
     },
     {
       "id": "20261017-083855",
@@ -148,16 +184,27 @@
       "mean_m": {
         "n": 665094.546,
         "e": 1933526.318,
-        "u": 105.448
+        "u": 105.447
       },
       "std_mm": {
-        "n": 7.0,
-        "e": 8.7,
-        "u": 20.5
+        "n": 6.3,
+        "e": 8.1,
+        "u": 18.1
       },
-      "drms_mm": 11.1,
+      "drms_mm": 10.3,
+      "drms2_mm": 20.5,
       "uploaded": "2026-10-24T19:51:17Z",
+      "epochs_used": 84145,
+      "excluded": [
+        {
+          "start": "2026-10-18T03:55:00",
+          "end": "2026-10-18T04:35:00",
+          "epochs": 2401,
+          "note": "Erratic positions on every receiver at this site"
+        }
+      ],
       "sha256": "de0940475f4512710c5202bd4d9b0e3fe85ea0b362aa01e9a54c6c606f89e0b5",
+      "raw_file": "data/raw/20261017-083855_Fres_GREC.asc",
       "site": "FRES",
       "test": "GREC",
       "test_number": 2,
@@ -166,9 +213,7 @@
         "GLONASS",
         "Galileo",
         "BeiDou"
-      ],
-      "raw_file": "data/raw/20261017-083855_Fres_GREC.asc",
-      "drms2_mm": 22.2
+      ]
     },
     {
       "id": "20260926-082350",
@@ -191,6 +236,7 @@
         "u": 19.4
       },
       "drms_mm": 10.7,
+      "drms2_mm": 21.4,
       "uploaded": "2026-10-01T23:40:33Z",
       "sha256": "094803e688cf7603d9194245815359f03b86568e9ca580ad4a9ae2c0e432624c",
       "raw_file": "data/raw/20260926-082350_2026-09-26_Range_GPS_Only.asc",
@@ -199,8 +245,7 @@
       "test_number": 1,
       "constellations": [
         "GPS"
-      ],
-      "drms2_mm": 21.4
+      ]
     },
     {
       "id": "20260926-082140",
@@ -223,8 +268,10 @@
         "u": 17.5
       },
       "drms_mm": 7.8,
+      "drms2_mm": 15.5,
       "uploaded": "2026-10-02T16:01:02Z",
       "sha256": "fa25caff66ae20c9036c3b8a46fe7455354c3f15fb33291a2930d0efbb2077e4",
+      "raw_file": "data/raw/20260926-082140_SJER_GREC.asc",
       "site": "SJER",
       "test": "GREC",
       "test_number": 2,
@@ -233,9 +280,7 @@
         "GLONASS",
         "Galileo",
         "BeiDou"
-      ],
-      "raw_file": "data/raw/20260926-082140_SJER_GREC.asc",
-      "drms2_mm": 15.5
+      ]
     },
     {
       "id": "20260926-082130",
@@ -258,8 +303,10 @@
         "u": 17.2
       },
       "drms_mm": 8.3,
+      "drms2_mm": 16.6,
       "uploaded": "2026-10-05T18:06:05Z",
       "sha256": "26f37629877bc365e3b390b2921b6b0615618a54c4ff3f9bc8ab4e6c2dc5a1cc",
+      "raw_file": "data/raw/20260926-082130_SJER_GRE.asc",
       "site": "SJER",
       "test": "GRE",
       "test_number": 4,
@@ -267,9 +314,7 @@
         "GPS",
         "GLONASS",
         "Galileo"
-      ],
-      "raw_file": "data/raw/20260926-082130_SJER_GRE.asc",
-      "drms2_mm": 16.6
+      ]
     },
     {
       "id": "20260926-082128",
@@ -292,8 +337,10 @@
         "u": 19.3
       },
       "drms_mm": 9.4,
+      "drms2_mm": 18.8,
       "uploaded": "2026-10-05T22:47:17Z",
       "sha256": "4c309f0b14202279f4425f8d518626a1b186d7624a3524b7c61906b54fb93540",
+      "raw_file": "data/raw/20260926-082128_SJER_GRC.asc",
       "site": "SJER",
       "test": "GRC",
       "test_number": 5,
@@ -301,9 +348,7 @@
         "GPS",
         "GLONASS",
         "BeiDou"
-      ],
-      "raw_file": "data/raw/20260926-082128_SJER_GRC.asc",
-      "drms2_mm": 18.8
+      ]
     },
     {
       "id": "20260926-082125",
@@ -326,8 +371,10 @@
         "u": 16.3
       },
       "drms_mm": 7.6,
+      "drms2_mm": 15.3,
       "uploaded": "2026-10-02T18:41:52Z",
       "sha256": "0fc4178b449cf4f560bca82cdc2c69e7b9ed1168282cd660bef5cb5910f7309d",
+      "raw_file": "data/raw/20260926-082125_SJER_GEC.asc",
       "site": "SJER",
       "test": "GEC",
       "test_number": 3,
@@ -335,9 +382,7 @@
         "GPS",
         "Galileo",
         "BeiDou"
-      ],
-      "raw_file": "data/raw/20260926-082125_SJER_GEC.asc",
-      "drms2_mm": 15.3
+      ]
     },
     {
       "id": "20260926-080901",
@@ -360,8 +405,10 @@
         "u": 11.6
       },
       "drms_mm": 6.2,
+      "drms2_mm": 12.5,
       "uploaded": "2026-10-06T19:18:10Z",
       "sha256": "2ce412937f8fddfef21f2376c05b5c009e3fd32e3cee7003ddf35fdae31a95ed",
+      "raw_file": "data/raw/20260926-080901_Elk_GEC.asc",
       "site": "ELK",
       "test": "GEC",
       "test_number": 3,
@@ -369,9 +416,7 @@
         "GPS",
         "Galileo",
         "BeiDou"
-      ],
-      "raw_file": "data/raw/20260926-080901_Elk_GEC.asc",
-      "drms2_mm": 12.5
+      ]
     },
     {
       "id": "20260926-080855",
@@ -394,8 +439,10 @@
         "u": 11.6
       },
       "drms_mm": 5.9,
+      "drms2_mm": 11.7,
       "uploaded": "2026-10-06T17:46:14Z",
       "sha256": "4dc53e727e27a06fcc0d3afa067ecba629998071f822b7e8ee62a0b781487fe7",
+      "raw_file": "data/raw/20260926-080855_Elk_GREC.asc",
       "site": "ELK",
       "test": "GREC",
       "test_number": 2,
@@ -404,9 +451,7 @@
         "GLONASS",
         "Galileo",
         "BeiDou"
-      ],
-      "raw_file": "data/raw/20260926-080855_Elk_GREC.asc",
-      "drms2_mm": 11.7
+      ]
     },
     {
       "id": "20260926-080732",
@@ -429,8 +474,10 @@
         "u": 17.0
       },
       "drms_mm": 8.9,
+      "drms2_mm": 17.8,
       "uploaded": "2026-10-07T01:04:34Z",
       "sha256": "7cd24e9712b36001c25fe4c4b25e9b04466da49e74830c340b8a8cf3428fa42e",
+      "raw_file": "data/raw/20260926-080732_Elk_GRC.asc",
       "site": "ELK",
       "test": "GRC",
       "test_number": 5,
@@ -438,9 +485,7 @@
         "GPS",
         "GLONASS",
         "BeiDou"
-      ],
-      "raw_file": "data/raw/20260926-080732_Elk_GRC.asc",
-      "drms2_mm": 17.8
+      ]
     },
     {
       "id": "20260926-080720",
@@ -463,16 +508,16 @@
         "u": 15.2
       },
       "drms_mm": 7.6,
+      "drms2_mm": 15.3,
       "uploaded": "2026-10-06T00:12:21Z",
       "sha256": "f58403923710384c7f82f7686403f2f06d552406e309a708ab7c7cf62da196d0",
+      "raw_file": "data/raw/20260926-080720_Elk_G.asc",
       "site": "ELK",
       "test": "G",
       "test_number": 1,
       "constellations": [
         "GPS"
-      ],
-      "raw_file": "data/raw/20260926-080720_Elk_G.asc",
-      "drms2_mm": 15.3
+      ]
     },
     {
       "id": "20260926-080719",
@@ -495,8 +540,10 @@
         "u": 12.5
       },
       "drms_mm": 6.7,
+      "drms2_mm": 13.4,
       "uploaded": "2026-10-06T22:22:54Z",
       "sha256": "6dfd6fe8592d88f5134e0ce054140437b2b5e23711095a6584357e5dbc366706",
+      "raw_file": "data/raw/20260926-080719_Elk_GRE.asc",
       "site": "ELK",
       "test": "GRE",
       "test_number": 4,
@@ -504,9 +551,7 @@
         "GPS",
         "GLONASS",
         "Galileo"
-      ],
-      "raw_file": "data/raw/20260926-080719_Elk_GRE.asc",
-      "drms2_mm": 13.4
+      ]
     },
     {
       "id": "20260831-072247",
@@ -529,10 +574,10 @@
         "u": 17.4
       },
       "drms_mm": 8.9,
+      "drms2_mm": 17.9,
       "uploaded": "2026-09-24T19:14:50Z",
       "sha256": "e6d06bebecf1d05688644ecd07decad18245a227cb6b48b03613bf07b895da62",
-      "raw_file": "data/raw/20260831-072247_All_Day.asc",
-      "drms2_mm": 17.9
+      "raw_file": "data/raw/20260831-072247_All_Day.asc"
     }
   ],
   "study": {
