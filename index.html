@@ -234,9 +234,18 @@
   table.sumtab tbody tr[aria-current="true"] { background: var(--brass-soft); }
   table.sumtab td button { padding: .2rem .6rem; font-size: .85rem; }
   .sum-dialog .note { font-size: .85rem; margin: .6rem 0 0; }
+  .link-btn { text-align: left; }
+  #staticDialog { width: min(98vw, 1400px); }
   #staticDialog thead { position: sticky; top: 0; z-index: 1; background: var(--panel); }
   #staticDialog thead th { position: static; }
   #staticDialog thead tr:nth-child(2) th { text-align: right; }
+  #staticDialog th.nrh { background: color-mix(in srgb, #3987e5 30%, var(--panel)); color: var(--ink); }
+  #staticDialog td.nr { background: color-mix(in srgb, #3987e5 12%, var(--panel)); }
+  #staticDialog .nl { border-left: 2px solid #2f6fb5; }
+  #staticDialog .nrr { border-right: 2px solid #2f6fb5; }
+  #staticDialog .ctr, #staticDialog td.ctr { text-align: center !important; }
+  #staticDialog td:nth-child(3) { text-align: right; }
+  table.sumtab tbody tr:hover td.nr { background: var(--brass-soft); }
   .excl-note { margin: .6rem 0 0; padding: .45rem .7rem; border: 1px dashed #dc2626; border-radius: 6px; background: rgba(220, 38, 38, .07); color: var(--ink); font-size: .88rem; line-height: 1.4; }
   [hidden] { display: none !important; }
 </style>
@@ -280,12 +289,13 @@
         <div class="sm-head"><h3 id="staticTitle">Static vs NRTK summary</h3><button type="button" class="sm-close" id="staticClose" aria-label="Close">&times;</button></div>
         <div class="sum-scroll">
           <table class="sumtab">
-            <thead><tr><th rowspan="2">Site</th><th rowspan="2">Test</th><th rowspan="2">Static</th><th colspan="3" style="text-align:center">Static Data</th><th colspan="4" style="text-align:center">Difference from NRTK 24-hr Mean</th><th rowspan="2"></th></tr><tr><th>Northing</th><th>Easting</th><th>Elevation</th><th>ΔN</th><th>ΔE</th><th>ΔElev</th><th>ΔHorizontal</th></tr></thead>
+            <thead><tr><th rowspan="2">Site</th><th rowspan="2">Test</th><th colspan="3" style="text-align:center">Static Data</th><th colspan="3" class="nrh nl nrr" style="text-align:center">NRTK 24-hr Mean</th><th colspan="3" style="text-align:center">Difference from NRTK 24-hr Mean</th><th rowspan="2"></th></tr><tr><th>Northing (m)</th><th>Easting (m)</th><th>Elevation (m)</th><th class="nrh nl">Northing (m)</th><th class="nrh">Easting (m)</th><th class="nrh nrr">Elevation (m)</th><th class="ctr">ΔN (m)</th><th class="ctr">ΔE (m)</th><th class="ctr">ΔElev (m)</th></tr></thead>
             <tbody id="staticBody"></tbody>
           </table>
         </div>
         <p class="note" id="staticNote"></p>
       </dialog>
+      <a class="link-btn" id="staticPdf" href="reports/Static_vs_NRTK_24hr_All_Stations.pdf" target="_blank" rel="noopener">Static vs NRTK report (PDF)</a>
     </section>
 
     <section class="sitemap" id="siteMap">
@@ -2743,7 +2753,7 @@
     const siteNum = s => { const x = siteOf(s.site); return x ? x.number : 99; };
     const rows = sessions.filter(s => s.site)
       .sort((a, b) => siteNum(a) - siteNum(b) || (a.test_number || 0) - (b.test_number || 0) || a.start.localeCompare(b.start));
-    const m3 = v => `${v.toFixed(3)} m`, mm0 = v => { const r = Math.round(v) || 0; return `${r > 0 ? "+" : ""}${r} mm`; };
+    const r3 = v => Math.round(v * 1000) / 1000;
     let shown = 0;
     for (const s of rows) {
       const st = STATIC.sites[s.site], t = st && st.tests[s.test];
@@ -2751,24 +2761,29 @@
       let cells;
       if (t) {
         const k = st.units === "sft" ? SFT : 1;
-        const n = t.n * k, e = t.e * k, u = t.u * k;
-        const dN = (n - s.mean_m.n) * 1000, dE = (e - s.mean_m.e) * 1000, dU = (u - s.mean_m.u) * 1000;
-        cells = [site ? `${site.number} · ${s.site}` : s.site, `${s.test_number} · ${s.test}`, "Yes",
-          m3(n), m3(e), m3(u),
-          mm0(dN), mm0(dE), mm0(dU), `${Math.round(Math.hypot(dN, dE))} mm`];
+        // Static converted to meters and rounded like the NRTK means, so the
+        // differences equal the two columns subtracted.
+        const n = r3(t.n * k), e = r3(t.e * k), u = r3(t.u * k), m = s.mean_m;
+        cells = [site ? `${site.number} · ${s.site}` : s.site, `${s.test_number} · ${s.test}`,
+          f3(n), f3(e), f3(u), f3(m.n), f3(m.e), f3(m.u), f3(r3(n - m.n)), f3(r3(e - m.e)), f3(r3(u - m.u))];
         shown++;
       } else {
-        cells = [site ? `${site.number} · ${s.site}` : s.site, `${s.test_number} · ${s.test}`, "No", "–", "–", "–", "–", "–", "–", "–"];
+        const m = s.mean_m;
+        cells = [site ? `${site.number} · ${s.site}` : s.site, `${s.test_number} · ${s.test}`, "–", "–", "–", f3(m.n), f3(m.e), f3(m.u), "–", "–", "–"];
       }
       const tr = document.createElement("tr");
       tr.setAttribute("aria-current", cur && cur.summary.id === s.id ? "true" : "false");
       cells.forEach((v, j) => {
         const td = document.createElement("td");
         td.textContent = v;
-        if (j >= 3) td.className = "num";
+        if (j >= 2) td.className = "num";
         if (j === 0 && site) td.title = site.name;
         if (j === 1 && test) td.title = test.constellations.join(" + ");
-        if (j === 2 && st) td.title = st.source + (st.control ? ` Control: ${st.control}.` : "");
+        if (j >= 2 && j <= 4 && st) td.title = st.source + (st.control ? ` Control: ${st.control}.` : "");
+        if (j >= 5 && j <= 7) td.classList.add("nr");
+        if (j === 5) td.classList.add("nl");
+        if (j === 7) td.classList.add("nrr");
+        if (j >= 8) td.classList.add("ctr");
         tr.append(td);
       });
       const td = document.createElement("td"), b = document.createElement("button");
@@ -2778,7 +2793,7 @@
       td.append(b); tr.append(td);
       body.append(tr);
     }
-    $("staticNote").textContent = `${shown} of ${rows.length} tests have a static solution. Δ = static data minus the NRTK 24-hour mean, in millimeters; ΔHorizontal = √(ΔN² + ΔE²). Static coordinates reported in US survey feet are converted to meters (1 sft = 1200/3937 m). Hover the Static column for each site's source and control.`;
+    $("staticNote").textContent = `${shown} of ${rows.length} tests have a static solution. Δ = static data minus the NRTK 24-hour mean, in meters. Static coordinates reported in US survey feet are converted to meters (1 sft = 1200/3937 m). Hover the static coordinates for each site's source and control.`;
   }
   $("staticBtn").addEventListener("click", async () => { await renderStaticTable(); $("staticDialog").showModal(); });
   $("staticClose").addEventListener("click", () => $("staticDialog").close());
